@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// create post
+// Create post
 router.post('/', auth, async (req, res) => {
   const { text, media } = req.body || {};
   try {
@@ -20,7 +20,7 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// get timeline
+// Get timeline
 router.get('/', auth, async (req, res) => {
   const { feed } = req.query;
   try {
@@ -41,7 +41,7 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// get single post
+// Get single post
 router.get('/:id', auth, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id))
@@ -57,7 +57,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// update post
+// Update post
 router.put('/:id', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -76,7 +76,7 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// delete post
+// Delete post
 router.delete('/:id', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -91,7 +91,7 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// like/unlike
+// Like/unlike
 router.post('/:id/like', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -112,7 +112,7 @@ router.post('/:id/like', auth, async (req, res) => {
   }
 });
 
-// add comment
+// Add comment
 router.post('/:id/comments', auth, async (req, res) => {
   try {
     const { text } = req.body || {};
@@ -130,7 +130,7 @@ router.post('/:id/comments', auth, async (req, res) => {
   }
 });
 
-// reply to a comment
+// Reply to a comment
 router.post('/:postId/comments/:commentId/reply', auth, async (req, res) => {
   try {
     const { text } = req.body || {};

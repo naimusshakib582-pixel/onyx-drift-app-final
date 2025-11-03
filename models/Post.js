@@ -1,26 +1,32 @@
-// server/models/Post.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
-const ReplySchema = new mongoose.Schema({
-  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  text: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
-const CommentSchema = new mongoose.Schema({
-  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  text: String,
+// Comment schema
+const commentSchema = new mongoose.Schema({
+  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  text: { type: String, required: true },
+  replies: [
+    {
+      author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      text: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
   createdAt: { type: Date, default: Date.now },
-  replies: [ReplySchema]
 });
 
-const PostSchema = new mongoose.Schema({
-  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  text: String,
-  media: String,
-  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  comments: [CommentSchema],
-  createdAt: { type: Date, default: Date.now }
-});
+// Post schema
+const postSchema = new mongoose.Schema(
+  {
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    text: { type: String, default: '' },
+    media: { type: String, default: null },
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    comments: [commentSchema],
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('Post', PostSchema);
+// Avoid redeclaration
+const Post = mongoose.models.Post || mongoose.model('Post', postSchema);
+
+export default Post;

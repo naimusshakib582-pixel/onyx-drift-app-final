@@ -1,14 +1,16 @@
-
 // server/routes/users.js
-const express = require('express');
+import express from 'express';
+import auth from '../middleware/auth.js';
+import User from '../models/User.js';
+
 const router = express.Router();
-const auth = require('../middleware/auth');
-const User = require('../models/User');
 
 // get user profile by id
 router.get('/:id', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password').populate('followers following', 'name avatar');
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .populate('followers following', 'name avatar');
     if (!user) return res.status(404).json({ msg: 'User not found' });
     res.json(user);
   } catch (err) {
@@ -57,4 +59,4 @@ router.post('/:id/unfollow', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

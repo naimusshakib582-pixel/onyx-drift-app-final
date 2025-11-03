@@ -1,40 +1,41 @@
-// server/routes/upload.js
-const express = require('express');
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const auth = require('../middleware/auth');
-const fs = require('fs');
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || 'uploads';
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// __dirname fix for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
+// Multer setup for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../uploads')); // uploads folder
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    const name = `${Date.now()}-${Math.round(Math.random()*1e9)}${ext}`;
-    cb(null, name);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
   }
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
-  fileFilter: (req, file, cb) => {
-    // accept images & videos
-    const allowed = /jpeg|jpg|png|gif|mp4|mov|webm/;
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.test(ext)) cb(null, true);
-    else cb(new Error('Unsupported file type'), false);
+const upload = multer({ storage });
+
+// Single file upload route
+router.post('/', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ msg: 'No file uploaded' });
+    }
+    const filePath = `/uploads/${req.file.filename}`;
+    res.json({ msg: 'File uploaded', filePath });
+  } catch (err) {
+    console.error('upload.error:', err);
+    res.status(500).json({ msg: 'Server error', error: err.message });
   }
 });
 
-// single file upload
-router.post('/single', auth, upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ msg: 'No file uploaded' });
-  const url = `/uploads/${req.file.filename}`;
-  res.json({ url, filename: req.file.filename });
-});
-
-module.exports = router;
+export default router;
