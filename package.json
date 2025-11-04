@@ -3,19 +3,19 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "index.js", <--- আপনার সার্ভারের মেইন ফাইল
+  "main": "index.js", 
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "node index.js", <--- Render এর জন্য প্রয়োজনীয়
+    "start": "node index.js",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
-    "cors": "^2.8.5", <--- সার্ভার নির্ভরতা
-    "express": "^4.18.2", <--- সার্ভার নির্ভরতা
-    "react": "^18.2.0", <--- ফ্রন্টএন্ড নির্ভরতা
-    "react-dom": "^18.2.0" <--- ফ্রন্টএন্ড নির্ভরতা
+    "cors": "^2.8.5",
+    "express": "^4.18.2", 
+    "react": "^18.2.0", 
+    "react-dom": "^18.2.0" 
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
