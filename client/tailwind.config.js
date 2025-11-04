@@ -1,8 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class', // Enables class-based dark mode
   content: [
-    "./index.html",            // root HTML
-    "./src/**/*.{js,jsx,ts,tsx}" // সব React components
+    "./index.html",               // Root HTML
+    "./src/**/*.{js,jsx,ts,tsx}" // All React components
   ],
   theme: {
     extend: {},

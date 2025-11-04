@@ -1,9 +1,12 @@
-// src/api.js
 import axios from "axios";
+
+// API Base URL (আপনার লাইভ Render ব্যাকএন্ড URL)
+const LIVE_BACKEND_URL = "https://onyxdrift-backend-13vz.onrender.com/api"; 
 
 // Axios instance
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  // পরিবর্তন: baseURL কে লাইভ Render URL দিয়ে প্রতিস্থাপন করুন
+  baseURL: LIVE_BACKEND_URL, 
 });
 
 // ================= POSTS =================

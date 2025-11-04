@@ -11,20 +11,76 @@ import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Chat from "./components/Chat/Chat";
 import Call from "./components/Call/Call";
+import CallBar from "./components/CallBar";
+import Profile from "./components/Profile";
 import { AuthProvider } from "./context/AuthContext";
+import axios from "axios";
 
 function App() {
-  const [userId] = useState("user1");     // demo user
-  const [receiverId] = useState("user2");
-  const [callRoomId] = useState("room123");
+  // Auth & Demo state
+  const [userId, setUserId] = useState(null); // Login system
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
+  const [receiverId] = useState("user2"); // demo chat
+  const [callRoomId] = useState("room123"); // demo call
+
+  // Login function
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post("http://localhost:5000/api/login", {
+        email,
+        password,
+      });
+      setUserId(res.data._id);
+    } catch (err) {
+      alert(err.response?.data?.message || "Login failed");
+    }
+  };
+
+  if (!userId) {
+    // Login Page
+    return (
+      <div className="flex flex-col items-center mt-10">
+        <h1 className="text-2xl font-bold mb-4">Login</h1>
+        <form
+          onSubmit={handleLogin}
+          className="flex flex-col gap-4 w-64"
+        >
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="p-2 border rounded"
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="p-2 border rounded"
+            required
+          />
+          <button
+            type="submit"
+            className="bg-blue-500 text-white p-2 rounded"
+          >
+            Login
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  // Main App after login
   return (
     <AuthProvider>
       <Router>
         <Navbar />
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
           <Route
             path="/"
             element={
@@ -65,13 +121,25 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Messenger & Call Demo Route */}
           <Route
             path="/chat"
             element={<Chat userId={userId} receiverId={receiverId} />}
           />
           <Route path="/call" element={<Call roomId={callRoomId} />} />
+          <Route
+            path="/profile"
+            element={<Profile userId={userId} />}
+          />
         </Routes>
+
+        {/* Call bar always visible */}
+        <div className="App min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+          <h1 className="text-3xl font-bold mb-10">Messenger App</h1>
+          <p className="text-gray-700 mb-20">
+            Your chat content goes here...
+          </p>
+          <CallBar />
+        </div>
       </Router>
     </AuthProvider>
   );
