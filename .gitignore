@@ -1,31 +1,16 @@
-<<<<<<< HEAD
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Node dependencies
 /node_modules
+client/node_modules  
 /.pnp
 .pnp.js
 
-# testing
+# Build output
+/build
+/dist
+/dist-ssr
 /coverage
 
-# production
-/build
-
-# misc
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-server/
-
-=======
-# Logs
+# Logs and debug files
 logs
 *.log
 npm-debug.log*
@@ -34,19 +19,21 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Environment and misc files
+.DS_Store
 *.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Editor directories and files
+# Editor and IDE directories/files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
->>>>>>> 96fb82a323f6501f9e793ee60fa1e6446a9746d4
+server/
