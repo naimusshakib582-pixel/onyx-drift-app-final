@@ -25,6 +25,7 @@ const Navbar = ({ user, onLogout }) => {
     <nav className="bg-gray-800 text-white p-4 flex justify-between items-center">
       {/* Logo */}
       <div className="flex items-center space-x-4">
+        {/* লোগো লোড হতে সমস্যা হলে যেন পুরো অ্যাপ ক্র্যাশ না করে, তার জন্য এরর হ্যান্ডলিং বা ডিফল্ট লোগো নিশ্চিত করুন */}
         <img src={logo} alt="Logo" className="h-8" />
       </div>
 
@@ -43,8 +44,15 @@ const Navbar = ({ user, onLogout }) => {
         ))}
       </div>
 
-      {/* Profile Dropdown */}
-      <ProfileDropdown user={user} onLogout={onLogout} />
+      {/* Profile Dropdown: user অবজেক্টটি বিদ্যমান থাকলে তবেই রেন্ডার করা হচ্ছে। */}
+      {/* যদিও ProfileDropdown-এর ভেতরেই user?.avatar ব্যবহার করা উচিত, 
+          তবুও এখানে কন্ডিশনাল রেন্ডারিং যোগ করলে অ্যাপ ক্র্যাশ হওয়ার ঝুঁকি কমে। */}
+      {user && <ProfileDropdown user={user} onLogout={onLogout} />}
+      {!user && (
+        <div className="text-white">
+            <Link to="/login" className="px-3 py-1 bg-blue-500 rounded hover:bg-blue-600">Login</Link>
+        </div>
+      )}
     </nav>
   );
 };
