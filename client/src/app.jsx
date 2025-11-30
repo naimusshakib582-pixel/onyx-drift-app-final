@@ -10,7 +10,6 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Chat from "./components/Chat/Chat";
-import call from "./components/CallBar"
 import Chat from "./components/Chat/Chat";
 import Profile from "./components/Profile";
 import { AuthProvider } from "./context/AuthContext";
