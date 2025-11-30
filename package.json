@@ -1,4 +1,5 @@
-name": "onyxdrift-backend",
+{
+  "name": "onyxdrift-backend",
   "version": "1.0.0",
   "description": "Backend server for OnyxDrift social application.",
   "main": "server.js",
