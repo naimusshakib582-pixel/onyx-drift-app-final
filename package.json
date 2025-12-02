@@ -15,7 +15,7 @@
     "api"
   ],
   "engines": {
-    "node": "18"
+    "node": "20.x"
   },
   "author": "",
   "license": "ISC",
