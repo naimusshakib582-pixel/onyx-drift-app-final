@@ -6,7 +6,7 @@
       "use": "@vercel/static-build",
       "config": {
         "distDir": "client/dist",
-        "entrypoint": "client/package.json"
+        "outputDirectory": "client/dist"
       }
     }
   ],
@@ -18,6 +18,5 @@
   ],
   "ignore": [
     "server/**"
-  ],
-  "outputDirectory": "client/dist"
+  ]
 }
