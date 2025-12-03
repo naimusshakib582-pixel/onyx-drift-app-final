@@ -5,14 +5,18 @@
       "src": "client/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "client/dist" 
+        "distDir": "client/dist"
       }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/client/dist/index.html"
+      "dest": "client/dist/index.html"
     }
-  ]
+  ],
+  "ignore": [
+    "server/**"
+  ],
+  "outputDirectory": "client/dist"
 }
