@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 
-// ⚠️ গুরুত্বপূর্ণ: আপনার Render Web Service এর লাইভ URL এখানে ব্যবহার করুন
-// আপনি যদি Cloudflare Workers ব্যবহার করেন, তবে সেই URL ব্যবহার করুন।
-const RENDER_HTTP_URL = "https://onyx-drift-app-final.onrender.com"; 
-// WebSocket এর জন্য https:// এর বদলে wss:// ব্যবহার করতে হবে
-const RENDER_WS_URL = "wss://onyx-drift-app-final.onrender.com"; 
+// ⚠️ গুরুত্বপূর্ণ সংশোধন: Render এর URL এর পরিবর্তে Workers এর লাইভ URL ব্যবহার করা হয়েছে
+// ধরে নেওয়া হয়েছে যে আপনার API Workers-এ হোস্ট করা আছে।
+const API_BASE_URL = "https://onyx-drift-app-final.naimusshakib582.workers.dev"; 
+const API_WS_URL = "wss://onyx-drift-app-final.onrender.com"; // Render WS URL ব্যবহার করা হয়েছে কারণ Workers এ WS কনফিগারেশন জটিল।
 
 export default function PostFeed() {
- // ... (বিদ্যমান stateগুলি অপরিবর্তিত)
+ // ... (বিদ্যমান stateগুলি অপরিবর্তিত)
   const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState("");
   const [ws, setWs] = useState(null);
@@ -17,7 +16,8 @@ export default function PostFeed() {
     fetchPosts();
 
     // 2. Connect WebSocket for real-time updates
-    const socket = new WebSocket(`${RENDER_WS_URL}/ws/posts`); 
+    // 🛑 পরিবর্তন: WebSocket কানেকশনের জন্য Render WS URL ব্যবহার করা হয়েছে (যদি আপনার Workers WS না থাকে)
+    const socket = new WebSocket(`${API_WS_URL}/ws/posts`); 
     
     // When a message is received (a new post from another user)
     socket.onmessage = (event) => {
@@ -35,7 +35,8 @@ export default function PostFeed() {
   // Function to fetch posts from the REST API
   const fetchPosts = async () => {
     try {
-      const res = await fetch(`${RENDER_HTTP_URL}/api/posts`); 
+      // 🛑 সংশোধন: RENDER_HTTP_URL এর পরিবর্তে API_BASE_URL (Workers URL) ব্যবহার করা হয়েছে
+      const res = await fetch(`${API_BASE_URL}/api/posts`); 
       const data = await res.json();
       // Assuming data.posts is an array, we reverse it to show the newest posts first
       setPosts(data.posts.reverse()); 
@@ -50,7 +51,8 @@ export default function PostFeed() {
 
     try {
       // 1. Send the new post to the REST API
-      const res = await fetch(`${RENDER_HTTP_URL}/api/posts`, { 
+      // 🛑 সংশোধন: RENDER_HTTP_URL এর পরিবর্তে API_BASE_URL (Workers URL) ব্যবহার করা হয়েছে
+      const res = await fetch(`${API_BASE_URL}/api/posts`, { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Placeholder user for demonstration
@@ -75,10 +77,10 @@ export default function PostFeed() {
     }
   };
 
-  // 💡 নতুন যোগ করা হয়েছে: Enter Key হ্যান্ডেল করার ফাংশন
+  // 💡 Enter Key হ্যান্ডেল করার ফাংশন
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
-      event.preventDefault(); // যাতে নতুন লাইন তৈরি না হয়
+      event.preventDefault(); // যাতে নতুন লাইন তৈরি না হয়
       handleAddPost(); // পোস্ট সাবমিট করার ফাংশনটি কল করা
     }
   };
