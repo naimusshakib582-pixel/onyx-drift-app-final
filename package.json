@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "echo 'No build step required for backend, running install.'"
   },
   "keywords": [
     "express",
@@ -15,7 +16,7 @@
     "api"
   ],
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   },
   "author": "",
   "license": "ISC",
