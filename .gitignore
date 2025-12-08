@@ -18,18 +18,21 @@ client/node_modules
 /dist-ssr
 /out
 
-# Netlify Build Output
+# Netlify Build Output এবং Vercel কনফিগারেশন
 .netlify/
+.vercel/
 
 # ----------------------------------------------------
 # ৩. লোকাল কনফিগারেশন এবং এনভায়রনমেন্ট ভেরিয়েবল
 # ----------------------------------------------------
 
 # সমস্ত .env ফাইল, যাতে সিক্রেট কী কমিট না হয়
+# *.local সব .local ফাইলগুলিকে ধরবে।
 .env
 .env.local
-.env.*.local
+.env.*
 *.local
+.env.*.local
 
 # ----------------------------------------------------
 # ৪. লগ এবং DEBUG ফাইল
@@ -42,8 +45,13 @@ yarn-debug.log*
 # ৫. IDE এবং সিস্টেম ফাইল
 # ----------------------------------------------------
 
-# VS Code specific files
-.vscode/
+# VS Code specific files (শুধুমাত্র user settings উপেক্ষা করুন)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.vscode/*.code-workspace
 
 # JetBrains/WebStorm/IntelliJ IDE specific files
 .idea/
@@ -51,5 +59,3 @@ yarn-debug.log*
 # macOS/Windows system files
 .DS_Store
 Thumbs.db
-.vercel
-.env*.local
