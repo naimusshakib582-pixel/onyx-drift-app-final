@@ -122,10 +122,11 @@ const LoginComponent = () => {
 const RegisterComponent = () => (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
-            <h1 className="text-3xl font-extrabold text-green-600 mb-6">Registration Page</h1>
+            {/* ⭐ টাইটেল পরিবর্তন করা হলো (V3 যোগ করা হলো) ⭐ */}
+            <h1 className="text-3xl font-extrabold text-green-600 mb-6">Registration Page V3</h1> 
             <p className="text-gray-700">Registration form goes here.</p>
             <p className="text-sm mt-4">
-                Already have an account? {" "} {/* এই লেখাও ইংরেজিতে পরিবর্তন করা হলো */}
+                Already have an account? {" "} 
                 <a href="/login" className="text-blue-600 hover:text-blue-800 font-medium">
                     Login
                 </a>
@@ -133,7 +134,6 @@ const RegisterComponent = () => (
         </div>
     </div>
 );
-
 
 function App() {
     // receiverId
