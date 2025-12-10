@@ -5,6 +5,7 @@ import axios from "axios";
 // --- API Configuration ---
 const RENDER_API_URL = "https://onyx-drift-api-server.onrender.com";
 const LOCAL_API_URL = "http://localhost:5000";
+// পরিবেশের উপর ভিত্তি করে সঠিক URL নির্ধারণ
 const API_BASE_URL = window.location.hostname === "localhost" ? LOCAL_API_URL : RENDER_API_URL;
 
 // --- Dummy Components and Context (Keep these for functionality) ---
@@ -18,28 +19,26 @@ const Pages = ({ name }) => (<h2 className="text-xl text-center mt-4">{name} Pag
 const AuthContext = React.createContext({ userId: null, setUserId: () => {} });
 const useAuth = () => React.useContext(AuthContext);
 
-// 1. AuthProvider এখন App এর বাইরে থাকবে (বা উপরে)
+// 1. AuthProvider
 const AuthProvider = ({ children }) => {
     const [userId, setUserId] = useState(null); 
-    // Demo State: localStorage থেকে userId নেওয়ার লজিক এখানে যুক্ত করা যেতে পারে
     const value = useMemo(() => ({ userId, setUserId }), [userId]);
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// 2. ProtectedRoute কম্পোনেন্ট এখন useAuth ব্যবহার করে কাজ করবে
+// 2. ProtectedRoute
 const ProtectedRoute = ({ children }) => {
     const { userId } = useAuth();
     if (!userId) {
-        // লগইন না থাকলে, ইউজারকে /login এ পাঠাবে
         return <Navigate to="/login" replace />;
     }
     return children;
 };
 // --- End Dummy Components ---
 
-// 3. Login Component কে আলাদা করে তৈরি করা হলো
+// 3. Login Component
 const LoginComponent = () => {
-    const { userId, setUserId } = useAuth(); // Auth context থেকে userId and setUserId আনবে
+    const { userId, setUserId } = useAuth(); 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loginError, setLoginError] = useState(""); 
@@ -57,9 +56,7 @@ const LoginComponent = () => {
                 email,
                 password,
             });
-            // সফল হলে setUserId আপডেট করবে
             setUserId(res.data.user.id); 
-            // Note: এখানে localStorage/sessionStorage এ token সেভ করার লজিক দরকার
         } catch (err) {
             setLoginError(err.response?.data?.message || "Login failed. Check server connection.");
         }
@@ -68,7 +65,7 @@ const LoginComponent = () => {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
             <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
-                <h1 className="text-3xl font-extrabold text-blue-600 mb-6 text-center">OnyxDrift Login V2</h1> {/* Title Change! */}
+                <h1 className="text-3xl font-extrabold text-blue-600 mb-6 text-center">OnyxDrift Login V2</h1>
                 <form
                     onSubmit={handleLogin}
                     className="flex flex-col gap-4"
@@ -105,14 +102,14 @@ const LoginComponent = () => {
                     Demo Credentials: test@example.com / 123456
                 </p>
 
-                {/* ⭐ আপনার কাঙ্ক্ষিত "Create Account" লিঙ্কটি এখন ডেডিকেটেড Login কম্পোনেন্টে ⭐ */}
+                {/* ⭐ এখানে বাংলায় থাকা অপশনটি ইংরেজিতে পরিবর্তন করা হলো ⭐ */}
                 <p className="text-center text-sm mt-3">
-                    অ্যাকাউন্ট নেই? {" "}
+                    Don't have an account? {" "}
                     <a 
                         href="/register" 
                         className="text-blue-600 hover:text-blue-800 font-medium"
                     >
-                        একটি অ্যাকাউন্ট তৈরি করুন
+                        Create an Account
                     </a>
                 </p>
 
@@ -121,16 +118,16 @@ const LoginComponent = () => {
     );
 }
 
-// 4. Registration Component (dummy for now)
+// 4. Registration Component
 const RegisterComponent = () => (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
             <h1 className="text-3xl font-extrabold text-green-600 mb-6">Registration Page</h1>
             <p className="text-gray-700">Registration form goes here.</p>
             <p className="text-sm mt-4">
-                ইতিমধ্যে অ্যাকাউন্ট আছে? {" "}
+                Already have an account? {" "} {/* এই লেখাও ইংরেজিতে পরিবর্তন করা হলো */}
                 <a href="/login" className="text-blue-600 hover:text-blue-800 font-medium">
-                    লগইন করুন
+                    Login
                 </a>
             </p>
         </div>
@@ -139,22 +136,19 @@ const RegisterComponent = () => (
 
 
 function App() {
-    // App কম্পোনেন্টটি এখন শুধুমাত্র রাউটিং এবং গ্লোবাল লেআউট হ্যান্ডেল করবে। 
-    // AuthProvider, Router-কে র্যাপ করছে।
-    
     // receiverId
     const [receiverId] = useState("user2");
 
-    // Login/Auth state context থেকে আসবে, এখানে App এর মধ্যে রাখার দরকার নেই। 
-    // কিন্তু ডামি কম্পোনেন্টগুলির কারণে এটিকে অস্থায়ীভাবে রাখছি:
+    // useAuth থেকে userId নেয়া
     const { userId } = useAuth(); 
 
     return (
         <Router>
             <Navbar />
             <div className="container mx-auto p-4">
+                {/* 💡 নোট: এখানে রাউটিং সেটআপ পুরোপুরি সঠিক আছে */}
                 <Routes>
-                    {/* Protected Routes - লগইন না থাকলে /login এ যাবে */}
+                    {/* Protected Routes */}
                     <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                     <Route path="/feed" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                     <Route path="/friends" element={<ProtectedRoute><Pages name="Friends" /></ProtectedRoute>} />
@@ -164,7 +158,7 @@ function App() {
                     <Route path="/chat" element={<ProtectedRoute><Chat userId={userId} receiverId={receiverId} /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><Profile userId={userId} /></ProtectedRoute>} />
                     
-                    {/* Public Routes - সবাই অ্যাক্সেস করতে পারবে */}
+                    {/* Public Routes */}
                     <Route path="/login" element={<LoginComponent />} /> 
                     <Route path="/register" element={<RegisterComponent />} /> 
                 </Routes>
@@ -174,8 +168,6 @@ function App() {
 }
 
 
-// AuthProvider রুট কম্পোনেন্টকে র্যাপ করবে (index.js এ)
-// যেহেতু index.js ফাইলটি এখানে নেই, তাই আমরা এটি এখানে ম্যানুয়ালি তৈরি করছি:
 function Root() {
     return (
         <AuthProvider>
