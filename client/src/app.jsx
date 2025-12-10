@@ -43,10 +43,12 @@ const LoginComponent = () => {
     const [password, setPassword] = useState("");
     const [loginError, setLoginError] = useState(""); 
     
-    // যদি ইতিমধ্যেই লগইন করা থাকে, তবে ব্যবহারকারীকে /feed এ নিয়ে যাবে
+    // ⭐ চূড়ান্ত ক্যাশ/রাউটিং ফিক্স: লগইন স্টেট চেক সাময়িকভাবে বন্ধ করা হলো
+    /*
     if (userId) {
         return <Navigate to="/feed" replace />;
     }
+    */
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -102,7 +104,6 @@ const LoginComponent = () => {
                     Demo Credentials: test@example.com / 123456
                 </p>
 
-                {/* ⭐ এখানে বাংলায় থাকা অপশনটি ইংরেজিতে পরিবর্তন করা হলো ⭐ */}
                 <p className="text-center text-sm mt-3">
                     Don't have an account? {" "}
                     <a 
@@ -122,8 +123,8 @@ const LoginComponent = () => {
 const RegisterComponent = () => (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
-            {/* ⭐ টাইটেল পরিবর্তন করা হলো (V3 যোগ করা হলো) ⭐ */}
-            <h1 className="text-3xl font-extrabold text-green-600 mb-6">Registration Page V3</h1> 
+            {/* ⭐ চূড়ান্ত ক্যাশ ব্রেক ট্যাগ: V4 ⭐ */}
+            <h1 className="text-3xl font-extrabold text-green-600 mb-6">Registration Page V4</h1> 
             <p className="text-gray-700">Registration form goes here.</p>
             <p className="text-sm mt-4">
                 Already have an account? {" "} 
@@ -135,18 +136,15 @@ const RegisterComponent = () => (
     </div>
 );
 
-function App() {
-    // receiverId
-    const [receiverId] = useState("user2");
 
-    // useAuth থেকে userId নেয়া
+function App() {
+    const [receiverId] = useState("user2");
     const { userId } = useAuth(); 
 
     return (
         <Router>
             <Navbar />
             <div className="container mx-auto p-4">
-                {/* 💡 নোট: এখানে রাউটিং সেটআপ পুরোপুরি সঠিক আছে */}
                 <Routes>
                     {/* Protected Routes */}
                     <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
