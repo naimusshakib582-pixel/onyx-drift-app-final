@@ -1,5 +1,10 @@
 import mongoose from 'mongoose';
-
+// models/User.js
+const UserSchema = new mongoose.Schema({
+    // ... (আগের ফিল্ডগুলো)
+    firebaseUid: { type: String, unique: true, sparse: true, required: false },
+    isSocialUser: { type: Boolean, default: false }
+});
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },

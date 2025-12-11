@@ -59,3 +59,20 @@ yarn-debug.log*
 # macOS/Windows system files
 .DS_Store
 Thumbs.db
+# Node modules (Dependencies)
+/node_modules
+
+# Build artifacts (Front-end build output)
+/build
+/dist
+/www
+
+# Environment Variables (Crucial for security)
+.env
+
+# Capacitor and Mobile build files
+/android
+/ios
+
+# Logs
+*.log

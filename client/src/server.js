@@ -1,53 +1,79 @@
-// src/server.js (CORS সক্ষম করা হয়েছে)
-
-import 'dotenv/config'; 
+// src/server.js
+import 'dotenv/config'; // .env ফাইল লোড করার জন্য
 import express from 'express';
+import mongoose from 'mongoose'; // MongoDB এর জন্য
+import cors from 'cors';
+import * as admin from 'firebase-admin'; // 💡 Firebase Admin SDK
 import path from 'path';
 import { fileURLToPath } from 'url';
-import cors from 'cors'; // 💡 CORS ইমপোর্ট করা হয়েছে
+
+// 💡 আপনার routes/auth.js ইমপোর্ট করুন
+import authRouter from './routes/auth.js'; 
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
 const PORT = process.env.PORT || 10000;
 
-// 💡 CORS মিডলওয়্যার সক্ষম করা হয়েছে
-// এটি আপনার ফ্রন্টএন্ড ডোমেইনকে আপনার API ডোমেইন অ্যাক্সেস করার অনুমতি দেবে।
-app.use(cors()); 
-
-
-// 💡 বডি পার্সার যোগ করা হয়েছে: ইনকামিং JSON ডেটা পার্স করার জন্য
-app.use(express.json()); 
-
 // =======================================================
-// 🚨 গুরুত্বপূর্ণ: API রুটিং (অপরিবর্তিত)
+// 1. MongoDB কানেকশন
 // =======================================================
-
-// ডামি লগইন রুট
-app.post('/api/login', (req, res) => {
-    // ফ্রন্টএন্ড থেকে আসা ডেটা
-    const { email, password } = req.body; 
-
-    console.log(`Login attempt: ${email} with password: ${password ? 'received' : 'not received'}`);
-
-    if (email === "test@example.com" && password === "123456") {
-        return res.status(200).json({ 
-            success: true, 
-            message: "Login successful (Dummy Test)",
-            token: "fake_token_123" 
-        });
-    } else {
-        return res.status(401).json({ 
-            success: false, 
-            message: "Invalid credentials or Database not connected." 
-        });
+const connectDB = async () => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log('✅ MongoDB connected successfully!');
+    } catch (err) {
+        console.error('❌ MongoDB connection error:', err);
+        process.exit(1);
     }
-});
+};
+connectDB();
+
+// =======================================================
+// 2. Firebase Admin SDK কনফিগারেশন
+// =======================================================
+// 🚨 গুরুত্বপূর্ণ: Render এ ফাইল আপলোড এড়াতে, আপনি আপনার Service Account JSON 
+// কে একটি এনভায়রনমেন্ট ভ্যারিয়েবল (যেমন FIREBASE_SERVICE_ACCOUNT) হিসেবে সেভ করতে পারেন।
+// তবে সুবিধার জন্য, আমরা ধরে নিচ্ছি আপনার serviceAccount.json ফাইলটি src/config/ এ আছে।
+
+const serviceAccountPath = path.resolve(__dirname, 'config', 'serviceAccount.json'); 
+
+try {
+    // 🚨 আপনি যদি .gitignore এ serviceAccount.json রাখেন, তবে Render এটিকে পাবে না। 
+    // Render এ ডিপ্লয় করার জন্য আপনাকে Service Account JSON এর content কে 
+    // একটি এনভায়রনমেন্ট ভ্যারিয়েবল (যেমন FIREBASE_SERVICE_ACCOUNT) এ বেস64 এনকোড করে রাখতে হবে।
+    
+    // আপাতত লোকাল টেস্টিং এর জন্য এই কনফিগারেশন।
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccountPath)
+    });
+    console.log("✅ Firebase Admin SDK initialized successfully.");
+} catch (error) {
+    if (!admin.apps.length) {
+        console.error("❌ Firebase Admin SDK initialization failed:", error.message);
+    }
+}
 
 
-// ডামি পোস্ট রুট (অপরিবর্তিত)
+// =======================================================
+// 3. মিডলওয়্যার
+// =======================================================
+app.use(cors());
+app.use(express.json());
+
+
+// =======================================================
+// 4. API রুট এবং ডামি রুট প্রতিস্থাপন
+// =======================================================
+
+// 💡 আপনার আসল auth রুট ব্যবহার করুন, ডামি রুটটি সরিয়ে ফেলুন
+app.use('/api/auth', authRouter); 
+
+
+// 💡 পুরানো ডামি /api/login রুটটি সরিয়ে ফেলা হয়েছে। 
+// 💡 পুরানো ডামি /api/posts রুটটি রাখা হলো, যদি না এটি auth এর সাথে যুক্ত হয়।
 app.get('/api/posts', (req, res) => {
     return res.status(200).json({ 
         posts: [
@@ -59,13 +85,17 @@ app.get('/api/posts', (req, res) => {
 
 
 // =======================================================
-// স্ট্যাটিক এবং রুট হ্যান্ডলিং (অপরিবর্তিত)
+// 5. স্ট্যাটিক এবং রুট হ্যান্ডলিং
 // =======================================================
 
-app.use(express.static(path.join(__dirname, "public")));
+// আপনার রুট যদি front-end সার্ভ না করে, তবে নিচের দুটি লাইন বাদ দিন
+// app.use(express.static(path.join(__dirname, "public")));
+// app.get("/", (req, res) => {
+//     res.sendFile(path.join(__dirname, "public", "index.html"));
+// });
 
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+    res.send('Onyxdrift Server is Live!');
 });
 
 app.listen(PORT, () => {
