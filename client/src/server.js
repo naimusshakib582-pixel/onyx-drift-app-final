@@ -16,6 +16,36 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+const express = require('express');
+const cors = require('cors'); // cors প্যাকেজ ইমপোর্ট করুন
+const app = express();
+
+// Whitelist-এ আপনার অনুমোদিত ডোমেইনগুলো রাখুন
+const allowedOrigins = [
+    'https://00b8ea48.onyx-drift-app.pages.dev', // আপনার Cloudflare Pages লাইভ ডোমেইন
+    'http://localhost:3000', // লোকাল ডেভেলপমেন্টের জন্য
+    'capacitor://localhost' // যদি মোবাইল সাপোর্ট থাকে
+    // ভবিষ্যতে কাস্টম ডোমেইন থাকলে এখানে যোগ করুন
+];
+
+const corsOptions = {
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE", // অনুমোদিত মেথড
+    credentials: true, // কুকিজ, অথরাইজেশন হেডার পাস করার জন্য
+};
+
+// CORS মিডলওয়্যার ব্যবহার করুন
+app.use(cors(corsOptions)); 
+
+// এর নিচে আপনার অন্যান্য মিডলওয়্যার এবং রাউটগুলো থাকবে
+// app.use(express.json());
+// app.use('/api/login', loginRouter);
 
 // =======================================================
 // 1. MongoDB কানেকশন
