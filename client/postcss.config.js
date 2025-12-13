@@ -1,9 +1,9 @@
-// client/postcss.config.js
+// client/postcss.config.js - সঠিক কনফিগারেশন
 
 export default {
   plugins: {
-    'tailwindcss/nesting': {}, // যদি nesting ব্যবহার করেন, তবে এটি দরকার
-    tailwindcss: {},
+    'postcss-nesting': {}, 
+    '@tailwindcss/postcss': {}, // নতুন এবং সঠিক Tailwind PostCSS প্লাগইন
     autoprefixer: {},
   }
 }
