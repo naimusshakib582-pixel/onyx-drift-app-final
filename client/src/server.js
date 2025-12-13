@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
-// Auth0 JWT Bearer মিডলওয়্যার আমদানি করুন
+// Auth0 JWT Bearer মিডলওয়্যার আমদানি করুন
 const { auth } = require('express-oauth2-jwt-bearer');
 
 // .env ফাইল লোড করুন
@@ -18,12 +18,11 @@ const PORT = process.env.PORT || 10000;
 
 // --- CORS কনফিগারেশন ---
 // এখানে আপনার সমস্ত অনুমোদিত ফ্রন্টএন্ড URL যোগ করুন
-// যেমন: লোকাল ডেভেলপমেন্ট, Cloudflare Pages লাইভ URL, এবং Capacitor URL
 const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:5173', // যদি Vite ব্যবহার করেন
     'capacitor://localhost',
-    'https://your-cloudflare-site.pages.dev', // ⭐ আপনার লাইভ Cloudflare URL
+    'https://onyx-drift-app.pages.dev', // ⭐ আপনার লাইভ Cloudflare URL
 ];
 
 const corsOptions = {
@@ -32,7 +31,7 @@ const corsOptions = {
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            callback(new Error(`Not allowed by CORS: ${origin}`)); // ত্রুটি মেসেজ উন্নত করা হলো
         }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -43,12 +42,12 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json()); // JSON অনুরোধের বডি পার্স করার জন্য
 
-// --- Auth0 JWT ভেরিফিকেশন মিডলওয়্যার ---
+// --- Auth0 JWT ভেরিফিকেশন মিডলওয়্যার ---
 // Auth0 ড্যাশবোর্ডে API সেকশন থেকে Identifier নিন
-const AUTH0_AUDIENCE = 'YOUR_API_IDENTIFIER_FROM_AUTH0'; 
+const AUTH0_AUDIENCE = 'https://onyx-drift-api.com'; // ✅ আপনার সঠিক API Identifier
 const AUTH0_ISSUER_BASE_URL = 'https://dev-6d0nxccsaycctfl1.us.auth0.com/'; // আপনার Auth0 Domain
 
-// টোকেন যাচাই করার মিডলওয়্যার তৈরি
+// টোকেন যাচাই করার মিডলওয়্যার তৈরি
 const jwtCheck = auth({
     audience: AUTH0_AUDIENCE,
     issuerBaseURL: AUTH0_ISSUER_BASE_URL,
@@ -63,17 +62,20 @@ app.get('/', (req, res) => {
 });
 
 // 2. সুরক্ষিত রুট (Protected Route)
-// jwtCheck মিডলওয়্যার যোগ করা হয়েছে। এই রুটে প্রবেশ করতে হলে বৈধ Auth0 টোকেন লাগবে।
+// jwtCheck মিডলওয়্যার যোগ করা হয়েছে। এই রুটে প্রবেশ করতে হলে বৈধ Auth0 টোকেন লাগবে।
 app.get('/posts', jwtCheck, (req, res) => {
     // টোকেন বৈধ হলে তবেই এই কোড চলবে
     console.log("Protected /posts route accessed successfully.");
     
+    // Auth0 ইউজার ID, টোকেনের পেলোড থেকে পাওয়া যায়
+    const userId = req.auth.payload.sub; 
+
     // ⭐ এখানে আপনার আসল ডাটাবেস লজিক (MongoDB থেকে ডেটা আনা) যুক্ত করুন।
-    // বর্তমানে ডামি ডেটা দেখানো হলো:
     res.status(200).json({ 
         message: "Successfully retrieved protected posts data!", 
+        user_id_from_token: userId,
         data: [
-            { id: 1, title: "First Protected Post", author: req.auth.payload.sub },
+            { id: 1, title: "First Protected Post", author: "User " + userId.slice(-4) },
             { id: 2, title: "Second Protected Post", author: "Admin" }
         ] 
     });
