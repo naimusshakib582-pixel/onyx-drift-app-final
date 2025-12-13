@@ -1,32 +1,29 @@
-// src/components/LogoutButton.tsx
+// src/components/logout.tsx (উদাহরণ)
+
 import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { Browser } from '@capacitor/browser';
-import { IonButton } from '@ionic/react';
-
-const PACKAGE_ID = "YOUR_PACKAGE_ID"; // আপনার capacitor.config.ts এর appId
-const AUTH0_DOMAIN = "{yourDomain}"; // আপনার Auth0 ডোমেইন
-const logoutUri = `${PACKAGE_ID}://${AUTH0_DOMAIN}/capacitor/${PACKAGE_ID}/callback`;
 
 const LogoutButton: React.FC = () => {
-  const { logout } = useAuth0();
+    // useAuth0 হুক থেকে logout ফাংশনটি নিন
+    const { logout } = useAuth0();
 
-  const doLogout = async () => {
-    await logout({
-      logoutParams: {
-        returnTo: logoutUri, // লগআউটের পর এখানে ফেরত আসবে
-      },
-      async openUrl(url) {
-         // Capacitor's Browser plugin ব্যবহার করে রিডাইরেক্ট করুন
-        await Browser.open({
-          url,
-          windowName: "_self"
+    const handleLogout = () => {
+        // logout ফাংশনটি কল করুন, যা Auth0 সেশন শেষ করে দেয়
+        logout({
+            logoutParams: {
+                returnTo: window.location.origin, // লগআউটের পর বেস URL এ ফেরত যান
+            },
         });
-      }
-    });
-  };
+    };
 
-  return <IonButton onClick={doLogout}>Log out</IonButton>;
+    return (
+        <button
+            onClick={handleLogout} // ⭐ onClick ইভেন্টে logout কল করা হলো
+            className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 shadow-md"
+        >
+            Logout
+        </button>
+    );
 };
 
 export default LogoutButton;
