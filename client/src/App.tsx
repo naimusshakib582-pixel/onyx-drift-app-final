@@ -1,15 +1,11 @@
-// client/src/App.tsx (FINAL VERSION - NO IONIC, CLEANED)
+// client/src/App.tsx (FINAL VERSION - WITH LOADING SCREEN FIX)
 
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 
 // আপনার তৈরি করা পৃষ্ঠাগুলির আমদানি (import) করুন
-// এই ফাইলগুলি আপনার client/src/pages/ ফোল্ডারে থাকা দরকার।
-// import LoginPage from './pages/LoginPage';
-// import DashboardPage from './pages/DashboardPage';
-// import ProfilePage from './pages/ProfilePage';
-// import SetupProfilePage from './pages/SetupProfilePage'; // <--- নতুন প্রোফাইল সেটআপ পেজ আমদানি
+// import SetupProfilePage from './pages/SetupProfilePage'; 
 
 // --- ১. নেভিগেশন বার ---
 const Navbar = () => {
@@ -56,7 +52,8 @@ const HomePage = () => (
 // --- ৩. মূল অ্যাপ্লিকেশন কম্পোনেন্ট ---
 
 const App: React.FC = () => {
-  const { handleRedirectCallback } = useAuth0();
+  // isLoading এখানে যোগ করুন:
+  const { handleRedirectCallback, isLoading } = useAuth0(); 
 
   // Auth0/SPA-এর জন্য প্রাথমিক কলব্যাক হ্যান্ডলিং
   useEffect(() => {
@@ -65,8 +62,17 @@ const App: React.FC = () => {
     }
   }, [handleRedirectCallback]);
 
+  // যদি Auth0 এখনও লোড হয়, একটি লোডিং স্ক্রিন দেখান:
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <h1 className="text-xl font-semibold text-blue-600">অ্যাপ্লিকেশন লোড হচ্ছে...</h1>
+      </div>
+    );
+  }
+
+  // লোডিং শেষ হলে, অ্যাপ্লিকেশন রেন্ডার করুন:
   return (
-    // মূল div
     <div className="bg-white min-h-screen"> 
       <BrowserRouter>
         <Navbar />
