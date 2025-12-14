@@ -1,5 +1,5 @@
 // client/src/Root.jsx (বা আপনার মূল ফাইল যেখানে Auth0Provider থাকে)
-
+import React from 'react';
 import React, { useState, useCallback, useMemo } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 // Auth0 থেকে প্রয়োজনীয় হুক আমদানি করুন
