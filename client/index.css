@@ -1,25 +1,38 @@
+/* client/index.css */
+
+/* 1. Tailwind CSS ডিরেক্টিভগুলি - এগুলি প্রথমে থাকা আবশ্যক */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 2. রুট স্টাইল ওভাররাইড এবং ফিক্স */
+
+/* ডিফল্ট ভেরিয়েবল সেট করুন (যদি প্রয়োজন হয়) */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  
+  /* ডার্ক থিম রঙগুলি সরিয়ে সাদা রঙকে ডিফল্ট করুন */
+  color: #333333; 
+  background-color: #ffffff;
+  
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* 3. Body এবং Root ফিক্স (কালো/সাদা স্ক্রিন এড়াতে) */
 body, #root, html {
-    /* নিশ্চিত করুন যে ব্যাকগ্রাউন্ড সাদা এবং এটি সম্পূর্ণ স্ক্রিন জুড়ে আছে */
-    background-color: #ffffff; 
+    background-color: #ffffff; /* সাদা ব্যাকগ্রাউন্ড নিশ্চিত করা হলো */
     min-height: 100vh;
     margin: 0;
     padding: 0;
     color: #333333; /* টেক্সট ডিফল্ট গাঢ় ধূসর */
-    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
+
+/* 4. অন্যান্য ডিফল্ট উপাদান স্টাইল (যদি প্রয়োজন হয়) */
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
@@ -28,16 +41,16 @@ code {
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: #1a73e8; /* একটি দৃশ্যমান নীল রঙ ব্যবহার করা হলো */
   text-decoration: inherit;
 }
 
 a:hover {
-  color: #535bf2;
+  color: #1558b3;
 }
 
 h1 {
-  font-size: 3.2em;
+  /* H1 এর জন্য ডিফল্ট স্টাইল, তবে Tailwind ক্লাস ব্যবহার করা ভালো */
   line-height: 1.1;
 }
 
@@ -48,7 +61,8 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  /* ডিফল্ট ব্যাকগ্রাউন্ড কালার সাদা করা হলো, যাতে কালো না দেখায় */
+  background-color: #f0f0f0; 
   cursor: pointer;
   transition: border-color 0.25s;
 }
@@ -60,7 +74,9 @@ button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
-@media (prefers-color-scheme: light) 
+
+/* 5. লাইট মোড মিডিয়া কোয়েরি (যা এখন আর কালো ব্যাকগ্রাউন্ড সেট করবে না) */
+@media (prefers-color-scheme: light) {
   :root {
     color: #213547;
     background-color: #ffffff;
@@ -71,3 +87,4 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
