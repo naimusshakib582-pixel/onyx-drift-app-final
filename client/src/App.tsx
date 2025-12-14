@@ -1,7 +1,8 @@
-// client/src/App.tsx (FINAL VERSION - WITH LOADING SCREEN FIX)
+// client/src/App.tsx (FINAL FIX: BrowserRouter removed)
 
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+// BrowserRouter এখানে আর আমদানি করার দরকার নেই।
+import { Routes, Route, Link } from 'react-router-dom'; 
 import { useAuth0 } from '@auth0/auth0-react';
 
 // আপনার তৈরি করা পৃষ্ঠাগুলির আমদানি (import) করুন
@@ -74,28 +75,30 @@ const App: React.FC = () => {
   // লোডিং শেষ হলে, অ্যাপ্লিকেশন রেন্ডার করুন:
   return (
     <div className="bg-white min-h-screen"> 
-      <BrowserRouter>
-        <Navbar />
-        <Routes>
-          {/* ১. হোম রুট */}
-          <Route path="/" element={<HomePage />} />
-          
-          {/* ২. প্রোফাইল সেটআপ রুট (নতুন ব্যবহারকারীদের জন্য) */}
-          {/* <Route path="/setup-profile" element={<SetupProfilePage />} /> */}
-          
-          {/* আপনার অন্যান্য আসল রুটগুলি এখানে যুক্ত করুন */}
-          {/* <Route path="/dashboard" element={<DashboardPage />} /> */}
-          
-          {/* ৩. 404 Not Found Page */}
-          <Route path="*" element={
-            <div className="p-10 text-center">
-                <h1 className="text-4xl mt-20 text-red-600 font-bold">404 - Page Not Found</h1>
-                <p className="text-gray-500 mt-2">আপনি যে পৃষ্ঠাটি খুঁজছেন, তা পাওয়া যায়নি।</p>
-                <Link to="/" className="text-blue-500 hover:underline mt-4 block">হোম পেজে ফিরে যান</Link>
-            </div>
-          } />
-        </Routes>
-      </BrowserRouter>
+      {/* <BrowserRouter> এখানে এটি সরিয়ে দেওয়া হলো */}
+      
+      <Navbar />
+      <Routes>
+        {/* ১. হোম রুট */}
+        <Route path="/" element={<HomePage />} />
+        
+        {/* ২. প্রোফাইল সেটআপ রুট (নতুন ব্যবহারকারীদের জন্য) */}
+        {/* <Route path="/setup-profile" element={<SetupProfilePage />} /> */}
+        
+        {/* আপনার অন্যান্য আসল রুটগুলি এখানে যুক্ত করুন */}
+        {/* <Route path="/dashboard" element={<DashboardPage />} /> */}
+        
+        {/* ৩. 404 Not Found Page */}
+        <Route path="*" element={
+          <div className="p-10 text-center">
+              <h1 className="text-4xl mt-20 text-red-600 font-bold">404 - Page Not Found</h1>
+              <p className="text-gray-500 mt-2">আপনি যে পৃষ্ঠাটি খুঁজছেন, তা পাওয়া যায়নি।</p>
+              <Link to="/" className="text-blue-500 hover:underline mt-4 block">হোম পেজে ফিরে যান</Link>
+          </div>
+        } />
+      </Routes>
+      
+      {/* </BrowserRouter> এখানে এটি সরিয়ে দেওয়া হলো */}
     </div>
   );
 };
