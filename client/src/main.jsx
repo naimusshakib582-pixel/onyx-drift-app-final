@@ -9,7 +9,7 @@ import { Auth0Provider } from '@auth0/auth0-react';
 
 // === Auth0 কনফিগারেশন ভ্যালুগুলি ===
 const AUTH0_DOMAIN = 'dev-6d0nxccsaycctfl1.us.auth0.com';
-const AUTH0_CLIENT_ID = 'otYkcadaICKsUeabFk9qaj7wXmM4uYBZ';
+const AUTH0_CLIENT_ID = 'tcfTAHv3K8KC1VwtZQrqIbqsZRN2PJFr';
 const API_AUDIENCE = 'https://onyx-drift-api.com';
 
 // ===
