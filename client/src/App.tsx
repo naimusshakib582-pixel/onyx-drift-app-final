@@ -1,4 +1,4 @@
-// client/src/App.tsx (FINAL VERSION - NO IONIC)
+// client/src/App.tsx (FINAL VERSION - NO IONIC, CLEANED)
 
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
@@ -11,9 +11,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 // import ProfilePage from './pages/ProfilePage';
 // import SetupProfilePage from './pages/SetupProfilePage'; // <--- নতুন প্রোফাইল সেটআপ পেজ আমদানি
 
-// --- সাধারণ টেম্পোরারি কম্পোনেন্ট ---
-
-// ১. নেভিগেশন বার
+// --- ১. নেভিগেশন বার ---
 const Navbar = () => {
   const { isAuthenticated, logout, loginWithRedirect } = useAuth0();
 
@@ -45,7 +43,7 @@ const Navbar = () => {
   );
 };
 
-// ২. হোম পেজ (কালো স্ক্রিন এড়ানোর জন্য)
+// --- ২. হোম পেজ ---
 const HomePage = () => (
   <div className="p-8 text-center bg-gray-100 text-gray-800 min-h-[90vh] flex flex-col items-center justify-center">
     <h1 className="text-4xl font-extrabold mb-4">Welcome to OnyxDrift Social App</h1>
@@ -55,14 +53,13 @@ const HomePage = () => (
   </div>
 );
 
-// --- মূল অ্যাপ্লিকেশন কম্পোনেন্ট ---
+// --- ৩. মূল অ্যাপ্লিকেশন কম্পোনেন্ট ---
 
 const App: React.FC = () => {
   const { handleRedirectCallback } = useAuth0();
 
   // Auth0/SPA-এর জন্য প্রাথমিক কলব্যাক হ্যান্ডলিং
   useEffect(() => {
-    // এই লজিকটি নিশ্চিত করে যে লগইন বা ত্রুটির প্যারামিটার থাকলে Auth0 SDK তা হ্যান্ডেল করবে।
     if (window.location.search.includes('code') || window.location.search.includes('error')) {
       handleRedirectCallback(window.location.href);
     }
@@ -70,9 +67,9 @@ const App: React.FC = () => {
 
   return (
     // মূল div
-    <div className="bg-white min-h-screen">
+    <div className="bg-white min-h-screen"> 
       <BrowserRouter>
-        <Navbar /> {/* নেভিগেশন বার সব পেজে থাকবে */}
+        <Navbar />
         <Routes>
           {/* ১. হোম রুট */}
           <Route path="/" element={<HomePage />} />
@@ -82,7 +79,6 @@ const App: React.FC = () => {
           
           {/* আপনার অন্যান্য আসল রুটগুলি এখানে যুক্ত করুন */}
           {/* <Route path="/dashboard" element={<DashboardPage />} /> */}
-          {/* <Route path="/profile" element={<ProfilePage />} /> */}
           
           {/* ৩. 404 Not Found Page */}
           <Route path="*" element={

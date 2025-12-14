@@ -11,18 +11,14 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-/* body সিলেক্টরগুলিকে একত্রিত করা হয়েছে */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+body, #root, html {
+    /* নিশ্চিত করুন যে ব্যাকগ্রাউন্ড সাদা এবং এটি সম্পূর্ণ স্ক্রিন জুড়ে আছে */
+    background-color: #ffffff; 
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    color: #333333; /* টেক্সট ডিফল্ট গাঢ় ধূসর */
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
 code {
