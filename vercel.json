@@ -1,15 +1,14 @@
 {
   "version": 2,
-  "headers": [
+  "rewrites": [
+    {
+      "source": "/assets/(.*)",
+      "destination": "/client/dist/assets/$1"
+    },
     {
       "source": "/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
+      "destination": "/client/dist/index.html"
     }
   ],
-  "rewrites": [
-    { "source": "/assets/(.*)", "destination": "/client/dist/assets/$1" },
-    { "source": "/(.*)", "destination": "/client/dist/index.html" }
-  ]
+  "cleanUrls": true
 }
