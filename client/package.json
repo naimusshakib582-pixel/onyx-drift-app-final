@@ -19,8 +19,9 @@
     "tailwindcss": "^4.1.17",
     "vite": "^7.2.7"
   },
- "devDependencies": {
-  "postcss-nesting": "^13.0.2",
-  "@tailwindcss/postcss": "^4.1.17",
-  "dotenv": "^16.4.5"
+  "devDependencies": {
+    "postcss-nesting": "^13.0.2",
+    "@tailwindcss/postcss": "^4.1.17",
+    "dotenv": "^16.4.5"
+  }
 }
