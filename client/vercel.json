@@ -1,1 +1,8 @@
-ghsdc juchbxas ihdaspo oijdspoam 
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/build/index.html"
+    }
+  ]
+}
