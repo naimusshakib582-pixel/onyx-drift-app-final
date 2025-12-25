@@ -1,5 +1,10 @@
 {
+  "framework": "vite",
+  "outputDirectory": "build",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/build/index.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
