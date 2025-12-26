@@ -1,13 +1,15 @@
 import React from "react";
-import { Routes, Route, Navigate, NavLink } from "react-router-dom";
+import { Routes, Route, NavLink } from "react-router-dom";
 import { useAuth0, withAuthenticationRequired } from "@auth0/auth0-react";
+import Landing from "./pages/Landing";
+import Dashboard from "./pages/Dashboard";
+import Profile from "./components/Profile";
 
-/* ---------- Navbar ---------- */
+/* Navbar */
 const Navbar = () => {
   const { isAuthenticated, loginWithRedirect, logout } = useAuth0();
-
   return (
-    <div className="bg-blue-600 p-4 text-white">
+    <div className="bg-blue-600 p-4 text-white flex gap-4">
       <NavLink to="/">Home</NavLink>
       {isAuthenticated && (
         <>
@@ -26,30 +28,20 @@ const Navbar = () => {
   );
 };
 
-/* ---------- ProtectedRoute ---------- */
+/* Protected Route */
 const ProtectedRoute = ({ component }) => {
-  const Component = withAuthenticationRequired(component, {
-    onRedirecting: () => <div>Redirecting...</div>,
-  });
+  const Component = withAuthenticationRequired(component, { onRedirecting: () => <div>Redirecting...</div> });
   return <Component />;
 };
 
-/* ---------- Pages ---------- */
-const LandingPage = () => <h1>Welcome to OnyxDrift</h1>;
-
-const Profile = () => {
-  const { user } = useAuth0();
-  return <h2>{user?.name}</h2>;
-};
-
-/* ---------- App ---------- */
+/* App */
 export default function App() {
   return (
     <>
       <Navbar />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/dashboard" element={<ProtectedRoute component={LandingPage} />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/dashboard" element={<ProtectedRoute component={Dashboard} />} />
         <Route path="/profile" element={<ProtectedRoute component={Profile} />} />
         <Route path="*" element={<h2>404 - Page Not Found</h2>} />
       </Routes>

@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon -r dotenv/config src/server.js",
-   "build": "cd client && npm install && vite build"
+    "build": "cd client && npm install && vite build"
   },
   "keywords": [
     "express",
@@ -21,11 +21,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "debug": "4.3.4",
     "@auth0/auth0-react": "^2.10.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.0",
+    "@vitejs/plugin-react": "^5.1.2",
     "cors": "^2.8.5",
+    "debug": "4.3.4",
     "express": "^4.22.1",
     "express-session": "^1.18.2",
     "firebase-admin": "^13.6.0",
@@ -33,14 +34,17 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "socket.io": "^4.8.1",
-    "vite": "^7.2.7", 
-    "@vitejs/plugin-react": "^5.1.2"
+    "vite": "^7.3.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss7-compat": "^2.2.17",
     "@types/express-session": "^1.18.2",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "autoprefixer": "^10.4.23",
     "dotenv": "^16.4.5",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
   }
 }
