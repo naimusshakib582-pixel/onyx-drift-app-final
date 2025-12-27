@@ -1,68 +1,64 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from 'url';
 import { auth } from 'express-oauth2-jwt-bearer';
 import profileRoutes from "./src/routes/profile.js";
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
-// --- Auth0 কনফিগারেশন ---
-const AUTH0_AUDIENCE = process.env.AUTH0_AUDIENCE || 'https://onyx-drift-api.com'; 
-const AUTH0_ISSUER_BASE_URL = process.env.AUTH0_ISSUER_BASE_URL || 'https://dev-6d0nxccsaycctfl1.us.auth0.com/'; 
-
-const jwtCheck = auth({
-    audience: AUTH0_AUDIENCE,
-    issuerBaseURL: AUTH0_ISSUER_BASE_URL,
-    tokenSigningAlg: 'RS256'
-});
-
-// --- CORS কনফিগারেশন আপডেট করা হয়েছে ---
+// --- CORS Configuration ---
 const allowedOrigins = [
-    'https://www.onyx-drift.com', // আপনার মেইন ডোমেইন যোগ করা হলো
+    'https://www.onyx-drift.com',
     'https://onyx-drift.com',
-    'https://c32dbd3f.onyx-drift-app.pages.dev', 
-    'http://localhost:5173', 
-    'http://localhost:3000', 
+    'https://onyx-drift-app-final.onrender.com',
+    'http://localhost:5173'
 ];
 
-const corsOptions = {
+app.use(cors({
     origin: (origin, callback) => {
-        // রিকোয়েস্ট আসা অরিজিন চেক করা
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.error(`CORS Error: Origin ${origin} is not allowed.`); // লগে এরর দেখাবে
-            callback(new Error(`Not allowed by CORS: ${origin}`));
+            callback(new Error('Not allowed by CORS'));
         }
     },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-    optionsSuccessStatus: 204
-};
+    credentials: true
+}));
 
-app.use(cors(corsOptions));
-app.use(express.json()); 
+app.use(express.json());
 
-// --- রুট রাউট (Health Check) ---
-app.get('/', (req, res) => {
-    res.status(200).send("OnyxDrift Backend Server is Live and Operational!");
+// --- Auth0 Middleware ---
+const jwtCheck = auth({
+    audience: process.env.AUTH0_AUDIENCE || 'https://onyx-drift-api.com',
+    issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL || 'https://dev-6d0nxccsaycctfl1.us.auth0.com/',
+    tokenSigningAlg: 'RS256'
 });
 
-// --- API রাউটস ---
-app.use("/api/profile", profileRoutes); 
+// --- API Routes ---
+app.use("/api/profile", profileRoutes);
 
-app.get('/api/posts', jwtCheck, (req, res) => {
-    const userId = req.auth.payload.sub; 
-    res.status(200).json({ 
-        message: "Successfully retrieved protected posts data!", 
-        user_id_from_token: userId,
-        data: [{ id: 1, title: "Protected Post" }] 
-    });
+// --- Static Files (React Build) ---
+// Vite বিল্ড করার পর ফাইলগুলো 'client/dist' এ থাকে
+const buildPath = path.join(__dirname, "../client/dist");
+app.use(express.static(buildPath));
+
+app.get("*", (req, res) => {
+    // যদি API রুট না হয়, তবে index.html ফাইল পাঠাবে
+    if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(buildPath, "index.html"));
+    }
 });
 
+// --- Server Start ---
+// Render-এর জন্য '0.0.0.0' ব্যবহার করা জরুরি
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Server is running on port ${PORT}`);
 });
