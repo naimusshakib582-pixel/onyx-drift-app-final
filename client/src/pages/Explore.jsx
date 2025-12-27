@@ -50,11 +50,10 @@ const Explore = () => {
   );
 
   return (
-    return (
-  <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center">
-    <div className="w-full max-w-5xl px-4 py-12 flex flex-col items-center">
+    <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="w-full max-w-6xl mx-auto px-4 py-12 flex flex-col items-center">
         
-        {/* ১. হেডার সেকশন - সেন্টারে আনা হয়েছে */}
+        {/* ১. হেডার সেকশন */}
         <div className="text-center mb-10">
           <h1 className="text-4xl font-extrabold text-gray-800 dark:text-white mb-4">
             Explore People
@@ -64,8 +63,8 @@ const Explore = () => {
           </p>
         </div>
 
-        {/* ২. সার্চ বার - একদম মাঝখানে ফিক্স করা হয়েছে */}
-        <div className="flex justify-center mb-16">
+        {/* ২. সার্চ বার */}
+        <div className="flex justify-center mb-16 w-full">
           <div className="relative w-full max-w-xl">
             <FaSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
             <input
@@ -79,7 +78,7 @@ const Explore = () => {
 
         {/* ৩. ইউজার গ্রিড */}
         {filteredUsers.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
             {filteredUsers.map((otherUser) => (
               <div 
                 key={otherUser._id} 
@@ -110,21 +109,4 @@ const Explore = () => {
                 >
                   {otherUser.followers?.includes(user?.sub) ? (
                     <><FaUserCheck /> Following</>
-                  ) : (
-                    <><FaUserPlus /> Follow</>
-                  )}
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-20 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl">
-             <p className="text-gray-400 text-lg italic">No users found.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default Explore;
+                  )
