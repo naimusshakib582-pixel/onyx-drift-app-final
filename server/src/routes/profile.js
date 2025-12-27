@@ -1,23 +1,28 @@
 import express from "express";
-import Profile from "../models/Profile.js";
 
 const router = express.Router();
 
-router.get("/:userId", async (req, res) => {
-  const profile = await Profile.findOne({ userId: req.params.userId });
-  res.json(profile);
+// GET profile
+router.get("/:userId", (req, res) => {
+  const { userId } = req.params;
+  res.json({
+    userId,
+    name: "Naimus Shakib",
+    email: "naimusshakib582@gmail.com",
+    avatar: "https://via.placeholder.com/150",
+  });
 });
 
-router.put("/:userId", async (req, res) => {
+// PUT profile
+router.put("/:userId", (req, res) => {
+  const { userId } = req.params;
   const { name, avatar } = req.body;
-
-  const profile = await Profile.findOneAndUpdate(
-    { userId: req.params.userId },
-    { name, avatar },
-    { upsert: true, new: true }
-  );
-
-  res.json(profile);
+  res.json({
+    userId,
+    name,
+    avatar,
+    message: "Profile updated successfully",
+  });
 });
 
 export default router;
