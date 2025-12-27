@@ -13,7 +13,7 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
+const buildPath = path.join(__dirname, "../client/build"); // dist এর জায়গায় build থাকলে এটি দিন
 const app = express();
 
 // --- ১. HTTP সার্ভার এবং সকেট সেটআপ ---
