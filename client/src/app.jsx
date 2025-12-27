@@ -28,7 +28,11 @@ export default function App() {
   const isVideoCall = location.pathname.startsWith('/call/');
 
   if (isLoading) {
-    return <div className="h-screen flex items-center justify-center font-bold">Loading OnyxDrift...</div>;
+    return (
+      <div className="h-screen flex items-center justify-center font-bold bg-white dark:bg-gray-900 dark:text-white">
+        Loading OnyxDrift...
+      </div>
+    );
   }
 
   return (
@@ -36,7 +40,7 @@ export default function App() {
       {/* ১. লগইন থাকলে এবং কল না চললে বাম পাশে শুধু আইকন সাইডবার দেখাবে */}
       {isAuthenticated && !isVideoCall && <Sidebar />}
 
-      {/* ২. মেইন কন্টেন্ট এরিয়া */}
+      {/* ২. মেইন কন্টেন্ট এরিয়া */}
       <main className={`flex-1 transition-all duration-300 ${isAuthenticated && !isVideoCall ? "ml-20" : "ml-0"}`}>
         <Routes>
           {/* Public Route */}
@@ -44,7 +48,7 @@ export default function App() {
 
           {/* Protected Routes */}
           <Route path="/feed" element={<ProtectedRoute component={Dashboard} />} />
-          <Route path="/dashboard" element={<ProtectedRoute component={Dashboard} />} />
+          <Route path="/dashboard" element={<ProtectedRoute component={ProtectedRoute} component={Dashboard} />} />
           <Route path="/explore" element={<ProtectedRoute component={Explore} />} /> 
           <Route path="/profile" element={<ProtectedRoute component={Profile} />} />
           <Route path="/settings" element={<ProtectedRoute component={SettingsPage} />} />
