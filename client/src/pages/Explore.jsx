@@ -50,8 +50,9 @@ const Explore = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
+    return (
+  <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center">
+    <div className="w-full max-w-5xl px-4 py-12 flex flex-col items-center">
         
         {/* ১. হেডার সেকশন - সেন্টারে আনা হয়েছে */}
         <div className="text-center mb-10">

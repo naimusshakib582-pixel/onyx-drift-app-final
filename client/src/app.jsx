@@ -40,14 +40,13 @@ export default function App() {
       {/* ১. সাইডবার: শুধুমাত্র লগইন থাকলে এবং ভিডিও কল না চললে দেখাবে */}
       {isAuthenticated && !isVideoCall && <Sidebar />}
 
-      {/* ২. মেইন কন্টেন্ট এরিয়া: সাইডবারের জন্য ml-20 মার্জিন দেওয়া হয়েছে */}
+      {/* ২. মেইন কন্টেন্ট এরিয়া: ml-20 মার্জিন দিয়ে সাইডবারের জায়গা নিশ্চিত করা হয়েছে */}
       <main className={`flex-1 transition-all duration-300 ${isAuthenticated && !isVideoCall ? "ml-20" : "ml-0"}`}>
         <Routes>
           {/* Public Route */}
           <Route path="/" element={<Landing />} />
 
           {/* Protected Routes */}
-          <Route path="/feed" element={<ProtectedRoute component={Dashboard} />} />
           <Route path="/dashboard" element={<ProtectedRoute component={Dashboard} />} />
           <Route path="/explore" element={<ProtectedRoute component={Explore} />} /> 
           <Route path="/profile" element={<ProtectedRoute component={Profile} />} />
