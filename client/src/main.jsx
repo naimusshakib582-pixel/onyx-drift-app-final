@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Auth0Provider } from "@auth0/auth0-react";
-import App from "./App.jsx";
+import App from "./app.jsx";
 import { AuthProvider } from "./context/AuthContext"; // এটি ইম্পোর্ট করুন
 import "./index.css";
 
