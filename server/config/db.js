@@ -1,8 +1,9 @@
+// config/db.js এর ভেতরটা সম্ভবত এরকম হওয়া উচিত:
 import mongoose from "mongoose";
 
 const connectDB = async () => {
   try {
-    // আপনার .env ফাইলে নাম MONGODB_URI, তাই এখানেও তাই হবে
+    // এখানে নামের বানান চেক করুন (MONGODB_URI কি না)
     const conn = await mongoose.connect(process.env.MONGODB_URI); 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
