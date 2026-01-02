@@ -1,274 +1,344 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useParams } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
-import { FaEdit, FaCamera, FaMapMarkerAlt, FaBriefcase, FaPlus, FaCheckCircle } from "react-icons/fa";
-import { MdDashboard, MdGridOn, MdViewList, MdVerified } from "react-icons/md";
 import axios from "axios";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  FaEdit, FaCalendarAlt, FaMapMarkerAlt, FaShieldAlt, 
+  FaRocket, FaCamera, FaImage, FaFilm, FaPlayCircle, FaTimes, FaPlus, FaCheckCircle
+} from "react-icons/fa";
+import { BRAND_NAME } from "../utils/constants";
 import PostCard from "../components/PostCard";
 
 const Profile = () => {
-  const { user, isLoading, getAccessTokenSilently } = useAuth0();
-  const [userPosts, setUserPosts] = useState([]);
-  const [activeTab, setActiveTab] = useState("Posts");
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const { userId } = useParams(); 
+  const { user: currentUser, getAccessTokenSilently } = useAuth0();
   
-  // ইমেজ ও পোস্ট স্টেট
-  const [profileImg, setProfileImg] = useState(user?.picture);
-  const [coverImg, setCoverImg] = useState(null);
-  const [isPosting, setIsPosting] = useState(false);
-  const [postText, setPostText] = useState("");
-
-  // ভিডিও ও প্রোফাইল ডাটা স্টেট
-  const [selectedVideo, setSelectedVideo] = useState(null);
-  const [stats, setStats] = useState({ followers: 556, following: 1 });
-  const [editData, setEditData] = useState({
-    name: "",
-    bio: "Digital creator | Tech Enthusiast",
-    workplace: "OnyxDrift",
-    location: "Dhaka, Bangladesh",
-    isVerified: true,
-  });
+  // States
+  const [userProfile, setUserProfile] = useState(null);
+  const [userPosts, setUserPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("Echoes");
+  
+  // Post States
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [file, setFile] = useState(null);
+  const [content, setContent] = useState("");
+  const [postType, setPostType] = useState("photo"); // photo, video, reel
+  const [isTransmitting, setIsTransmitting] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
+  const fileInputRef = useRef(null);
+  // প্রোফাইল এডিটের জন্য নতুন স্টেটস
+const [editData, setEditData] = useState({ nickname: "", bio: "", location: "" });
+const [avatarFile, setAvatarFile] = useState(null);
+const [coverFile, setCoverFile] = useState(null);
+const [isUpdating, setIsUpdating] = useState(false);
 
-  // ডাটা ফেচ করা
+// এডিট মোডাল ওপেন করার সময় ডাটা সেট করা
+useEffect(() => {
+  if (userProfile) {
+    setEditData({
+      nickname: userProfile.nickname || "",
+      bio: userProfile.bio || "",
+      location: userProfile.location || ""
+    });
+  }
+}, [userProfile]);
+
+const handleUpdateIdentity = async () => {
+  setIsUpdating(true);
+  try {
+    const token = await getAccessTokenSilently();
+    const formData = new FormData();
+    formData.append("nickname", editData.nickname);
+    formData.append("bio", editData.bio);
+    formData.append("location", editData.location);
+    
+    if (avatarFile) formData.append("avatar", avatarFile);
+    if (coverFile) formData.append("cover", coverFile);
+
+    await axios.put(`${API_URL}/api/user/update-profile`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    alert("Identity Synchronized!");
+    setIsEditOpen(false);
+    fetchProfileData(); // প্রোফাইল রিফ্রেশ করা
+  } catch (err) {
+    console.error(err);
+    alert("Sync Failed!");
+  } finally {
+    setIsUpdating(false);
+  }
+};
+
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      try {
-        const token = await getAccessTokenSilently();
-        setEditData(prev => ({ ...prev, name: user.name || "Onyx User" }));
-        setProfileImg(user.picture);
+    fetchProfileData();
+  }, [userId, currentUser]);
 
-        const postRes = await axios.get(`${API_URL}/api/posts`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const myPosts = postRes.data.filter(post => 
-          post.userId === user?.sub || post.author?._id === user?.sub
-        );
-        setUserPosts(myPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
-      } catch (err) {
-        console.error("Error fetching data:", err);
-      }
-    };
-    fetchData();
-  }, [user, getAccessTokenSilently, API_URL]);
-
-  // ইমেজ পরিবর্তন হ্যান্ডলার
-  const handleImageChange = (e, type) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (type === "profile") setProfileImg(reader.result);
-        if (type === "cover") setCoverImg(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // প্রোফাইল আপডেট সেভ
-  const handleSave = async () => {
+  const fetchProfileData = async () => {
     try {
       const token = await getAccessTokenSilently();
-      await axios.put(`${API_URL}/api/users/profile/update`, editData, {
+      const targetId = userId || currentUser?.sub;
+      const profileRes = await axios.get(`${API_URL}/api/user/profile/${targetId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert("Profile updated!");
-      setIsEditModalOpen(false);
+      setUserProfile(profileRes.data);
+      const postsRes = await axios.get(`${API_URL}/api/posts/user/${targetId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUserPosts(postsRes.data);
     } catch (err) {
-      alert("Updated locally. Connect backend for permanent save.");
-      setIsEditModalOpen(false);
+      console.error("Neural Fetch Error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // নতুন পোস্ট হ্যান্ডলার
-  const handleCreatePost = async () => {
-    if(!postText) return;
-    setIsPosting(true);
-    // এখানে আপনার পোস্ট করার API কল হবে
-    setTimeout(() => {
-      alert("Post shared successfully!");
-      setPostText("");
-      setIsPosting(false);
-    }, 1500);
+  // ১. পোস্ট ট্রান্সমিট হ্যান্ডলার
+  const handleTransmit = async () => {
+    if (!content && !file) return alert("Neural transmission cannot be empty!");
+    
+    setIsTransmitting(true);
+    try {
+      const token = await getAccessTokenSilently();
+      const formData = new FormData();
+      formData.append("text", content);
+      formData.append("type", postType);
+      if (file) formData.append("file", file);
+
+      const res = await axios.post(`${API_URL}/api/posts/create`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      
+      setUserPosts([res.data, ...userPosts]); 
+      setIsCreateOpen(false);
+      setContent("");
+      setFile(null);
+      alert("Echo Transmitted Successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Transmission Interrupted!");
+    } finally {
+      setIsTransmitting(false);
+    }
   };
 
-  if (isLoading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-[#0f0f0f] text-[#0866ff]">
-      <div className="w-12 h-12 border-4 border-t-transparent border-[#0866ff] rounded-full animate-spin"></div>
-    </div>
-  );
+  const handleFileSelect = (type) => {
+    setPostType(type);
+    fileInputRef.current.click();
+  };
+
+  if (loading) return <div className="h-screen flex items-center justify-center bg-[#020617] text-cyan-400 font-black italic uppercase tracking-[0.5em]">SYNCING NEURAL IDENTITY...</div>;
 
   return (
-    <div className="min-h-screen bg-[#111111] text-[#e4e6eb] font-sans pb-10">
+    <div className="w-full min-h-screen bg-[#020617] text-gray-200">
       
-      {/* --- প্রোফাইল হেডার (Cover & Profile) --- */}
-      <div className="bg-[#1c1c1c] border-b border-white/5 shadow-2xl">
-        <div className="max-w-[1100px] mx-auto">
-          {/* Cover Photo */}
-          <div className="relative h-[250px] md:h-[420px] bg-[#2a2a2a] rounded-b-[2rem] overflow-hidden">
-            {coverImg && <img src={coverImg} className="w-full h-full object-cover" alt="Cover" />}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-            <label className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-xl text-white px-4 py-2 rounded-xl flex items-center gap-2 border border-white/10 font-bold cursor-pointer hover:bg-black/70 z-20 transition">
-              <FaCamera /> Edit Cover
-              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageChange(e, "cover")} />
+      {/* ১. ব্যানার সেকশন */}
+      <div className="relative h-60 md:h-72 w-full overflow-hidden">
+        <img 
+          src={userProfile?.coverImg || "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=1000"} 
+          className="w-full h-full object-cover opacity-40"
+          alt="Cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/40 to-transparent"></div>
+        <button onClick={() => setIsEditOpen(true)} className="absolute top-4 right-4 p-3 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:border-cyan-400 text-white transition-all">
+          <FaCamera size={18} />
+        </button>
+      </div>
+      {/* EDIT PROFILE MODAL */}
+<AnimatePresence>
+  {isEditOpen && (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl">
+      <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-[#0f172a] w-full max-w-lg rounded-[3rem] border border-white/10 p-8 shadow-2xl overflow-y-auto max-h-[90vh] no-scrollbar">
+        <div className="flex justify-between mb-8">
+          <h2 className="text-xl font-black italic text-cyan-400 uppercase tracking-tighter">Edit Identity</h2>
+          <button onClick={() => setIsEditOpen(false)} className="text-gray-500 hover:text-white"><FaTimes/></button>
+        </div>
+
+        <div className="space-y-6">
+          {/* নাম এবং বায়ো ইনপুট */}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-gray-500 uppercase ml-2">Display Name</p>
+              <input 
+                type="text" 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none focus:border-cyan-400 text-white" 
+                value={editData.nickname}
+                onChange={(e) => setEditData({...editData, nickname: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-gray-500 uppercase ml-2">Neural Bio</p>
+              <textarea 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm outline-none focus:border-cyan-400 h-24 text-white resize-none" 
+                value={editData.bio}
+                onChange={(e) => setEditData({...editData, bio: e.target.value})}
+              />
+            </div>
+          </div>
+
+          {/* ইমেজ আপলোড বাটন */}
+          <div className="grid grid-cols-2 gap-4">
+            <label className={`cursor-pointer p-4 bg-white/5 border rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${coverFile ? 'border-purple-500' : 'border-white/10 hover:border-cyan-400'}`}>
+              <FaImage className="text-purple-500" />
+              <span className="text-[9px] font-black uppercase">{coverFile ? "Cover Ready" : "Change Cover"}</span>
+              <input type="file" className="hidden" onChange={(e) => setCoverFile(e.target.files[0])} accept="image/*" />
+            </label>
+            
+            <label className={`cursor-pointer p-4 bg-white/5 border rounded-2xl flex flex-col items-center justify-center gap-2 transition-all ${avatarFile ? 'border-cyan-400' : 'border-white/10 hover:border-cyan-400'}`}>
+              <FaCamera className="text-cyan-400" />
+              <span className="text-[9px] font-black uppercase">{avatarFile ? "Avatar Ready" : "Change Avatar"}</span>
+              <input type="file" className="hidden" onChange={(e) => setAvatarFile(e.target.files[0])} accept="image/*" />
             </label>
           </div>
+        </div>
 
-          <div className="px-6 md:px-12 pb-6">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-20 relative z-30">
-              {/* Profile Image */}
+        <button 
+          onClick={handleUpdateIdentity}
+          disabled={isUpdating}
+          className="w-full mt-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl font-black text-xs uppercase tracking-[0.3em] shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+        >
+          {isUpdating ? "Synchronizing..." : "Update Identity"}
+        </button>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+      {/* ২. প্রোফাইল ইনফো কার্ড */}
+      <div className="max-w-[900px] mx-auto px-4 -mt-24 relative z-20">
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[3rem] p-6 md:p-10 shadow-2xl">
+          <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
               <div className="relative group">
-                <div className="w-[180px] h-[180px] rounded-full p-1 bg-gradient-to-tr from-[#0866ff] to-[#00ffcc]">
-                  <img src={profileImg || "https://api.dicebear.com/7.x/initials/svg?seed=User"} className="w-full h-full rounded-full object-cover border-[5px] border-[#1c1c1c]" alt="Profile"/>
-                </div>
-                <label className="absolute bottom-3 right-3 p-3 bg-[#3a3b3c] rounded-full border border-gray-600 cursor-pointer hover:scale-110 transition shadow-xl text-white">
-                  <FaCamera size={18} />
-                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageChange(e, "profile")} />
-                </label>
+                <img src={userProfile?.picture || currentUser?.picture} className="w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] border-4 border-[#020617] shadow-lg object-cover bg-[#0f172a]" alt="Avatar"/>
+                <button onClick={() => setIsEditOpen(true)} className="absolute inset-0 bg-black/40 rounded-[2.5rem] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center"><FaCamera size={24}/></button>
+                {userProfile?.isPremium && <div className="absolute -bottom-2 -right-2 bg-gradient-to-tr from-cyan-400 to-purple-600 p-2.5 rounded-2xl border-4 border-[#020617] shadow-lg"><FaShieldAlt className="text-white text-sm" /></div>}
               </div>
-
-              <div className="flex-1 text-center md:text-left mb-2">
-                <div className="flex items-center justify-center md:justify-start gap-2">
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight">{editData.name}</h1>
-                  {editData.isVerified && <MdVerified className="text-[#0866ff]" size={28} />}
+              <div className="text-center md:text-left">
+                <h1 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-none">{userProfile?.nickname || currentUser?.nickname}</h1>
+                <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
+                  <span className="px-2 py-0.5 bg-cyan-400/10 border border-cyan-400/20 rounded-md text-[8px] font-black text-cyan-400 uppercase tracking-widest">{BRAND_NAME} PRO</span>
+                  <p className="text-gray-500 text-[9px] font-bold uppercase tracking-[0.2em]">Verified Drifter</p>
                 </div>
-                <p className="text-gray-400 font-bold mt-1">{stats.followers} Followers • {stats.following} Following</p>
-              </div>
-
-              <div className="flex gap-3 mb-2 w-full md:w-auto">
-                <button className="flex-1 md:flex-none bg-[#0866ff] text-white px-6 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2"><MdDashboard size={20}/> Dashboard</button>
-                <button onClick={() => setIsEditModalOpen(true)} className="flex-1 md:flex-none bg-white/10 text-white px-6 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 border border-white/10"><FaEdit size={16}/> Edit Profile</button>
               </div>
             </div>
-
-            {/* Tab Navigation */}
-            <div className="flex items-center gap-2 mt-8 border-t border-white/5 pt-2">
-                {["Posts", "About", "Reels", "Photos"].map((tab) => (
-                  <button key={tab} onClick={() => setActiveTab(tab)}
-                    className={`px-6 py-3 rounded-xl font-bold transition-all ${activeTab === tab ? "bg-[#0866ff]/10 text-[#0866ff]" : "text-gray-400 hover:bg-white/5"}`}>
-                    {tab}
-                  </button>
-                ))}
+            <div className="flex gap-3">
+              <button onClick={() => setIsEditOpen(true)} className="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-cyan-400 transition-all flex items-center gap-2"><FaEdit /> Edit Profile</button>
+              <button onClick={() => setIsCreateOpen(true)} className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-cyan-500/20 flex items-center gap-2"><FaPlus /> New Echo</button>
             </div>
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-white/5">
+            <div className="col-span-2">
+              <h3 className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em] mb-3">Neural Signature</h3>
+              <p className="text-gray-400 text-sm leading-relaxed italic">"{userProfile?.bio || "Scanning the drift for meaning..."}"</p>
+              <div className="flex flex-wrap gap-5 mt-6 text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                <span className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full"><FaMapMarkerAlt className="text-cyan-400" /> {userProfile?.location || "Unknown Sector"}</span>
+                <span className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full"><FaCalendarAlt className="text-purple-500" /> Joined Jan 2026</span>
+              </div>
+            </div>
+            <div className="flex md:flex-col justify-around md:justify-center gap-4 bg-white/5 rounded-3xl p-6 border border-white/5">
+              <div className="text-center md:text-left"><p className="text-2xl font-black text-white leading-none">{userPosts.length}</p><p className="text-[8px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">Total Echoes</p></div>
+              <div className="text-center md:text-left"><p className="text-2xl font-black text-cyan-400 leading-none">12.8K</p><p className="text-[8px] text-gray-500 uppercase tracking-[0.2em] mt-1 font-bold">Neural Links</p></div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ৩. ফিড ট্যাব */}
+        <div className="mt-12">
+          <div className="flex items-center gap-8 px-6 mb-8 border-b border-white/5">
+            {["Echoes", "Insights", "Media"].map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 text-[10px] font-black uppercase tracking-[0.3em] relative ${activeTab === tab ? "text-cyan-400" : "text-gray-600"}`}>
+                {tab}
+                {activeTab === tab && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-6">
+            <AnimatePresence mode="wait">
+              {userPosts.length > 0 ? userPosts.map((post, index) => (
+                <motion.div key={post._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
+                  <PostCard post={post} onAction={fetchProfileData} />
+                </motion.div>
+              )) : (
+                <div className="py-20 text-center bg-white/5 rounded-[3rem] border border-dashed border-white/10"><FaRocket className="text-gray-800 text-4xl mx-auto mb-4" /><p className="text-gray-600 italic text-xs uppercase tracking-widest">No neural echoes found in this sector.</p></div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
-      {/* --- Main Content Section --- */}
-      <div className="max-w-[1100px] mx-auto mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 px-4">
-        
-        {/* Left Side: Intro */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-[#1c1c1c] p-6 rounded-[1.5rem] border border-white/5 shadow-xl sticky top-24">
-            <h2 className="text-xl font-black mb-4 flex items-center gap-2">
-              <span className="w-1.5 h-6 bg-[#0866ff] rounded-full"></span> Intro
-            </h2>
-            <div className="space-y-5">
-              <p className="text-center italic text-gray-400">"{editData.bio}"</p>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4"><FaBriefcase className="text-[#0866ff] text-xl" /> <span className="text-sm font-medium">Digital Creator at <span className="font-bold">{editData.workplace}</span></span></div>
-                <div className="flex items-center gap-4"><FaMapMarkerAlt className="text-pink-500 text-xl" /> <span className="text-sm font-medium">From <span className="font-bold">{editData.location}</span></span></div>
-                {editData.isVerified && <div className="flex items-center gap-4"><FaCheckCircle className="text-green-500 text-xl" /> <span className="text-sm font-medium">Verified Profile</span></div>}
+      {/* --- MODALS --- */}
+      <AnimatePresence>
+        {/* CREATE POST MODAL */}
+        {isCreateOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#0f172a] w-full max-w-lg rounded-[3rem] border border-white/10 p-8 shadow-2xl">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-xl font-black italic text-purple-400 uppercase tracking-tighter">New Echo</h2>
+                <button onClick={() => setIsCreateOpen(false)} className="text-gray-500 hover:text-white"><FaTimes/></button>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Right Side: Feed & Tabs */}
-        <div className="lg:col-span-7 space-y-6">
-          
-          {/* Create Post Box (Only in Posts Tab) */}
-          {activeTab === "Posts" && (
-            <div className="bg-[#1c1c1c] p-6 rounded-[1.5rem] border border-white/5 shadow-xl">
-              <div className="flex gap-4">
-                <img src={profileImg} className="w-12 h-12 rounded-full object-cover border-2 border-[#0866ff]" alt="User" />
-                <textarea 
-                  placeholder={`What's on your mind, ${editData.name.split(' ')[0]}?`}
-                  className="w-full bg-[#111] border-none rounded-2xl p-4 text-white resize-none outline-none focus:ring-1 ring-[#0866ff] min-h-[100px]"
-                  value={postText}
-                  onChange={(e) => setPostText(e.target.value)}
-                />
-              </div>
-              <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
-                <button className="flex items-center gap-2 text-gray-400 hover:text-green-500 font-bold transition">
-                   <FaCamera /> Photo/Video
+              <textarea 
+                className="w-full bg-transparent border-none outline-none text-white placeholder:text-gray-700 text-lg mb-6 resize-none h-32" 
+                placeholder="Share your neural drift..." 
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
+
+              {/* Hidden File Input */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={(e) => setFile(e.target.files[0])}
+                accept={postType === 'photo' ? 'image/*' : 'video/*'}
+              />
+
+              {/* Media Selectors */}
+              <div className="grid grid-cols-3 gap-3 mb-8">
+                <button onClick={() => handleFileSelect('photo')} className={`flex flex-col items-center gap-2 p-4 bg-white/5 rounded-2xl border transition-all ${file && postType === 'photo' ? 'border-cyan-400 bg-cyan-400/10' : 'border-white/5 hover:border-cyan-400'}`}>
+                  <FaImage size={24} className="text-cyan-400"/>
+                  <span className="text-[8px] font-black uppercase">Photo</span>
                 </button>
-                <button 
-                  onClick={handleCreatePost}
-                  disabled={!postText || isPosting}
-                  className="bg-[#0866ff] text-white px-8 py-2 rounded-xl font-bold hover:brightness-110 disabled:opacity-50 transition shadow-lg"
-                >
-                  {isPosting ? "Posting..." : "Post"}
+                <button onClick={() => handleFileSelect('video')} className={`flex flex-col items-center gap-2 p-4 bg-white/5 rounded-2xl border transition-all ${file && postType === 'video' ? 'border-purple-500 bg-purple-500/10' : 'border-white/5 hover:border-purple-500'}`}>
+                  <FaFilm size={24} className="text-purple-500"/>
+                  <span className="text-[8px] font-black uppercase">Video</span>
+                </button>
+                <button onClick={() => handleFileSelect('reel')} className={`flex flex-col items-center gap-2 p-4 bg-white/5 rounded-2xl border transition-all ${file && postType === 'reel' ? 'border-rose-500 bg-rose-500/10' : 'border-white/5 hover:border-rose-500'}`}>
+                  <FaPlayCircle size={24} className="text-rose-500"/>
+                  <span className="text-[8px] font-black uppercase">Reels</span>
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* Dynamic Content Based on Tab */}
-          <div className="space-y-6">
-            {activeTab === "Posts" && (
-              userPosts.length > 0 ? userPosts.map(post => <PostCard key={post._id} post={post} />) : 
-              <div className="bg-[#1c1c1c] p-10 rounded-[1.5rem] text-center text-gray-500 italic">No posts in your timeline yet.</div>
-            )}
-
-            {activeTab === "About" && (
-              <div className="bg-[#1c1c1c] p-8 rounded-[1.5rem] border border-white/5 shadow-xl animate-in fade-in">
-                <h4 className="text-xl font-bold mb-4">About Me</h4>
-                <div className="space-y-4 text-gray-400">
-                   <p>👋 Hi, I am <span className="text-white font-bold">{editData.name}</span>.</p>
-                   <p>💼 Working at: <span className="text-white font-bold">{editData.workplace}</span>.</p>
-                   <p>📍 Based in: <span className="text-white font-bold">{editData.location}</span>.</p>
+              {file && (
+                <div className="mb-6 p-3 bg-cyan-400/10 border border-cyan-400/20 rounded-xl flex items-center justify-between">
+                  <span className="text-[10px] text-cyan-400 font-bold truncate max-w-[200px]">{file.name}</span>
+                  <FaCheckCircle className="text-cyan-400" />
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === "Reels" && (
-              <div className="bg-[#1c1c1c] p-10 rounded-[1.5rem] border-2 border-dashed border-white/10 flex flex-col items-center gap-4">
-                 <div className="w-16 h-16 bg-[#0866ff]/10 rounded-full flex items-center justify-center text-[#0866ff]"><FaPlus size={24}/></div>
-                 <p className="font-bold">Share your first reel</p>
-                 <input type="file" accept="video/*" id="reel-up" className="hidden" />
-                 <label htmlFor="reel-up" className="bg-[#0866ff] text-white px-6 py-2 rounded-xl font-bold cursor-pointer hover:brightness-110">Upload Video</label>
-              </div>
-            )}
-
-            {activeTab === "Photos" && (
-              <div className="grid grid-cols-3 gap-3">
-                 {[1, 2, 3, 4, 5, 6].map(i => (
-                   <div key={i} className="aspect-square bg-[#2a2a2a] rounded-xl overflow-hidden hover:scale-105 transition cursor-pointer">
-                     <img src={`https://picsum.photos/seed/${i+40}/400`} className="w-full h-full object-cover" alt="Gallery"/>
-                   </div>
-                 ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* --- Edit Profile Modal --- */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-[#1c1c1c] w-full max-w-[500px] rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl">
-            <div className="flex justify-between items-center p-6 border-b border-white/5">
-              <h3 className="text-xl font-black text-[#0866ff]">Edit Profile</h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-white hover:text-red-500">✕</button>
-            </div>
-            <div className="p-8 space-y-4">
-              <input className="w-full bg-[#111] border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#0866ff]" placeholder="Name" value={editData.name} onChange={(e) => setEditData({...editData, name: e.target.value})} />
-              <textarea className="w-full bg-[#111] border border-white/10 rounded-xl p-3 text-white h-20 outline-none focus:border-[#0866ff]" placeholder="Bio" value={editData.bio} onChange={(e) => setEditData({...editData, bio: e.target.value})} />
-              <input className="w-full bg-[#111] border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#0866ff]" placeholder="Workplace" value={editData.workplace} onChange={(e) => setEditData({...editData, workplace: e.target.value})} />
-              <input className="w-full bg-[#111] border border-white/10 rounded-xl p-3 text-white outline-none focus:border-[#0866ff]" placeholder="Location" value={editData.location} onChange={(e) => setEditData({...editData, location: e.target.value})} />
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
-                <span className="text-sm font-bold">Verified Official Badge</span>
-                <input type="checkbox" className="w-5 h-5 accent-[#0866ff]" checked={editData.isVerified} onChange={(e) => setEditData({...editData, isVerified: e.target.checked})} />
-              </div>
-            </div>
-            <div className="p-6 bg-[#111]/50 border-t border-white/5">
-              <button onClick={handleSave} className="w-full bg-[#0866ff] text-white font-black py-4 rounded-2xl hover:brightness-110 shadow-lg">Save Changes</button>
-            </div>
-          </div>
-        </div>
-      )}
+              <button 
+                onClick={handleTransmit}
+                disabled={isTransmitting}
+                className="w-full py-4 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:bg-cyan-400 transition-all disabled:opacity-50"
+              >
+                {isTransmitting ? "Transmitting..." : "Transmit Echo"}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

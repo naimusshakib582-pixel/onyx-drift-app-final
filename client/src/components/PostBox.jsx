@@ -1,106 +1,131 @@
-import React, { useState } from "react";
-import { FaVideo, FaImages, FaRegSmile } from "react-icons/fa";
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { FaImage, FaMicrophone, FaPaperPlane, FaMagic } from 'react-icons/fa';
+import axios from 'axios';
+import { useAuth0 } from '@auth0/auth0-react';
+import { BRAND_NAME, AI_NAME } from '../utils/constants';
 
-const PostBox = ({ onPostCreated }) => {
-  const [isOpen, setIsOpen] = useState(false); // মডাল ওপেন/ক্লোজ স্টেট
-  const [postText, setPostText] = useState("");
+const PostBox = ({ user, onPostCreated }) => {
+  const [text, setText] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false); // AI এর জন্য আলাদা স্টেট
+  const { getAccessTokenSilently } = useAuth0();
 
-  const handlePostSubmit = () => {
-    // এখানে আপনার API কল হবে
-    console.log("Posting:", postText);
-    setPostText("");
-    setIsOpen(false);
-    if (onPostCreated) onPostCreated();
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
+
+  // --- AI Magic Function ---
+  const handleAIEnhance = async () => {
+    if (!text.trim()) return alert("Write something first for the magic to work!");
+    
+    setIsEnhancing(true);
+    try {
+      const token = await getAccessTokenSilently();
+      const response = await axios.post(
+        `${API_URL}/api/ai/enhance`, 
+        { prompt: text },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.enhancedText) {
+        setText(response.data.enhancedText);
+      }
+    } catch (error) {
+      console.error("AI Magic Error:", error);
+      alert("The AI cosmos is busy. Try again in a moment!");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handlePost = async () => {
+    if (!text.trim()) return;
+    setIsPosting(true);
+    try {
+      const token = await getAccessTokenSilently();
+      const response = await axios.post(
+        `${API_URL}/api/posts`,
+        { desc: text },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setText("");
+        if (onPostCreated) onPostCreated();
+      }
+    } catch (error) {
+      console.error("Error creating post:", error);
+      alert("Something went wrong while posting.");
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   return (
-    <div className="bg-[#242526] rounded-xl p-4 shadow-md w-full">
-      {/* উপরের অংশ: প্রোফাইল পিকচার ও ইনপুট */}
-      <div className="flex items-center space-x-3 border-b border-[#3e4042] pb-3">
-        <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-xl">
-          N
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-6 shadow-2xl"
+    >
+      <div className="flex gap-4 items-start">
+        <img 
+          src={user?.picture || "https://placehold.jp/150x150.png"} 
+          className="w-12 h-12 rounded-2xl border border-white/10 object-cover"
+          alt="User"
+        />
+        <div className="flex-1">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={isEnhancing ? `${AI_NAME} is weaving magic...` : `What's on your mind, ${user?.nickname || 'Drifter'}?`}
+            className={`w-full bg-transparent border-none outline-none text-white text-sm placeholder:text-gray-600 resize-none h-20 pt-2 font-light tracking-wide transition-all ${isEnhancing ? 'opacity-50 blur-[1px]' : 'opacity-100'}`}
+          />
         </div>
-        <button
-          onClick={() => setIsOpen(true)}
-          className="bg-[#3a3b3c] hover:bg-[#4e4f50] transition-all text-[#b0b3b8] flex-1 text-left py-2 px-4 rounded-full"
-        >
-          What's on your mind, Naimus?
-        </button>
       </div>
 
-      {/* নিচের অংশ: লাইভ, ফটো, ফিলিং বাটন */}
-      <div className="flex justify-between mt-2 pt-1">
-        <button className="flex items-center space-x-2 hover:bg-[#3a3b3c] p-2 rounded-lg flex-1 justify-center transition">
-          <FaVideo className="text-red-500" />
-          <span className="text-[#b0b3b8] text-sm font-semibold">Live</span>
-        </button>
-        <button 
-          onClick={() => setIsOpen(true)}
-          className="flex items-center space-x-2 hover:bg-[#3a3b3c] p-2 rounded-lg flex-1 justify-center transition"
-        >
-          <FaImages className="text-green-500" />
-          <span className="text-[#b0b3b8] text-sm font-semibold">Photo</span>
-        </button>
-        <button className="flex items-center space-x-2 hover:bg-[#3a3b3c] p-2 rounded-lg flex-1 justify-center transition">
-          <FaRegSmile className="text-yellow-500" />
-          <span className="text-[#b0b3b8] text-sm font-semibold">Feeling</span>
-        </button>
-      </div>
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+        <div className="flex gap-4">
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            className="flex items-center gap-2 text-gray-400 hover:text-cyan-neon transition-colors text-xs font-bold uppercase tracking-widest"
+          >
+            <FaImage className="text-lg" />
+            <span className="hidden sm:block">Media</span>
+          </motion.button>
 
-      {/* --- পোস্ট মডাল (Popup) --- */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4">
-          <div className="bg-[#242526] w-full max-w-[500px] rounded-lg shadow-2xl border border-[#3e4042]">
-            {/* মডাল হেডার */}
-            <div className="flex justify-between items-center p-4 border-b border-[#3e4042]">
-              <h3 className="text-white text-xl font-bold text-center flex-1">Create post</h3>
-              <button 
-                onClick={() => setIsOpen(false)}
-                className="bg-[#3a3b3c] hover:bg-[#4e4f50] text-white rounded-full w-8 h-8 flex items-center justify-center"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* মডাল বডি */}
-            <div className="p-4">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold">N</div>
-                <span className="text-white font-semibold">Naimus</span>
-              </div>
-              
-              <textarea
-                className="w-full bg-transparent text-white text-lg outline-none resize-none min-h-[150px]"
-                placeholder="What's on your mind, Naimus?"
-                value={postText}
-                onChange={(e) => setPostText(e.target.value)}
-              ></textarea>
-
-              {/* অ্যাড টু পোস্ট সেকশন */}
-              <div className="border border-[#3e4042] rounded-lg p-3 flex justify-between items-center mt-4">
-                <span className="text-white font-semibold text-sm">Add to your post</span>
-                <div className="flex space-x-3">
-                  <FaImages className="text-green-500 text-xl cursor-pointer" />
-                  <FaVideo className="text-red-500 text-xl cursor-pointer" />
-                  <FaRegSmile className="text-yellow-500 text-xl cursor-pointer" />
-                </div>
-              </div>
-
-              {/* পোস্ট বাটন */}
-              <button
-                disabled={!postText.trim()}
-                onClick={handlePostSubmit}
-                className={`w-full mt-4 py-2 rounded-md font-semibold transition ${
-                  postText.trim() ? "bg-[#0866ff] text-white" : "bg-[#505151] text-[#8c8d8e] cursor-not-allowed"
-                }`}
-              >
-                Post
-              </button>
-            </div>
-          </div>
+          {/* AI Magic Button */}
+          <motion.button 
+            onClick={handleAIEnhance}
+            disabled={isEnhancing || !text.trim()}
+            whileTap={{ scale: 0.9 }}
+            className={`flex items-center gap-2 transition-all text-xs font-bold uppercase tracking-widest ${isEnhancing ? 'text-purple-neon animate-pulse' : 'text-gray-400 hover:text-purple-neon'}`}
+          >
+            <FaMagic className="text-lg" />
+            <span className="hidden sm:block">{isEnhancing ? 'Enhancing...' : `${BRAND_NAME} Magic`}</span>
+          </motion.button>
         </div>
-      )}
-    </div>
+
+        <div className="flex gap-3">
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            className="bg-white/5 p-3 rounded-2xl text-cyan-neon border border-white/5 hover:bg-white/10"
+          >
+            <FaMicrophone />
+          </motion.button>
+          
+          <motion.button 
+            onClick={handlePost}
+            whileTap={{ scale: 0.95 }}
+            disabled={text.length === 0 || isPosting || isEnhancing}
+            className={`px-6 py-3 rounded-2xl flex items-center gap-2 font-black text-[10px] uppercase tracking-[0.2em] transition-all
+              ${text.length > 0 && !isPosting
+                ? 'bg-gradient-to-r from-cyan-neon to-purple-neon text-black shadow-neon-blue' 
+                : 'bg-white/5 text-gray-600 cursor-not-allowed border border-white/5'}`}
+          >
+            {isPosting ? 'Posting...' : 'Post'} <FaPaperPlane />
+          </motion.button>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

@@ -1,58 +1,78 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
-import { FaUserCircle, FaUserFriends, FaUsers, FaStore, FaTv, FaClock, FaBookmark, FaChevronDown } from "react-icons/fa";
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import {
+  FaHome, FaEnvelope, FaCompass, FaCog, FaSignOutAlt, FaRocket
+} from 'react-icons/fa';
+import { HiOutlineChartBar } from 'react-icons/hi2';
+import { useAuth0 } from '@auth0/auth0-react';
 
 const Sidebar = () => {
-  const { user } = useAuth0();
+  const { logout } = useAuth0();
 
   const menuItems = [
-    { path: "/friends", icon: <FaUserFriends size={22} className="text-cyan-500" />, label: "Friends" },
-    { path: "/groups", icon: <FaUsers size={22} className="text-blue-500" />, label: "Groups" },
-    { path: "/marketplace", icon: <FaStore size={22} className="text-blue-600" />, label: "Marketplace" },
-    { path: "/watch", icon: <FaTv size={22} className="text-blue-400" />, label: "Watch" },
-    { path: "/memories", icon: <FaClock size={22} className="text-blue-600" />, label: "Memories" },
-    { path: "/saved", icon: <FaBookmark size={22} className="text-purple-600" />, label: "Saved" },
+    { name: 'Feed', icon: <FaHome />, path: '/feed' },
+    { name: 'Analytics', icon: <HiOutlineChartBar />, path: '/analytics' },
+    { name: 'Messages', icon: <FaEnvelope />, path: '/messenger' },
+    { name: 'Explore', icon: <FaCompass />, path: '/explorer' }, // আপনার পাথ অনুযায়ী explorer/explore ঠিক করে নিন
+    { name: 'Settings', icon: <FaCog />, path: '/settings' },
   ];
 
   return (
-    <aside className="fixed left-0 top-[105px] h-[calc(100vh-105px)] w-64 hidden lg:flex flex-col py-2 px-4 overflow-y-auto no-scrollbar z-40 bg-[#f0f2f5]">
-      {/* ইউজার প্রোফাইল লিঙ্ক */}
-      <NavLink to="/profile" className="flex items-center gap-3 p-2 hover:bg-gray-200 rounded-lg transition">
-        <img 
-          src={user?.picture || "https://api.dicebear.com/7.x/avataaars/svg?seed=Lucky"} 
-          className="w-9 h-9 rounded-full object-cover border border-gray-300" 
-          alt="user"
-        />
-        <span className="font-semibold text-[15px]">{user?.name || "User"}</span>
-      </NavLink>
-
-      {/* মেনু আইটেমসমূহ */}
-      <div className="mt-2 space-y-1">
-        {menuItems.map((item, index) => (
+    <div className="flex flex-col h-full py-6 justify-between bg-transparent">
+      
+      {/* ১. মেইন নেভিগেশন */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] px-4 mb-6 italic">Neural Menu</p>
+        
+        {menuItems.map((item) => (
           <NavLink
-            key={index}
+            key={item.name}
             to={item.path}
-            className="flex items-center gap-3 p-2 hover:bg-gray-200 rounded-lg transition group"
+            className={({ isActive }) => `
+              flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 group
+              ${isActive
+                ? 'bg-gradient-to-r from-cyan-500/10 to-transparent text-cyan-400 border-l-4 border-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.1)]'
+                : 'text-gray-500 hover:text-white hover:bg-white/5'}
+            `}
           >
-            <div className="w-9 flex justify-center">{item.icon}</div>
-            <span className="text-[15px] font-medium text-gray-800">{item.label}</span>
+            <span className="text-xl group-hover:scale-110 transition-transform">
+              {item.icon}
+            </span>
+            <span className="text-sm font-bold tracking-wide uppercase italic">{item.name}</span>
           </NavLink>
         ))}
-        
-        {/* See More বাটন */}
-        <button className="w-full flex items-center gap-3 p-2 hover:bg-gray-200 rounded-lg transition">
-          <div className="w-9 h-9 bg-gray-300 rounded-full flex items-center justify-center">
-            <FaChevronDown size={14} />
-          </div>
-          <span className="text-[15px] font-medium">See more</span>
-        </button>
       </div>
 
-      <div className="mt-4 border-t border-gray-300 pt-4 text-xs text-gray-500 px-2">
-        Privacy · Terms · Advertising · Cookies · More · Meta © 2025
+      {/* ২. প্রো কার্ড এবং লগআউট (নিচের সেকশন) */}
+      <div className="px-2 mt-auto space-y-4">
+        
+        {/* Onyx Pro Upgrade Card */}
+        <div className="bg-gradient-to-br from-purple-600/20 to-cyan-500/10 rounded-[2.5rem] p-6 border border-white/5 relative overflow-hidden group shadow-2xl">
+          <div className="absolute -top-2 -right-2 p-2 opacity-10 group-hover:rotate-12 transition-all duration-500 group-hover:scale-110">
+             <FaRocket size={60} className="text-cyan-400" />
+          </div>
+          
+          <div className="relative z-10">
+            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1 italic">Onyx Pro</p>
+            <p className="text-[11px] font-bold text-white/90 mb-4 leading-snug">Level up your neural experience today.</p>
+            
+            <button className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-md py-2.5 rounded-xl text-[10px] font-black text-white uppercase tracking-tighter transition-all active:scale-95 border border-white/10">
+              Upgrade System
+            </button>
+          </div>
+        </div>
+
+        {/* Logout Button */}
+        <button 
+          onClick={() => logout({ returnTo: window.location.origin })}
+          className="w-full flex items-center gap-4 px-6 py-4 text-rose-500/70 hover:text-rose-400 hover:bg-rose-500/5 rounded-2xl transition-all duration-300 font-bold text-xs uppercase italic"
+        >
+          <FaSignOutAlt size={18} />
+          <span>Disconnect</span>
+        </button>
+
       </div>
-    </aside>
+    </div>
   );
 };
 

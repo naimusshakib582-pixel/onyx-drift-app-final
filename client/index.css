@@ -1,120 +1,98 @@
-/* client/index.css */
+/* ১. গুগল ফন্ট ইম্পোর্ট */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
 
-/* 1. Tailwind CSS ডিরেক্টিভগুলি */
+/* ২. টেলউইন্ড ডিরেক্টিভস */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 2. রুট স্টাইল এবং ডিফল্ট সেটিংস */
-:root {
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* ফেসবুকের ফন্ট স্টাইল */
-  line-height: 1.5;
-  font-weight: 400;
-  color: #1c1e21; 
-  background-color: #f0f2f5; /* ফেসবুকের হালকা ধূসর ব্যাকগ্রাউন্ড */
-  
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* 3. Body এবং Root ফিক্স */
-body, #root, html {
-    background-color: #f0f2f5; 
-    min-height: 100vh;
+/* ৩. বেইস স্টাইলস */
+@layer base {
+  body {
+    /* সরাসরি কালার কোড ব্যবহার করছি এরর এড়াতে */
+    background-color: #050508; 
+    color: #e2e8f0;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     margin: 0;
     padding: 0;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
-/* 4. স্ক্রলবার হাইড করার ক্লাস */
+/* ৪. প্রিমিয়াম স্ক্রলবার (ছবির মতো ক্লিন) */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #050508;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00BFFF; /* আপনার কনফিগের cyan-neon */
+}
+
+/* ৫. আপনার কনফিগ অনুযায়ী কাস্টম ক্লাস */
+@layer components {
+  /* প্রিমিয়াম গ্লাস কার্ড */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.05); /* zenith-card */
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.1); /* zenith-border */
+    border-radius: 2.5rem;
+    box-shadow: 0 4px 6px rgba(255, 255, 255, 0.05);
+  }
+
+  /* নিওন বাটন */
+  .zenith-btn {
+    background: #00BFFF;
+    color: #000;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.8rem 1.5rem;
+    border-radius: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 15px rgba(0, 191, 255, 0.3);
+  }
+
+  .zenith-btn:hover {
+    box-shadow: 0 0 25px rgba(0, 191, 255, 0.6);
+    transform: translateY(-2px);
+  }
+}
+
+/* ৬. এনিমেশন ও ব্যাকগ্রাউন্ড টেক্সচার */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* ছবির মতো হালকা নয়েজ বা দানা ব্যাকগ্রাউন্ড */
+.bg-grainy {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.03;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* নো স্ক্রলবার ইউটিলিটি */
 .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  display: none;
 }
 .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-/* 5. ফেসবুকের মতো স্টোরি কার্ড ডিজাইন (নতুন যোগ করা হয়েছে) */
-
-/* স্টোরি কন্টেইনার */
-.story-card {
-  width: 110px;
-  height: 190px;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-  background-size: cover;
-  background-position: center;
-  cursor: pointer;
-  transition: transform 0.2s ease-in-out;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.story-card:hover {
-  transform: scale(1.02);
-}
-
-/* স্টোরির উপরে ইউজারের ছোট গোল ছবি */
-.story-user-img {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 3px solid #1877f2; /* ফেসবুকের সিগনেচার ব্লু বর্ডার */
-  object-fit: cover;
-  z-index: 10;
-}
-
-/* স্টোরির নিচে ইউজারের নাম */
-.story-username {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-  z-index: 10;
-}
-
-/* স্টোরির উপর হালকা কালো শেড (যাতে নাম পরিষ্কার বোঝা যায়) */
-.story-card::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 40%;
-  background: linear-gradient(transparent, rgba(0,0,0,0.5));
-}
-
-/* 6. অন্যান্য উপাদান স্টাইল */
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #e4e6eb; 
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-button:hover {
-  background-color: #d8dadf;
-}
-
-a {
-  font-weight: 500;
-  color: #1877f2;
-  text-decoration: none;
-}
-
-/* ইমেজ লোড না হলে অল্টারনেটিভ স্টাইল */
-img {
-  background-color: #e4e6eb;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

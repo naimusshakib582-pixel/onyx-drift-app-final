@@ -3,112 +3,108 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// ১. সবার আগে dotenv কনফিগার করুন (যাতে connectDB কল হওয়ার আগেই ভ্যারিয়েবল লোড হয়)
-dotenv.config();
-
-// ২. ডাটাবেস ও রাউট ইম্পোর্ট (অবশ্যই dotenv.config() এর নিচে)
+// Route Imports
 import connectDB from "./config/db.js"; 
 import profileRoutes from "./src/routes/profile.js"; 
-import userRoutes from "./routes/userRoutes.js";    
-import postRoutes from "./routes/posts.js";        
+import userRoutes from "./routes/userRoutes.js";     
+import postRoutes from "./routes/posts.js";          
 import messageRoutes from "./routes/messages.js";
 
-const app = express();
+dotenv.config();
 
-// ৩. মিডেলওয়্যার সেটআপ (CORS প্রোডাকশন ইউআরএল সহ)
+const app = express();
+const server = http.createServer(app);
+
+// ১. AI কনফিগারেশন
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// ২. মিডলওয়্যার (CORS & JSON)
 app.use(cors({
-    origin: [
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173",
-        "https://onyx-drift-app-final.onrender.com" // আপনার Render ফ্রন্টএন্ড ইউআরএল এখানে যোগ করুন
-    ],
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173", "https://onyx-drift-app-final.onrender.com"],
     credentials: true
 }));
 app.use(express.json());
 
-// ৪. HTTP Server তৈরি
-const server = http.createServer(app);
-
-// ৫. Socket.io কনফিগারেশন
+// ৩. সকেট কনফিগারেশন (Socket.io)
 const io = new Server(server, {
   cors: {
-    origin: [
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173",
-        "https://onyx-drift-app-final.onrender.com" // সকেটের জন্যও ইউআরএলটি দিন
-    ],
+    origin: ["http://localhost:5173", "https://onyx-drift-app-final.onrender.com"],
     methods: ["GET", "POST"],
     credentials: true
   },
-  transports: ["websocket", "polling"]
+  transports: ['websocket', 'polling'] // কানেকশন এরর কমানোর জন্য
 });
 
-// ৬. ডাটাবেস কানেক্ট (এটি এখন সঠিকভাবে MONGODB_URI খুঁজে পাবে)
+// ৪. ডাটাবেস কানেকশন
 connectDB();
 
-// ৭. এপিআই রাউটস মাউন্ট করা
+// ৫. এপিআই রাউটস
 app.use("/api/profile", profileRoutes);
 app.use("/api/user", userRoutes); 
 app.use("/api/posts", postRoutes);
+if (messageRoutes) app.use("/api/messages", messageRoutes);
 
-// মেসেজ রাউট মাউন্ট
-if (messageRoutes) {
-    app.use("/api/messages", messageRoutes);
-}
+// --- AI Enhance Route ---
+app.post("/api/ai/enhance", async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: "No text provided" });
 
-// Watch পেজের জন্য সাময়িক রাউট
-app.get("/api/watch", (req, res) => {
-    res.json([]); 
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const fullPrompt = `You are the AI of a futuristic social media platform called OnyxDrift. 
+    Rewrite the following user post to be more engaging, professional yet cool, and aesthetic. 
+    Keep it concise (maximum 2-3 sentences) and add 2 relevant hashtags. 
+    Original text: "${prompt}"`;
+
+    const result = await model.generateContent(fullPrompt);
+    const enhancedText = result.response.text();
+    
+    res.json({ enhancedText });
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    res.status(500).json({ error: "AI processing failed" });
+  }
 });
 
 app.get("/", (req, res) => res.send("✅ OnyxDrift API is running successfully..."));
 
-// --- সকেট লজিক (অনলাইন ইউজার ট্র্যাকিং) ---
+// ৬. সকেট লজিক (Real-time Interaction)
 let onlineUsers = []; 
 
 io.on("connection", (socket) => {
-  console.log("🚀 New Connection:", socket.id);
+  console.log(`📡 New Drift Connection: ${socket.id}`);
 
+  // ইউজার অনলাইন হলে
   socket.on("addNewUser", (userId) => {
-    if (!userId) return;
-    // ডুপ্লিকেট ইউজার রিমুভ করা
-    onlineUsers = onlineUsers.filter((u) => u.userId !== userId);
-    onlineUsers.push({ userId, socketId: socket.id });
-    console.log("👥 Online Users Updated:", onlineUsers.length);
+    if (userId && !onlineUsers.some(u => u.userId === userId)) {
+      onlineUsers.push({ userId, socketId: socket.id });
+    }
     io.emit("getOnlineUsers", onlineUsers);
   });
 
-  socket.on("sendNotification", ({ senderName, receiverId, type, image }) => {
-    const receiver = onlineUsers.find((u) => u.userId === receiverId);
-    if (receiver) {
-      io.to(receiver.socketId).emit("getNotification", {
-        senderName,
-        type,
-        image,
-        createdAt: new Date(),
-      });
-    }
+  // ভয়েস পোস্টের রিয়েল-টাইম আপডেট (যদি ফ্রন্টএন্ড থেকে পাঠান)
+  socket.on("sendNewPost", (newPost) => {
+    io.emit("receiveNewPost", newPost);
   });
 
-  socket.on("sendMessage", (message) => {
-    const receiver = onlineUsers.find((u) => u.userId === message.receiverId);
-    if (receiver) {
-      io.to(receiver.socketId).emit("getMessage", message);
-    }
-  });
-
+  // ডিসকানেক্ট হলে
   socket.on("disconnect", () => {
     onlineUsers = onlineUsers.filter((u) => u.socketId !== socket.id);
     io.emit("getOnlineUsers", onlineUsers);
-    console.log("❌ User disconnected");
+    console.log("❌ User disconnected from Neural Drift");
   });
 });
 
-// ৮. সার্ভার স্টার্ট
+// ৭. সার্ভার লিসেন
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
-  console.log(`\n============================================`);
-  console.log(`✅ OnyxDrift Server is Live on Port ${PORT}`);
-  console.log(`============================================\n`);
+  console.log(`
+  🚀-------------------------------------------------🚀
+     OnyxDrift Server is Live on Port: ${PORT}
+     Neural Engine: Gemini 1.5 Flash
+     Socket Status: Active
+  🚀-------------------------------------------------🚀
+  `);
 });

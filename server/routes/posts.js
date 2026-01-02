@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// 1. Create post
+// ১. পোস্ট তৈরি করা (Create post)
 router.post('/', auth, async (req, res) => {
   const { text, media } = req.body || {};
   try {
@@ -24,7 +24,7 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// 2. Get timeline (With Pagination for Infinite Scroll)
+// ২. টাইমলাইন দেখা (Pagination সহ)
 router.get('/', auth, async (req, res) => {
   const { feed, page = 1, limit = 5 } = req.query; 
   try {
@@ -34,13 +34,12 @@ router.get('/', auth, async (req, res) => {
       query = { author: { $in: [...me.following, me.id] } };
     }
 
-    // Pagination লজিক: কতগুলো পোস্ট বাদ দিয়ে পরেরগুলো আনবে
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const posts = await Post.find(query)
       .populate('author', 'name avatar')
       .populate('comments.author', 'name avatar')
-      .sort({ createdAt: -1 }) // নতুন পোস্ট সবার আগে
+      .sort({ createdAt: -1 }) 
       .skip(skip)
       .limit(parseInt(limit));
 
@@ -51,7 +50,7 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// 3. Get single post
+// ৩. একটি নির্দিষ্ট পোস্ট দেখা
 router.get('/:id', auth, async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id))
@@ -67,7 +66,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// 4. Update post
+// ৪. পোস্ট আপডেট করা
 router.put('/:id', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -86,13 +85,12 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// 5. Delete post (Updated with findByIdAndDelete)
+// ৫. পোস্ট ডিলিট করা
 router.delete('/:id', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ msg: 'Post not found' });
     
-    // ইউজার নিজের পোস্ট কি না চেক করা
     if (post.author.toString() !== req.user.id)
       return res.status(403).json({ msg: 'Not allowed' });
 
@@ -104,7 +102,7 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// 6. Like/unlike
+// ৬. লাইক বা আনলাইক করা
 router.post('/:id/like', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -124,7 +122,7 @@ router.post('/:id/like', auth, async (req, res) => {
   }
 });
 
-// 7. Add comment
+// ৭. কমেন্ট যোগ করা
 router.post('/:id/comments', auth, async (req, res) => {
   try {
     const { text } = req.body || {};
@@ -143,7 +141,7 @@ router.post('/:id/comments', auth, async (req, res) => {
   }
 });
 
-// 8. Reply to a comment
+// ৮. কমেন্টের রিপ্লাই দেওয়া
 router.post('/:postId/comments/:commentId/reply', auth, async (req, res) => {
   try {
     const { text } = req.body || {};

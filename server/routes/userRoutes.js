@@ -1,17 +1,36 @@
-import express from "express";
+import express from 'express';
+import multer from 'multer';
+import auth from '../middleware/auth.js';
+import { createPost } from '../controllers/postController.js';
+
 const router = express.Router();
-// কন্ট্রোলার ইম্পোর্ট করার সময় অবশ্যই শেষে .js দিবেন
-import * as userController from "../controllers/userController.js"; 
 
-// প্রোফাইল সিঙ্ক করার জন্য
-router.post("/update-profile", userController.updateUserProfile);
+const storage = multer.diskStorage({});
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image') || file.mimetype.startsWith('video')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type!'), false);
+  }
+};
 
-// ফ্রেন্ড রিকোয়েস্ট সিস্টেম
-router.post("/send-request", userController.sendRequest);
-router.post("/accept-request", userController.acceptRequest);
+const upload = multer({ 
+  storage, 
+  fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } 
+});
 
-// ইউজারের সব তথ্য গেট করার জন্য
-router.get("/data/:id", userController.getUserData);
+// Routes
+router.post('/create', auth, upload.single('file'), createPost);
 
-// ✅ এটিই সবথেকে গুরুত্বপূর্ণ পরিবর্তন (ESM Export)
+router.get('/user/:userId', auth, async (req, res) => {
+  try {
+    const Post = (await import('../models/Post.js')).default;
+    const posts = await Post.find({ user: req.params.userId }).sort({ createdAt: -1 });
+    res.json(posts);
+  } catch (err) {
+    res.status(500).send("Neural Link Error");
+  }
+});
+
 export default router;
