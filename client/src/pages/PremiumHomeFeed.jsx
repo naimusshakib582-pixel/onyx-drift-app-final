@@ -7,12 +7,12 @@ import {
 import { HiMenuAlt3 } from 'react-icons/hi'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
-import { useNavigate } from 'react-router-dom'; // Navigation এর জন্য যুক্ত করা হয়েছে
+import { useNavigate } from 'react-router-dom'; 
 import PostCard from "../components/PostCard"; 
 
 const PremiumHomeFeed = ({ searchQuery }) => {
   const { user, getAccessTokenSilently } = useAuth0();
-  const navigate = useNavigate(); // Navigation হুক
+  const navigate = useNavigate(); 
   const [postText, setPostText] = useState("");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,12 +23,13 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const [mediaType, setMediaType] = useState(null); 
   const postFileInputRef = useRef(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
+  // আপনার রেন্ডার সার্ভারের লিঙ্কটি এখানে সরাসরি দেওয়া হয়েছে যাতে 404 এরর না আসে
+  const API_URL = "https://onyx-drift-app-final.onrender.com";
 
   // মেনু ক্লিক হ্যান্ডেলার
   const handleMenuClick = (path) => {
     navigate(path);
-    setIsSidebarOpen(false); // ক্লিক করলে ড্রয়ার বন্ধ হবে
+    setIsSidebarOpen(false); 
   };
 
   const fetchPosts = async () => {
@@ -171,7 +172,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         )}
       </AnimatePresence>
 
-      {/* স্লাইড আউট সাইডবার (অ্যাকশনসহ) */}
+      {/* স্লাইড আউট সাইডবার */}
       <aside className={`
         fixed top-0 left-0 h-full w-[290px] bg-[#020617] border-r border-white/10 z-[1001]
         transform transition-transform duration-300 ease-in-out flex flex-col
@@ -185,7 +186,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         
         <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
           <nav className="space-y-1">
-            {/* FEED */}
             <div 
               onClick={() => handleMenuClick('/')}
               className="flex items-center gap-4 p-4 bg-cyan-500/10 text-cyan-400 rounded-2xl border border-cyan-500/20 cursor-pointer active:scale-95 transition-all"
@@ -194,7 +194,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
               <span className="font-bold uppercase text-[11px] tracking-widest">Feed</span>
             </div>
 
-            {/* ANALYTICS */}
             <div 
               onClick={() => handleMenuClick('/analytics')}
               className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-95 group"
@@ -203,16 +202,14 @@ const PremiumHomeFeed = ({ searchQuery }) => {
               <span className="font-bold uppercase text-[11px] tracking-widest">Analytics</span>
             </div>
 
-            {/* MESSAGES */}
             <div 
-              onClick={() => handleMenuClick('/messages')}
+              onClick={() => handleMenuClick('/messenger')}
               className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-95 group"
             >
               <FaPaperPlane size={16} />
               <span className="font-bold uppercase text-[11px] tracking-widest">Messages</span>
             </div>
 
-            {/* EXPLORE */}
             <div 
               onClick={() => handleMenuClick('/explore')}
               className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-95 group"
@@ -221,7 +218,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
               <span className="font-bold uppercase text-[11px] tracking-widest">Explore</span>
             </div>
 
-            {/* SETTINGS */}
             <div 
               onClick={() => handleMenuClick('/settings')}
               className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-95 group"
@@ -231,7 +227,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
             </div>
           </nav>
 
-          {/* ONYX PRO CARD */}
           <div className="mt-8 p-5 bg-gradient-to-br from-cyan-500/20 to-purple-500/10 rounded-[2rem] border border-white/10 relative overflow-hidden group">
             <div className="relative z-10">
               <span className="text-[10px] font-black text-cyan-400 uppercase tracking-tighter">Onyx Pro</span>
@@ -336,8 +331,8 @@ const PremiumHomeFeed = ({ searchQuery }) => {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4">
-             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} 
-              className="relative w-full max-sm:max-w-[90%] max-w-sm aspect-[9/16] bg-[#0b1120] rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col shadow-2xl">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} 
+                className="relative w-full max-sm:max-w-[90%] max-w-sm aspect-[9/16] bg-[#0b1120] rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col shadow-2xl">
               <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
                 {selectedImage ? (
                   <>

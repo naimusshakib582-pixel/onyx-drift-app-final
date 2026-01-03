@@ -9,7 +9,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import connectDB from "./config/db.js"; 
 import profileRoutes from "./src/routes/profile.js"; 
 import userRoutes from "./routes/userRoutes.js";      
-import postRoutes from "./routes/posts.js";           
+import postRoutes from "./routes/posts.js";            
 import messageRoutes from "./routes/messages.js";
 
 dotenv.config();
@@ -21,16 +21,34 @@ const server = http.createServer(app);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ২. মিডলওয়্যার (CORS & JSON)
+// এখানে আপনার ডোমেইনগুলো নিখুঁতভাবে সেট করা হয়েছে
+const allowedOrigins = [
+    "http://localhost:5173", 
+    "http://127.0.0.1:5173", 
+    "https://onyx-drift-app-final.onrender.com",
+    "https://www.onyx-drift.com",
+    "https://onyx-drift.com"
+];
+
 app.use(cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173", "https://onyx-drift-app-final.onrender.com"],
-    credentials: true
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
 app.use(express.json());
 
-// ৩. সকেট কনফিগারেশন
+// ৩. সকেট কনফিগারেশন (CORS ফিক্স সহ)
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "https://onyx-drift-app-final.onrender.com"],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -43,7 +61,7 @@ connectDB();
 // ৫. এপিআই রাউটস
 app.use("/api/profile", profileRoutes);
 app.use("/api/user", userRoutes); 
-app.use("/api/posts", postRoutes); // এই রাউটের ভেতরেই আমরা ডিলিট লজিক রাখব
+app.use("/api/posts", postRoutes); 
 if (messageRoutes) app.use("/api/messages", messageRoutes);
 
 // --- AI Enhance Route ---
@@ -68,7 +86,8 @@ app.post("/api/ai/enhance", async (req, res) => {
   }
 });
 
-app.get("/", (req, res) => res.send("✅ OnyxDrift API is running successfully..."));
+// রেন্ডার সার্ভার যেন স্লিপ না করে তাই রুট চেক
+app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server is online..."));
 
 // ৬. সকেট লজিক
 let onlineUsers = []; 
@@ -81,6 +100,7 @@ io.on("connection", (socket) => {
       onlineUsers.push({ userId, socketId: socket.id });
     }
     io.emit("getOnlineUsers", onlineUsers);
+    console.log("Current Online Users:", onlineUsers.length);
   });
 
   socket.on("sendNewPost", (newPost) => {
@@ -100,6 +120,7 @@ server.listen(PORT, () => {
   console.log(`
   🚀-------------------------------------------------🚀
       OnyxDrift Server is Live on Port: ${PORT}
+      Mode: Production
   🚀-------------------------------------------------🚀
   `);
 });

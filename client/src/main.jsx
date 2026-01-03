@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Auth0Provider } from "@auth0/auth0-react";
 import App from "./app.jsx";
-import { AuthProvider } from "./context/AuthContext"; // এটি ইম্পোর্ট করুন
+import { AuthProvider } from "./context/AuthContext"; 
 import "./index.css";
 
 const AUTH0_DOMAIN = "dev-6d0nxccsaycctfl1.us.auth0.com";
@@ -19,10 +19,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         redirect_uri: window.location.origin,
         audience: API_AUDIENCE,
       }}
-      useRefreshTokens
+      useRefreshTokens={true}
       cacheLocation="localstorage"
     >
-      <AuthProvider> {/* ✅ এটি অবশ্যই এখানে থাকতে হবে */}
+      <AuthProvider>
         <BrowserRouter>
           <App />
         </BrowserRouter>
