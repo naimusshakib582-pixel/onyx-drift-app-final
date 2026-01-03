@@ -8,8 +8,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 // Route Imports
 import connectDB from "./config/db.js"; 
 import profileRoutes from "./src/routes/profile.js"; 
-import userRoutes from "./routes/userRoutes.js";     
-import postRoutes from "./routes/posts.js";          
+import userRoutes from "./routes/userRoutes.js";      
+import postRoutes from "./routes/posts.js";           
 import messageRoutes from "./routes/messages.js";
 
 dotenv.config();
@@ -27,14 +27,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// ৩. সকেট কনফিগারেশন (Socket.io)
+// ৩. সকেট কনফিগারেশন
 const io = new Server(server, {
   cors: {
     origin: ["http://localhost:5173", "https://onyx-drift-app-final.onrender.com"],
     methods: ["GET", "POST"],
     credentials: true
   },
-  transports: ['websocket', 'polling'] // কানেকশন এরর কমানোর জন্য
+  transports: ['websocket', 'polling']
 });
 
 // ৪. ডাটাবেস কানেকশন
@@ -43,7 +43,7 @@ connectDB();
 // ৫. এপিআই রাউটস
 app.use("/api/profile", profileRoutes);
 app.use("/api/user", userRoutes); 
-app.use("/api/posts", postRoutes);
+app.use("/api/posts", postRoutes); // এই রাউটের ভেতরেই আমরা ডিলিট লজিক রাখব
 if (messageRoutes) app.use("/api/messages", messageRoutes);
 
 // --- AI Enhance Route ---
@@ -70,13 +70,12 @@ app.post("/api/ai/enhance", async (req, res) => {
 
 app.get("/", (req, res) => res.send("✅ OnyxDrift API is running successfully..."));
 
-// ৬. সকেট লজিক (Real-time Interaction)
+// ৬. সকেট লজিক
 let onlineUsers = []; 
 
 io.on("connection", (socket) => {
   console.log(`📡 New Drift Connection: ${socket.id}`);
 
-  // ইউজার অনলাইন হলে
   socket.on("addNewUser", (userId) => {
     if (userId && !onlineUsers.some(u => u.userId === userId)) {
       onlineUsers.push({ userId, socketId: socket.id });
@@ -84,12 +83,10 @@ io.on("connection", (socket) => {
     io.emit("getOnlineUsers", onlineUsers);
   });
 
-  // ভয়েস পোস্টের রিয়েল-টাইম আপডেট (যদি ফ্রন্টএন্ড থেকে পাঠান)
   socket.on("sendNewPost", (newPost) => {
     io.emit("receiveNewPost", newPost);
   });
 
-  // ডিসকানেক্ট হলে
   socket.on("disconnect", () => {
     onlineUsers = onlineUsers.filter((u) => u.socketId !== socket.id);
     io.emit("getOnlineUsers", onlineUsers);
@@ -102,9 +99,7 @@ const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
   console.log(`
   🚀-------------------------------------------------🚀
-     OnyxDrift Server is Live on Port: ${PORT}
-     Neural Engine: Gemini 1.5 Flash
-     Socket Status: Active
+      OnyxDrift Server is Live on Port: ${PORT}
   🚀-------------------------------------------------🚀
   `);
 });

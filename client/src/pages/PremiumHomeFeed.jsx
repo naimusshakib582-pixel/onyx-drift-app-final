@@ -1,13 +1,64 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  FaPlus, FaTimes, FaMusic, FaSmile, FaMagic,
-  FaPlayCircle, FaCloudUploadAlt, FaPauseCircle, FaVolumeUp,
-  FaHeart, FaFire, FaLaughSquint
+  FaPlus, FaTimes, FaMusic, FaMagic,
+  FaCloudUploadAlt, FaImage, FaVideo, FaRegSmile, FaEllipsisH, FaPaperPlane
 } from 'react-icons/fa';
+import { useAuth0 } from "@auth0/auth0-react";
+import axios from "axios";
+import PostCard from "../components/PostCard"; 
 
-const PremiumHomeFeed = () => {
-  // ১. LocalStorage থেকে ডাটা রিড করা
+const PremiumHomeFeed = ({ searchQuery }) => {
+  const { user, getAccessTokenSilently } = useAuth0();
+  const [postText, setPostText] = useState("");
+  const [posts, setPosts] = useState([]); // ডাটাবেস থেকে আসা পোস্টগুলো এখানে থাকবে
+  const [loading, setLoading] = useState(true);
+  
+  // মিডিয়া হ্যান্ডলিং স্টেট
+  const [selectedPostMedia, setSelectedPostMedia] = useState(null);
+  const [mediaType, setMediaType] = useState(null); 
+  const postFileInputRef = useRef(null);
+
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
+
+  // ১. এপিআই থেকে পোস্টগুলো লোড করার ফাংশন
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/api/posts`);
+      setPosts(response.data);
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // কম্পোনেন্ট লোড হওয়ার সময় পোস্টগুলো নিয়ে আসা
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  // ২. ডিলিট পোস্ট ফাংশন (শুধুমাত্র নিজের পোস্টের জন্য)
+  const handleDeletePost = async (postId) => {
+    if (window.confirm("Are you sure you want to delete this signal? This cannot be undone.")) {
+      try {
+        const token = await getAccessTokenSilently();
+        await axios.delete(`${API_URL}/api/posts/${postId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        // ডিলিট হওয়ার পর লোকাল স্টেট থেকে রিমুভ করা যাতে সাথে সাথে আপডেট হয়
+        setPosts(prevPosts => prevPosts.filter(p => p._id !== postId));
+        console.log("Post deleted successfully");
+      } catch (err) {
+        console.error("Delete Error:", err);
+        alert("Action Denied: You can only delete your own signals!");
+      }
+    }
+  };
+
+  // ৩. স্টোরি ডাটা ও স্টেট
   const getInitialStories = () => {
     const savedStories = localStorage.getItem('user_stories');
     const currentTime = Date.now();
@@ -16,7 +67,7 @@ const PremiumHomeFeed = () => {
       return parsed.filter(s => (currentTime - s.timestamp) < 86400000);
     }
     return [
-      { id: 1, img: "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=500", name: "Alex", timestamp: currentTime, reactions: [], stickers: [], filterClass: "" },
+      { id: 1, img: "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=500", name: "Alex", timestamp: currentTime, filterClass: "" },
     ];
   };
 
@@ -24,18 +75,9 @@ const PremiumHomeFeed = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingStory, setViewingStory] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
-  
-  // এডিটর স্টেটসমূহ
-  const [showMusicBox, setShowMusicBox] = useState(false);
-  const [showEmojiBox, setShowEmojiBox] = useState(false);
-  const [selectedSong, setSelectedSong] = useState(null);
-  const [addedStickers, setAddedStickers] = useState([]);
   const [activeFilter, setActiveFilter] = useState("none");
-  const [isPlaying, setIsPlaying] = useState(false);
 
   const fileInputRef = useRef(null);
-  const audioRef = useRef(null);
-
   const filters = [
     { name: "none", class: "" },
     { name: "Cyber", class: "hue-rotate-90 saturate-150 contrast-125" },
@@ -43,23 +85,47 @@ const PremiumHomeFeed = () => {
     { name: "Warm", class: "sepia brightness-90 saturate-150" },
   ];
 
-  const emojis = ["🔥", "❤️", "✨", "👑", "⚡", "🦋", "🌈", "🎈", "💎", "💯"];
-
-  const viralSongs = [
-    { id: 1, title: "Midnight City", artist: "M83", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
-    { id: 2, title: "Nightcall", artist: "Kavinsky", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
-  ];
-
-  useEffect(() => {
-    localStorage.setItem('user_stories', JSON.stringify(stories));
-  }, [stories]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) audioRef.current.play().catch(e => console.log(e));
-      else audioRef.current.pause();
+  // ৪. পোস্ট মিডিয়া হ্যান্ডলিং
+  const handlePostMediaChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedPostMedia(reader.result);
+        setMediaType(file.type.startsWith('video') ? 'video' : 'image');
+      };
+      reader.readAsDataURL(file);
     }
-  }, [isPlaying, selectedSong]);
+  };
+
+  // ৫. পোস্ট সাবমিট ফাংশন (API Call)
+  const handlePostSubmit = async () => {
+    if (!postText.trim() && !selectedPostMedia) return;
+
+    try {
+      const token = await getAccessTokenSilently();
+      const newPost = {
+        text: postText,
+        media: selectedPostMedia,
+        mediaType: mediaType || 'text',
+        authorName: user.name,
+        authorAvatar: user.picture,
+        authorId: user.sub // এটি ডিলিট পারমিশন চেক করতে সাহায্য করবে
+      };
+
+      await axios.post(`${API_URL}/api/posts`, newPost, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setPostText("");
+      setSelectedPostMedia(null);
+      setMediaType(null);
+      fetchPosts();
+    } catch (err) {
+      console.error("Post failed:", err);
+      alert("Something went wrong while posting.");
+    }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -74,161 +140,154 @@ const PremiumHomeFeed = () => {
     const newStory = {
       id: Date.now(),
       img: selectedImage,
-      name: "You",
+      name: user?.nickname || "You",
       timestamp: Date.now(),
-      reactions: [],
-      stickers: addedStickers,
       filterClass: filters.find(f => f.name === activeFilter).class,
-      song: selectedSong
     };
     setStories([newStory, ...stories]);
-    closeModal();
-  };
-
-  const closeModal = () => {
     setIsModalOpen(false);
     setSelectedImage(null);
-    setSelectedSong(null);
-    setAddedStickers([]);
-    setActiveFilter("none");
-    setIsPlaying(false);
-    setShowMusicBox(false);
-    setShowEmojiBox(false);
   };
 
   return (
-    <div className="relative w-full pb-10 px-4 pt-4 bg-[#020617] min-h-screen text-white font-sans">
+    <div className="w-full min-h-screen bg-transparent space-y-6 pb-20">
       
-      {/* ১. অডিও এলিমেন্ট */}
-      {selectedSong && <audio ref={audioRef} src={selectedSong.url} loop />}
-
-      {/* ২. স্টোরি বার */}
-      <div className="flex gap-4 overflow-x-auto pb-6 no-scrollbar items-center">
-        <div onClick={() => setIsModalOpen(true)} className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
-          <div className="w-16 h-16 rounded-full border-2 border-dashed border-cyan-500 flex items-center justify-center bg-cyan-500/10">
-            <FaPlus className="text-cyan-400 text-xl" />
+      {/* স্টোরি সেকশন */}
+      <section className="px-2 pt-2">
+        <div className="flex gap-5 overflow-x-auto pb-4 no-scrollbar items-center">
+          <div onClick={() => setIsModalOpen(true)} className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
+            <div className="w-16 h-16 rounded-full border-2 border-dashed border-cyan-500/50 flex items-center justify-center bg-cyan-500/5 hover:bg-cyan-500/20 transition-all">
+              <FaPlus className="text-cyan-400 text-xl" />
+            </div>
+            <span className="text-[10px] font-bold uppercase text-cyan-400 mt-1">Story</span>
           </div>
-          <span className="text-[10px] font-bold uppercase text-cyan-400">Add Story</span>
+
+          {stories.map((s) => (
+            <div key={s.id} onClick={() => setViewingStory(s)} className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group">
+              <div className="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500">
+                <div className="w-full h-full rounded-full border-2 border-[#020617] overflow-hidden bg-gray-900 shadow-lg">
+                  <img src={s.img} className={`w-full h-full object-cover ${s.filterClass}`} alt="" />
+                </div>
+              </div>
+              <span className="text-[10px] font-medium text-gray-400">{s.name}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* পোস্ট ইনপুট বক্স */}
+      <section className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-5 mx-2">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10 shrink-0">
+            <img src={user?.picture || "https://i.pravatar.cc/150"} className="w-full h-full object-cover" alt="Profile" />
+          </div>
+          <div className="flex-1 relative">
+            <textarea
+              value={postText}
+              onChange={(e) => setPostText(e.target.value)}
+              placeholder={`What's on your mind, ${user?.nickname || 'Drifter'}?`}
+              className="w-full bg-white/5 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none focus:border-cyan-500/50 transition-all resize-none min-h-[50px]"
+            />
+
+            <AnimatePresence>
+              {selectedPostMedia && (
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} 
+                  className="mt-3 relative rounded-2xl overflow-hidden border border-white/10 aspect-video w-full max-w-sm bg-black">
+                  <button onClick={() => setSelectedPostMedia(null)} className="absolute top-3 right-3 z-10 p-2 bg-black/60 rounded-full text-white hover:bg-rose-500">
+                    <FaTimes size={12}/>
+                  </button>
+                  {mediaType === 'video' ? <video src={selectedPostMedia} className="w-full h-full object-cover" controls /> : <img src={selectedPostMedia} className="w-full h-full object-cover" alt="" />}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        {stories.map((s) => (
-          <div key={s.id} onClick={() => setViewingStory(s)} className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
-            <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-cyan-400 to-purple-600">
-              <div className="w-full h-full rounded-full border-2 border-[#020617] overflow-hidden">
-                <img src={s.img} className={`w-full h-full object-cover ${s.filterClass}`} alt={s.name} />
-              </div>
-            </div>
-            <span className="text-[10px] font-medium text-gray-400 uppercase">{s.name}</span>
+        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+          <input type="file" ref={postFileInputRef} onChange={handlePostMediaChange} accept="image/*,video/*" hidden />
+          <div className="flex gap-2">
+            <button onClick={() => postFileInputRef.current.click()} className="flex items-center gap-2 text-xs font-bold text-orange-400 p-2 rounded-xl hover:bg-orange-400/10"><FaImage /> Photo</button>
+            <button onClick={() => postFileInputRef.current.click()} className="flex items-center gap-2 text-xs font-bold text-cyan-400 p-2 rounded-xl hover:bg-cyan-400/10"><FaVideo /> Video</button>
+            <button className="flex items-center gap-2 text-xs font-bold text-purple-400 p-2 rounded-xl hover:bg-purple-400/10"><FaRegSmile /> Feeling</button>
           </div>
-        ))}
-      </div>
 
-      {/* ৩. এডিটর মোডাল */}
+          <button 
+            disabled={!postText.trim() && !selectedPostMedia}
+            onClick={handlePostSubmit}
+            className="bg-cyan-500 text-black text-[10px] font-black uppercase px-6 py-2 rounded-xl shadow-lg active:scale-95 disabled:opacity-30 flex items-center gap-2"
+          >
+            Post <FaPaperPlane size={10}/>
+          </button>
+        </div>
+      </section>
+
+      {/* নিউজ ফিড */}
+      <section className="space-y-6 px-2">
+        <div className="flex justify-between items-center px-2">
+          <h2 className="text-xs font-black uppercase tracking-[0.2em] text-cyan-400">Neural Feed</h2>
+          <FaEllipsisH className="text-gray-500 cursor-pointer" />
+        </div>
+        
+        {loading ? (
+          <div className="text-center py-10 text-gray-500 text-xs animate-pulse font-black uppercase tracking-[0.3em]">Connecting to Neural Network...</div>
+        ) : (
+          posts.map(post => (
+            <PostCard 
+              key={post._id} 
+              post={post} 
+              onDelete={() => handleDeletePost(post._id)} // ডিলিট ফাংশন পাস
+              currentUserId={user?.sub} // বর্তমান ইউজারের আইডি পাস
+              onAction={fetchPosts} 
+            />
+          ))
+        )}
+      </section>
+
+      {/* স্টোরি মোডালসমূহ আগের মতই থাকবে... */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-xl">
-            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="relative w-full max-w-sm h-[90vh] bg-[#0b1120] rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
-              
-              <div className="relative h-[80%] bg-black flex items-center justify-center overflow-hidden">
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4">
+             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} 
+              className="relative w-full max-sm:max-w-xs max-w-sm aspect-[9/16] bg-[#0b1120] rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col shadow-2xl">
+              <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
                 {selectedImage ? (
                   <>
-                    <img src={selectedImage} className={`w-full h-full object-cover ${filters.find(f => f.name === activeFilter).class}`} alt="preview" />
-                    
-                    {addedStickers.map((sticker, idx) => (
-                      <motion.div drag dragConstraints={{top:-200, left:-150, right:150, bottom:200}} key={idx} className="absolute text-5xl cursor-move z-40">
-                        {sticker}
-                      </motion.div>
-                    ))}
-
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-5 z-50 bg-black/40 p-3 rounded-full border border-white/10">
-                      <button onClick={() => {setShowMusicBox(!showMusicBox); setShowEmojiBox(false)}} className="text-xl text-white"><FaMusic /></button>
-                      <button onClick={() => {setShowEmojiBox(!showEmojiBox); setShowMusicBox(false)}} className="text-xl text-white"><FaSmile /></button>
+                    <img src={selectedImage} className={`w-full h-full object-cover ${filters.find(f => f.name === activeFilter).class}`} alt="" />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-50 bg-black/20 p-3 rounded-full border border-white/5 backdrop-blur-md">
                       <button onClick={() => {
                         const nextIdx = (filters.findIndex(f => f.name === activeFilter) + 1) % filters.length;
                         setActiveFilter(filters[nextIdx].name);
-                      }} className="text-xl text-white"><FaMagic /></button>
+                      }} className="p-2 text-white"><FaMagic /></button>
                     </div>
-
-                    {showEmojiBox && (
-                      <div className="absolute bottom-4 inset-x-4 bg-black/80 backdrop-blur-md p-4 rounded-3xl grid grid-cols-5 gap-3 z-50">
-                        {emojis.map(e => (
-                          <button key={e} onClick={() => {setAddedStickers([...addedStickers, e]); setShowEmojiBox(false)}} className="text-2xl hover:scale-125 transition-transform">{e}</button>
-                        ))}
-                      </div>
-                    )}
-
-                    {showMusicBox && (
-                      <div className="absolute bottom-4 inset-x-4 bg-[#0b1120] p-5 rounded-3xl z-50 max-h-[50%] overflow-y-auto no-scrollbar border border-white/10">
-                        <div className="flex justify-between items-center mb-3 text-[10px] font-black uppercase tracking-widest text-cyan-400">
-                          <span>Select Song</span>
-                          <FaTimes onClick={() => setShowMusicBox(false)} className="cursor-pointer" />
-                        </div>
-                        {viralSongs.map(song => (
-                          <div key={song.id} onClick={() => {setSelectedSong(song); setIsPlaying(true); setShowMusicBox(false)}} className="p-3 mb-2 bg-white/5 rounded-xl text-xs hover:bg-cyan-500/20 cursor-pointer flex justify-between items-center">
-                            <div>{song.title} <span className="text-gray-500">- {song.artist}</span></div>
-                            <FaVolumeUp className="text-cyan-500 opacity-50" />
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </>
                 ) : (
-                  <div onClick={() => fileInputRef.current.click()} className="flex flex-col items-center cursor-pointer group">
-                    <div className="w-20 h-20 rounded-full bg-cyan-500/10 flex items-center justify-center mb-4 group-hover:bg-cyan-500/20 transition-all">
+                  <div onClick={() => fileInputRef.current.click()} className="flex flex-col items-center gap-4 cursor-pointer">
+                    <div className="w-20 h-20 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
                       <FaCloudUploadAlt className="text-4xl text-cyan-500" />
                     </div>
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Select Media</span>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Select Signal</p>
                   </div>
                 )}
               </div>
-
               <input type="file" ref={fileInputRef} onChange={handleImageChange} hidden accept="image/*" />
-
-              <div className="p-6 h-[20%] flex items-center gap-4 bg-[#0b1120]">
-                <button onClick={closeModal} className="flex-1 py-4 text-xs font-bold uppercase text-gray-500">Cancel</button>
-                <button 
-                  onClick={handleUpload} 
-                  disabled={!selectedImage} 
-                  className="flex-1 py-4 bg-cyan-500 rounded-2xl text-xs font-bold uppercase text-black shadow-lg shadow-cyan-500/20 disabled:opacity-30"
-                >
-                  Share
-                </button>
+              <div className="p-6 flex items-center gap-4 bg-[#0b1120] border-t border-white/5">
+                <button onClick={() => setIsModalOpen(false)} className="flex-1 text-[10px] font-black uppercase text-gray-400">Abort</button>
+                <button onClick={handleUpload} disabled={!selectedImage} className="flex-1 py-4 bg-cyan-500 rounded-2xl text-[10px] font-black uppercase text-black">Broadcast</button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* ৪. স্টোরি ভিউয়ার */}
       <AnimatePresence>
         {viewingStory && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[300] bg-black flex items-center justify-center">
-            <div className="relative w-full max-w-md h-full flex items-center justify-center">
-              
-              {/* প্রোগ্রেস বার */}
-              <div className="absolute top-4 inset-x-4 h-1 bg-white/20 rounded-full overflow-hidden z-50">
-                <motion.div 
-                  initial={{ width: 0 }} 
-                  animate={{ width: "100%" }} 
-                  transition={{ duration: 5, ease: "linear" }} 
-                  onAnimationComplete={() => setViewingStory(null)}
-                  className="h-full bg-cyan-400 shadow-[0_0_10px_cyan]" 
-                />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[600] bg-black flex flex-col items-center justify-center">
+            <div className="relative w-full max-w-md h-full bg-black">
+              <div className="absolute top-6 inset-x-4 h-1 bg-white/20 rounded-full overflow-hidden z-[620]">
+                <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 5, ease: "linear" }} onAnimationComplete={() => setViewingStory(null)} className="h-full bg-cyan-400" />
               </div>
-
-              {/* স্টোরি কন্টেন্ট */}
-              <img src={viewingStory.img} className={`w-full h-full object-contain ${viewingStory.filterClass}`} alt="story" />
-              
-              <button onClick={() => setViewingStory(null)} className="absolute top-8 right-4 text-white p-2 z-[310] bg-black/20 rounded-full">
-                <FaTimes size={20} />
-              </button>
-
-              <div className="absolute bottom-10 left-6 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full border-2 border-cyan-500 p-0.5">
-                  <div className="w-full h-full rounded-full bg-gray-800" />
-                </div>
-                <span className="font-bold text-sm tracking-wide">{viewingStory.name}</span>
-              </div>
+              <button onClick={() => setViewingStory(null)} className="absolute top-10 right-6 z-[620] p-2 bg-white/10 rounded-full text-white"><FaTimes /></button>
+              <img src={viewingStory.img} className={`w-full h-full object-cover ${viewingStory.filterClass}`} alt="" />
             </div>
           </motion.div>
         )}
