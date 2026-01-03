@@ -1,15 +1,12 @@
 import express from 'express';
 import auth from '../middleware/auth.js'; 
 import Post from '../models/Post.js';
-import User from '../models/User.js';
-import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// --- ১. সব পোস্ট গেট করা (এটি না থাকায় ৪MD৪ আসছিল) ---
+// --- ১. সব পোস্ট গেট করা ---
 router.get('/', async (req, res) => {
   try {
-    // ডাটাবেস থেকে সব পোস্ট বের করে আনা (নতুনগুলো আগে দেখাবে)
     const posts = await Post.find().sort({ createdAt: -1 });
     res.json(posts);
   } catch (err) {
@@ -21,15 +18,15 @@ router.get('/', async (req, res) => {
 // --- ২. নতুন পোস্ট তৈরি করা ---
 router.post('/', auth, async (req, res) => {
   try {
-    const { text, media, mediaType, authorName, authorAvatar, authorId } = req.body;
+    const { text, media, mediaType, authorName, authorAvatar } = req.body;
 
     const newPost = new Post({
       text,
       media,
-      mediaType,
+      mediaType: mediaType || 'text',
       authorName,
       authorAvatar,
-      author: authorId || req.user.id, // Auth0 বা ম্যানুয়াল আইডি
+      author: req.user.id, // Auth0 থেকে আসা ইউনিক আইডি
       likes: [],
       comments: []
     });
@@ -38,7 +35,7 @@ router.post('/', auth, async (req, res) => {
     res.json(post);
   } catch (err) {
     console.error('Create Post Error:', err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Database save failed', error: err.message });
   }
 });
 
@@ -48,9 +45,9 @@ router.put('/:id', auth, async (req, res) => {
     let post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ msg: 'Post not found' });
 
-    // Ownership Check
-    if (post.author.toString() !== req.user.id) {
-      return res.status(403).json({ msg: 'Unauthorized' });
+    // Ownership Check (Auth0 ID match)
+    if (post.author !== req.user.id) {
+      return res.status(403).json({ msg: 'Unauthorized to edit this post' });
     }
 
     const { text, media } = req.body;
@@ -75,8 +72,9 @@ router.delete('/:id', auth, async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ msg: 'Post not found' });
 
-    if (post.author.toString() !== req.user.id) {
-      return res.status(403).json({ msg: 'Unauthorized' });
+    // Ownership Check
+    if (post.author !== req.user.id) {
+      return res.status(403).json({ msg: 'Unauthorized to delete this post' });
     }
 
     await Post.findByIdAndDelete(req.params.id);
@@ -92,16 +90,21 @@ router.put('/:id/like', auth, async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ msg: 'Post not found' });
 
+    // চেক করা হচ্ছে ইউজার অলরেডি লাইক দিয়েছে কি না
     const likeIndex = post.likes.indexOf(req.user.id);
+    
     if (likeIndex > -1) {
+      // অলরেডি লাইক থাকলে রিমুভ (Unlike)
       post.likes.splice(likeIndex, 1);
     } else {
+      // না থাকলে অ্যাড (Like)
       post.likes.push(req.user.id);
     }
 
     await post.save();
     res.json(post);
   } catch (err) {
+    console.error('Like Error:', err.message);
     res.status(500).send('Server error');
   }
 });

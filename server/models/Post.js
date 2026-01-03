@@ -1,41 +1,36 @@
 import mongoose from 'mongoose';
 
-const commentSchema = new mongoose.Schema({
-  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  text: { type: String, required: true },
-  replies: [{
-    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    text: { type: String },
-    createdAt: { type: Date, default: Date.now }
-  }],
-  createdAt: { type: Date, default: Date.now }
-});
-
 const postSchema = new mongoose.Schema(
   {
-    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // Auth0 ID একটি String, তাই এখানে String ব্যবহার করা হয়েছে
+    author: { type: String, required: true }, 
+    authorName: { type: String },
+    authorAvatar: { type: String },
     text: { type: String },
     
     // মাল্টিমিডিয়া সেটিংস
-    media: { type: String }, // Cloudinary URL (Image/Video)
+    media: { type: String }, // Cloudinary বা Base64 URL
     mediaType: { 
       type: String, 
-      enum: ['photo', 'video', 'reel', 'none'], 
+      enum: ['image', 'video', 'reel', 'text', 'none'], 
       default: 'none' 
     },
-    publicId: { type: String }, // Cloudinary থেকে ডিলিট করার জন্য প্রয়োজন হয়
     
-    // সোশাল ফিচারস
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    comments: [commentSchema],
+    // সোশাল ফিচারস (আইডিগুলো String হিসেবে থাকবে)
+    likes: [{ type: String }],
+    comments: [{
+      author: { type: String },
+      authorName: { type: String },
+      text: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now }
+    }],
     
-    // ভিউ কাউন্ট (ভিডিও বা রিলসের জন্য দরকারি)
     views: { type: Number, default: 0 }
   },
-  { timestamps: true } // এটি স্বয়ংক্রিয়ভাবে createdAt এবং updatedAt তৈরি করবে
+  { timestamps: true } // এটি স্বয়ংক্রিয়ভাবে createdAt এবং updatedAt তৈরি করবে
 );
 
-// ইন্ডেক্সিং (সার্চিং ফাস্ট করার জন্য)
+// ইন্ডেক্সিং (সার্চ ফাস্ট করার জন্য)
 postSchema.index({ author: 1, createdAt: -1 });
 
 const Post = mongoose.model('Post', postSchema);
