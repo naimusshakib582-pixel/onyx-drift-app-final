@@ -5,22 +5,24 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Route Imports (আপনার স্ক্রিনশট অনুযায়ী পাথগুলো ঠিক করা হয়েছে)
+// ১. কনফিগারেশন ইমপোর্ট
 import connectDB from "./config/db.js"; 
-import profileRoutes from "./src/routes/profile.js"; // প্রোফাইল src/routes এর ভেতরে
-import userRoutes from "./routes/userRoutes.js";     // ইউজার সরাসরি routes ফোল্ডারে
-import postRoutes from "./routes/posts.js";         // পোস্ট সরাসরি routes ফোল্ডারে
-import messageRoutes from "./routes/messages.js";   // মেসেজ সরাসরি routes ফোল্ডারে
+
+// ২. রাউট ইমপোর্ট (আপনার স্ক্রিনশট অনুযায়ী পাথ ফিক্স করা হয়েছে)
+import profileRoutes from "./src/routes/profile.js"; 
+import userRoutes from "./routes/userRoutes.js";     
+import postRoutes from "./routes/posts.js";         
+import messageRoutes from "./routes/messages.js";   
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// ১. AI কনফিগারেশন
+// ৩. AI কনফিগারেশন
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ২. মিডলওয়্যার (CORS & JSON)
+// ৪. মিডলওয়্যার (CORS & JSON)
 const allowedOrigins = [
     "http://localhost:5173", 
     "http://127.0.0.1:5173", 
@@ -44,7 +46,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// ৩. সকেট কনফিগারেশন
+// ৫. সকেট কনফিগারেশন
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -54,10 +56,10 @@ const io = new Server(server, {
   transports: ['websocket', 'polling']
 });
 
-// ৪. ডাটাবেস কানেকশন
+// ৬. ডাটাবেস কানেকশন
 connectDB();
 
-// ৫. এপিআই রাউটস (এগুলো সঠিকভাবে মাউন্ট করা হয়েছে)
+// ৭. এপিআই এন্ডপয়েন্টস মাউন্টিং
 app.use("/api/profile", profileRoutes);
 app.use("/api/user", userRoutes); 
 app.use("/api/posts", postRoutes); 
@@ -87,10 +89,10 @@ app.post("/api/ai/enhance", async (req, res) => {
   }
 });
 
-// রুট ইউআরএল চেক
+// সার্ভার স্ট্যাটাস চেক
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server is online..."));
 
-// ৬. সকেট লজিক
+// ৮. সকেট লজিক
 let onlineUsers = []; 
 
 io.on("connection", (socket) => {
@@ -101,7 +103,6 @@ io.on("connection", (socket) => {
       onlineUsers.push({ userId, socketId: socket.id });
     }
     io.emit("getOnlineUsers", onlineUsers);
-    console.log("Current Online Users:", onlineUsers.length);
   });
 
   socket.on("sendNewPost", (newPost) => {
@@ -111,16 +112,11 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     onlineUsers = onlineUsers.filter((u) => u.socketId !== socket.id);
     io.emit("getOnlineUsers", onlineUsers);
-    console.log("❌ User disconnected from Neural Drift");
   });
 });
 
-// ৭. সার্ভার লিসেন
+// ৯. সার্ভার লিসেন
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
-  console.log(`
-  🚀-------------------------------------------------🚀
-      OnyxDrift Server is Live on Port: ${PORT}
-  🚀-------------------------------------------------🚀
-  `);
+  console.log(`🚀 OnyxDrift Server Live on Port: ${PORT}`);
 });
