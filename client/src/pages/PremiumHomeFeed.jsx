@@ -4,6 +4,7 @@ import {
   FaPlus, FaTimes, FaMusic, FaMagic,
   FaCloudUploadAlt, FaImage, FaVideo, FaRegSmile, FaEllipsisH, FaPaperPlane
 } from 'react-icons/fa';
+import { HiMenuAlt3 } from 'react-icons/hi'; // মেনু আইকন
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
 import PostCard from "../components/PostCard"; 
@@ -14,6 +15,9 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // মেনু ড্রয়ার স্টেট
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const [selectedPostMedia, setSelectedPostMedia] = useState(null);
   const [mediaType, setMediaType] = useState(null); 
   const postFileInputRef = useRef(null);
@@ -134,10 +138,58 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-transparent space-y-4 md:space-y-6 pb-24 overflow-x-hidden">
+    <div className="w-full min-h-screen bg-transparent space-y-4 md:space-y-6 pb-24 overflow-x-hidden relative">
       
-      {/* স্টোরি সেকশন - রেসপনসিভ ফিক্স */}
-      <section className="px-3 md:px-4 pt-4">
+      {/* মোবাইল ড্রয়ার বাটন (এটি টপ কর্নারে থাকবে) */}
+      <div className="md:hidden flex justify-between items-center px-4 pt-4">
+        <h1 className="text-xl font-black text-white italic tracking-tighter">ONYX<span className="text-cyan-400">DRIFT</span></h1>
+        <button 
+          onClick={() => setIsSidebarOpen(true)}
+          className="p-2 bg-white/5 border border-white/10 rounded-xl text-cyan-400 active:scale-90 transition-all"
+        >
+          <HiMenuAlt3 size={24} />
+        </button>
+      </div>
+
+      {/* ড্রয়ার ওভারলে (মোবাইল) */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[1000] md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* স্লাইড আউট সাইডবার (মোবাইল ড্রয়ার) */}
+      <aside className={`
+        fixed top-0 left-0 h-full w-[280px] bg-[#020617] border-r border-white/10 z-[1001]
+        transform transition-transform duration-300 ease-in-out p-6
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:hidden
+      `}>
+        <div className="flex justify-between items-center mb-10">
+          <span className="text-cyan-400 font-black tracking-widest text-xs">NEURAL MENU</span>
+          <button onClick={() => setIsSidebarOpen(false)} className="text-white/50"><FaTimes /></button>
+        </div>
+        
+        {/* আপনি আপনার অরিজিনাল মেনু আইটেমগুলো এখানে বসাবেন */}
+        <nav className="space-y-4 text-gray-400 font-bold uppercase text-[10px] tracking-widest">
+           <div className="flex items-center gap-4 p-4 bg-cyan-500/10 text-cyan-400 rounded-2xl border border-cyan-500/20 cursor-pointer">
+              <FaPaperPlane /> FEED
+           </div>
+           <div className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl cursor-pointer">
+              <FaMagic /> ANALYTICS
+           </div>
+           {/* ... বাকি মেনুগুলো এভাবে থাকবে */}
+        </nav>
+      </aside>
+
+      {/* স্টোরি সেকশন */}
+      <section className="px-3 md:px-4 pt-2 md:pt-4">
         <div className="flex gap-4 md:gap-5 overflow-x-auto pb-4 no-scrollbar items-center">
           <div onClick={() => setIsModalOpen(true)} className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
             <div className="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-dashed border-cyan-500/50 flex items-center justify-center bg-cyan-500/5 hover:bg-cyan-500/20 transition-all">
@@ -159,7 +211,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         </div>
       </section>
 
-      {/* পোস্ট ইনপুট বক্স - মোবাইল ফিক্স */}
+      {/* পোস্ট ইনপুট বক্স */}
       <section className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-5 mx-3 md:mx-4">
         <div className="flex items-start gap-3 md:gap-4 mb-4">
           <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl overflow-hidden border border-white/10 shrink-0">
@@ -221,10 +273,10 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         )}
       </section>
 
-      {/* মোডালসমূহ */}
+      {/* মোডালসমূহ - আগের মতোই */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4">
+          <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4">
              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} 
               className="relative w-full max-sm:max-w-[90%] max-w-sm aspect-[9/16] bg-[#0b1120] rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col shadow-2xl">
               <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
@@ -257,7 +309,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
 
       <AnimatePresence>
         {viewingStory && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[600] bg-black flex flex-col items-center justify-center">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] bg-black flex flex-col items-center justify-center">
             <div className="relative w-full max-w-md h-full bg-black">
               <div className="absolute top-6 inset-x-4 h-1 bg-white/20 rounded-full overflow-hidden z-[620]">
                 <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 5, ease: "linear" }} onAnimationComplete={() => setViewingStory(null)} className="h-full bg-cyan-400" />
