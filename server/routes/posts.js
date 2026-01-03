@@ -6,24 +6,54 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
-// --- ৫. পোস্ট আপডেট/এডিট করা (শুধুমাত্র মালিক পারবে) ---
+// --- ১. সব পোস্ট গেট করা (এটি না থাকায় ৪MD৪ আসছিল) ---
+router.get('/', async (req, res) => {
+  try {
+    // ডাটাবেস থেকে সব পোস্ট বের করে আনা (নতুনগুলো আগে দেখাবে)
+    const posts = await Post.find().sort({ createdAt: -1 });
+    res.json(posts);
+  } catch (err) {
+    console.error('Fetch Error:', err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// --- ২. নতুন পোস্ট তৈরি করা ---
+router.post('/', auth, async (req, res) => {
+  try {
+    const { text, media, mediaType, authorName, authorAvatar, authorId } = req.body;
+
+    const newPost = new Post({
+      text,
+      media,
+      mediaType,
+      authorName,
+      authorAvatar,
+      author: authorId || req.user.id, // Auth0 বা ম্যানুয়াল আইডি
+      likes: [],
+      comments: []
+    });
+
+    const post = await newPost.save();
+    res.json(post);
+  } catch (err) {
+    console.error('Create Post Error:', err.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// --- ৩. পোস্ট আপডেট/এডিট করা ---
 router.put('/:id', auth, async (req, res) => {
   try {
     let post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ msg: 'Post not found' });
 
-    // পোস্ট আছে কি না চেক
-    if (!post) {
-      return res.status(404).json({ msg: 'Post not found' });
-    }
-
-    // মালিকানা যাচাই (Ownership Check)
+    // Ownership Check
     if (post.author.toString() !== req.user.id) {
-      return res.status(403).json({ msg: 'Unauthorized: You can only edit your own posts' });
+      return res.status(403).json({ msg: 'Unauthorized' });
     }
 
     const { text, media } = req.body;
-
-    // নতুন ডাটা দিয়ে আপডেট
     const updatedData = {};
     if (text) updatedData.text = text;
     if (media) updatedData.media = media;
@@ -31,61 +61,47 @@ router.put('/:id', auth, async (req, res) => {
     post = await Post.findByIdAndUpdate(
       req.params.id,
       { $set: updatedData },
-      { new: true } // আপডেট হওয়ার পর নতুন ডাটা রিটার্ন করবে
+      { new: true }
     );
-
-    res.json({ msg: 'Post updated successfully', post });
+    res.json(post);
   } catch (err) {
-    console.error('Update Error:', err.message);
-    if (err.kind === 'ObjectId') return res.status(404).json({ msg: 'Post not found' });
     res.status(500).send('Server error');
   }
 });
 
-// --- ৬. পোস্ট ডিলিট করা (শুধুমাত্র মালিক পারবে) ---
+// --- ৪. পোস্ট ডিলিট করা ---
 router.delete('/:id', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ msg: 'Post not found' });
 
-    if (!post) {
-      return res.status(404).json({ msg: 'Post not found' });
-    }
-
-    // মালিকানা যাচাই (Ownership Check)
     if (post.author.toString() !== req.user.id) {
-      return res.status(403).json({ msg: 'Unauthorized: You can only delete your own posts' });
+      return res.status(403).json({ msg: 'Unauthorized' });
     }
 
     await Post.findByIdAndDelete(req.params.id);
     res.json({ msg: 'Post removed successfully' });
   } catch (err) {
-    console.error('Delete Error:', err.message);
-    if (err.kind === 'ObjectId') return res.status(404).json({ msg: 'Post not found' });
     res.status(500).send('Server error');
   }
 });
 
-// --- ৭. লাইক বা আনলাইক করা (Neural Like Logic) ---
+// --- ৫. লাইক বা আনলাইক করা ---
 router.put('/:id/like', auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ msg: 'Post not found' });
 
-    // চেক করা হচ্ছে ইউজার আইডি অলরেডি লাইক লিস্টে আছে কি না
     const likeIndex = post.likes.indexOf(req.user.id);
-
     if (likeIndex > -1) {
-      // যদি থাকে, তবে রিমুভ (Unlike)
       post.likes.splice(likeIndex, 1);
     } else {
-      // না থাকলে অ্যাড (Like)
       post.likes.push(req.user.id);
     }
 
     await post.save();
     res.json(post);
   } catch (err) {
-    console.error('Like error:', err.message);
     res.status(500).send('Server error');
   }
 });
