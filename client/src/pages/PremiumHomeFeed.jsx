@@ -11,17 +11,15 @@ import PostCard from "../components/PostCard";
 const PremiumHomeFeed = ({ searchQuery }) => {
   const { user, getAccessTokenSilently } = useAuth0();
   const [postText, setPostText] = useState("");
-  const [posts, setPosts] = useState([]); // ডাটাবেস থেকে আসা পোস্টগুলো এখানে থাকবে
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // মিডিয়া হ্যান্ডলিং স্টেট
   const [selectedPostMedia, setSelectedPostMedia] = useState(null);
   const [mediaType, setMediaType] = useState(null); 
   const postFileInputRef = useRef(null);
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
 
-  // ১. এপিআই থেকে পোস্টগুলো লোড করার ফাংশন
   const fetchPosts = async () => {
     try {
       setLoading(true);
@@ -34,44 +32,34 @@ const PremiumHomeFeed = ({ searchQuery }) => {
     }
   };
 
-  // কম্পোনেন্ট লোড হওয়ার সময় পোস্টগুলো নিয়ে আসা
   useEffect(() => {
     fetchPosts();
   }, []);
 
-  // ২. ডিলিট পোস্ট ফাংশন (শুধুমাত্র নিজের পোস্টের জন্য)
   const handleDeletePost = async (postId) => {
-    if (window.confirm("Are you sure you want to delete this signal? This cannot be undone.")) {
+    if (window.confirm("Are you sure you want to delete this signal?")) {
       try {
         const token = await getAccessTokenSilently();
         await axios.delete(`${API_URL}/api/posts/${postId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
-        // ডিলিট হওয়ার পর লোকাল স্টেট থেকে রিমুভ করা যাতে সাথে সাথে আপডেট হয়
         setPosts(prevPosts => prevPosts.filter(p => p._id !== postId));
-        console.log("Post deleted successfully");
       } catch (err) {
-        console.error("Delete Error:", err);
         alert("Action Denied: You can only delete your own signals!");
       }
     }
   };
 
-  // ৩. স্টোরি ডাটা ও স্টেট
-  const getInitialStories = () => {
+  const [stories, setStories] = useState(() => {
     const savedStories = localStorage.getItem('user_stories');
     const currentTime = Date.now();
     if (savedStories) {
       const parsed = JSON.parse(savedStories);
       return parsed.filter(s => (currentTime - s.timestamp) < 86400000);
     }
-    return [
-      { id: 1, img: "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=500", name: "Alex", timestamp: currentTime, filterClass: "" },
-    ];
-  };
+    return [{ id: 1, img: "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=500", name: "Alex", timestamp: currentTime, filterClass: "" }];
+  });
 
-  const [stories, setStories] = useState(getInitialStories());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingStory, setViewingStory] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -85,7 +73,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
     { name: "Warm", class: "sepia brightness-90 saturate-150" },
   ];
 
-  // ৪. পোস্ট মিডিয়া হ্যান্ডলিং
   const handlePostMediaChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -98,10 +85,8 @@ const PremiumHomeFeed = ({ searchQuery }) => {
     }
   };
 
-  // ৫. পোস্ট সাবমিট ফাংশন (API Call)
   const handlePostSubmit = async () => {
     if (!postText.trim() && !selectedPostMedia) return;
-
     try {
       const token = await getAccessTokenSilently();
       const newPost = {
@@ -110,19 +95,16 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         mediaType: mediaType || 'text',
         authorName: user.name,
         authorAvatar: user.picture,
-        authorId: user.sub // এটি ডিলিট পারমিশন চেক করতে সাহায্য করবে
+        authorId: user.sub
       };
-
       await axios.post(`${API_URL}/api/posts`, newPost, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
       setPostText("");
       setSelectedPostMedia(null);
       setMediaType(null);
       fetchPosts();
     } catch (err) {
-      console.error("Post failed:", err);
       alert("Something went wrong while posting.");
     }
   };
@@ -144,28 +126,30 @@ const PremiumHomeFeed = ({ searchQuery }) => {
       timestamp: Date.now(),
       filterClass: filters.find(f => f.name === activeFilter).class,
     };
-    setStories([newStory, ...stories]);
+    const updatedStories = [newStory, ...stories];
+    setStories(updatedStories);
+    localStorage.setItem('user_stories', JSON.stringify(updatedStories));
     setIsModalOpen(false);
     setSelectedImage(null);
   };
 
   return (
-    <div className="w-full min-h-screen bg-transparent space-y-6 pb-20">
+    <div className="w-full min-h-screen bg-transparent space-y-4 md:space-y-6 pb-24 overflow-x-hidden">
       
-      {/* স্টোরি সেকশন */}
-      <section className="px-2 pt-2">
-        <div className="flex gap-5 overflow-x-auto pb-4 no-scrollbar items-center">
+      {/* স্টোরি সেকশন - রেসপনসিভ ফিক্স */}
+      <section className="px-3 md:px-4 pt-4">
+        <div className="flex gap-4 md:gap-5 overflow-x-auto pb-4 no-scrollbar items-center">
           <div onClick={() => setIsModalOpen(true)} className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
-            <div className="w-16 h-16 rounded-full border-2 border-dashed border-cyan-500/50 flex items-center justify-center bg-cyan-500/5 hover:bg-cyan-500/20 transition-all">
-              <FaPlus className="text-cyan-400 text-xl" />
+            <div className="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-dashed border-cyan-500/50 flex items-center justify-center bg-cyan-500/5 hover:bg-cyan-500/20 transition-all">
+              <FaPlus className="text-cyan-400 text-lg md:text-xl" />
             </div>
             <span className="text-[10px] font-bold uppercase text-cyan-400 mt-1">Story</span>
           </div>
 
           {stories.map((s) => (
             <div key={s.id} onClick={() => setViewingStory(s)} className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group">
-              <div className="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500">
-                <div className="w-full h-full rounded-full border-2 border-[#020617] overflow-hidden bg-gray-900 shadow-lg">
+              <div className="w-14 h-14 md:w-16 md:h-16 rounded-full p-[2px] bg-gradient-to-tr from-cyan-400 to-pink-500">
+                <div className="w-full h-full rounded-full border-2 border-[#020617] overflow-hidden bg-gray-900">
                   <img src={s.img} className={`w-full h-full object-cover ${s.filterClass}`} alt="" />
                 </div>
               </div>
@@ -175,27 +159,25 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         </div>
       </section>
 
-      {/* পোস্ট ইনপুট বক্স */}
-      <section className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-5 mx-2">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10 shrink-0">
+      {/* পোস্ট ইনপুট বক্স - মোবাইল ফিক্স */}
+      <section className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-5 mx-3 md:mx-4">
+        <div className="flex items-start gap-3 md:gap-4 mb-4">
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl overflow-hidden border border-white/10 shrink-0">
             <img src={user?.picture || "https://i.pravatar.cc/150"} className="w-full h-full object-cover" alt="Profile" />
           </div>
-          <div className="flex-1 relative">
+          <div className="flex-1">
             <textarea
               value={postText}
               onChange={(e) => setPostText(e.target.value)}
-              placeholder={`What's on your mind, ${user?.nickname || 'Drifter'}?`}
-              className="w-full bg-white/5 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none focus:border-cyan-500/50 transition-all resize-none min-h-[50px]"
+              placeholder={`What's on your mind?`}
+              className="w-full bg-white/5 rounded-xl md:rounded-2xl border border-white/10 px-4 py-3 text-xs md:text-sm text-white placeholder-gray-500 outline-none focus:border-cyan-500/50 transition-all resize-none min-h-[50px]"
             />
 
             <AnimatePresence>
               {selectedPostMedia && (
                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} 
-                  className="mt-3 relative rounded-2xl overflow-hidden border border-white/10 aspect-video w-full max-w-sm bg-black">
-                  <button onClick={() => setSelectedPostMedia(null)} className="absolute top-3 right-3 z-10 p-2 bg-black/60 rounded-full text-white hover:bg-rose-500">
-                    <FaTimes size={12}/>
-                  </button>
+                  className="mt-3 relative rounded-xl overflow-hidden border border-white/10 aspect-video w-full max-w-sm bg-black">
+                  <button onClick={() => setSelectedPostMedia(null)} className="absolute top-2 right-2 z-10 p-2 bg-black/60 rounded-full text-white"><FaTimes size={10}/></button>
                   {mediaType === 'video' ? <video src={selectedPostMedia} className="w-full h-full object-cover" controls /> : <img src={selectedPostMedia} className="w-full h-full object-cover" alt="" />}
                 </motion.div>
               )}
@@ -203,18 +185,18 @@ const PremiumHomeFeed = ({ searchQuery }) => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-3 border-t border-white/5 gap-3">
           <input type="file" ref={postFileInputRef} onChange={handlePostMediaChange} accept="image/*,video/*" hidden />
-          <div className="flex gap-2">
-            <button onClick={() => postFileInputRef.current.click()} className="flex items-center gap-2 text-xs font-bold text-orange-400 p-2 rounded-xl hover:bg-orange-400/10"><FaImage /> Photo</button>
-            <button onClick={() => postFileInputRef.current.click()} className="flex items-center gap-2 text-xs font-bold text-cyan-400 p-2 rounded-xl hover:bg-cyan-400/10"><FaVideo /> Video</button>
-            <button className="flex items-center gap-2 text-xs font-bold text-purple-400 p-2 rounded-xl hover:bg-purple-400/10"><FaRegSmile /> Feeling</button>
+          <div className="flex gap-2 w-full justify-between sm:justify-start">
+            <button onClick={() => postFileInputRef.current.click()} className="flex items-center gap-2 text-[10px] font-bold text-orange-400 p-2 rounded-xl hover:bg-orange-400/10"><FaImage /> Photo</button>
+            <button onClick={() => postFileInputRef.current.click()} className="flex items-center gap-2 text-[10px] font-bold text-cyan-400 p-2 rounded-xl hover:bg-cyan-400/10"><FaVideo /> Video</button>
+            <button className="flex items-center gap-2 text-[10px] font-bold text-purple-400 p-2 rounded-xl hover:bg-purple-400/10"><FaRegSmile /> Feeling</button>
           </div>
 
           <button 
             disabled={!postText.trim() && !selectedPostMedia}
             onClick={handlePostSubmit}
-            className="bg-cyan-500 text-black text-[10px] font-black uppercase px-6 py-2 rounded-xl shadow-lg active:scale-95 disabled:opacity-30 flex items-center gap-2"
+            className="w-full sm:w-auto bg-cyan-500 text-black text-[10px] font-black uppercase px-6 py-2 rounded-xl shadow-lg active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2"
           >
             Post <FaPaperPlane size={10}/>
           </button>
@@ -222,33 +204,29 @@ const PremiumHomeFeed = ({ searchQuery }) => {
       </section>
 
       {/* নিউজ ফিড */}
-      <section className="space-y-6 px-2">
-        <div className="flex justify-between items-center px-2">
-          <h2 className="text-xs font-black uppercase tracking-[0.2em] text-cyan-400">Neural Feed</h2>
-          <FaEllipsisH className="text-gray-500 cursor-pointer" />
-        </div>
-        
+      <section className="space-y-4 md:space-y-6 px-3 md:px-4">
+        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 px-2">Neural Feed</h2>
         {loading ? (
-          <div className="text-center py-10 text-gray-500 text-xs animate-pulse font-black uppercase tracking-[0.3em]">Connecting to Neural Network...</div>
+          <div className="text-center py-10 text-gray-500 text-[10px] animate-pulse font-black uppercase tracking-[0.3em]">Connecting...</div>
         ) : (
           posts.map(post => (
             <PostCard 
               key={post._id} 
               post={post} 
-              onDelete={() => handleDeletePost(post._id)} // ডিলিট ফাংশন পাস
-              currentUserId={user?.sub} // বর্তমান ইউজারের আইডি পাস
+              onDelete={() => handleDeletePost(post._id)}
+              currentUserId={user?.sub} 
               onAction={fetchPosts} 
             />
           ))
         )}
       </section>
 
-      {/* স্টোরি মোডালসমূহ আগের মতই থাকবে... */}
+      {/* মোডালসমূহ */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4">
              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} 
-              className="relative w-full max-sm:max-w-xs max-w-sm aspect-[9/16] bg-[#0b1120] rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col shadow-2xl">
+              className="relative w-full max-sm:max-w-[90%] max-w-sm aspect-[9/16] bg-[#0b1120] rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col shadow-2xl">
               <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
                 {selectedImage ? (
                   <>
@@ -262,10 +240,8 @@ const PremiumHomeFeed = ({ searchQuery }) => {
                   </>
                 ) : (
                   <div onClick={() => fileInputRef.current.click()} className="flex flex-col items-center gap-4 cursor-pointer">
-                    <div className="w-20 h-20 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
-                      <FaCloudUploadAlt className="text-4xl text-cyan-500" />
-                    </div>
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Select Signal</p>
+                    <FaCloudUploadAlt className="text-4xl text-cyan-500" />
+                    <p className="text-[10px] font-black text-gray-500 uppercase">Select Signal</p>
                   </div>
                 )}
               </div>
