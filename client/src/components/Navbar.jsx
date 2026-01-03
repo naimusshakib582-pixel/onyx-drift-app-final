@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaSearch, FaBell, FaCommentDots, FaUserPlus, FaCheckCircle } from 'react-icons/fa';
+import { FaSearch, FaBell, FaCommentDots, FaUserPlus, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa'; // FaSignOutAlt যোগ করা হয়েছে
 import { useNavigate } from 'react-router-dom';
+import { useAuth0 } from "@auth0/auth0-react"; // Auth0 ইম্পোর্ট
 
 const Navbar = ({ user, setSearchQuery }) => {
   const navigate = useNavigate();
+  const { logout } = useAuth0(); // logout ফাংশন ডিক্লেয়ার করা হলো
   const [showNotifications, setShowNotifications] = useState(false);
   const [localSearch, setLocalSearch] = useState("");
   const [showResults, setShowResults] = useState(false);
-  const [followedUsers, setFollowedUsers] = useState([]); // ফলো করা ইউজারদের ট্রাক করার জন্য
+  const [followedUsers, setFollowedUsers] = useState([]);
 
-  // ডামি ইউজার লিস্ট (পরবর্তীতে এটি API থেকে fetch করবেন)
   const drifters = [
     { id: "1", name: "Creator_Onyx", status: "Neural Architect", img: "https://i.pravatar.cc/150?u=11" },
     { id: "2", name: "Nexus_Drifter", status: "Verified Member", img: "https://i.pravatar.cc/150?u=12" },
@@ -18,7 +19,6 @@ const Navbar = ({ user, setSearchQuery }) => {
     { id: "4", name: "Cyber_Punk", status: "Verified Drifter", img: "https://i.pravatar.cc/150?u=14" },
   ];
 
-  // সার্চ ফিল্টার লজিক
   const filteredDrifters = drifters.filter(d => 
     d.name.toLowerCase().includes(localSearch.toLowerCase())
   );
@@ -30,15 +30,18 @@ const Navbar = ({ user, setSearchQuery }) => {
     setShowResults(value.length > 0);
   };
 
-  // ফলো ফাংশন: এটি ক্লিক করলে ইউজারের সাথে কানেক্ট হবে
   const toggleFollow = (e, userId) => {
-    e.stopPropagation(); // প্রোফাইল লিঙ্কে যাওয়া বন্ধ করবে
+    e.stopPropagation();
     if (followedUsers.includes(userId)) {
       setFollowedUsers(followedUsers.filter(id => id !== userId));
     } else {
       setFollowedUsers([...followedUsers, userId]);
-      // এখানে API কল যোগ করতে পারেন: axios.post('/follow', { userId })
     }
+  };
+
+  // লগআউট ফাংশন: এটি সরাসরি Auth0 লগইন স্ক্রিনে নিয়ে যাবে
+  const handleLogout = () => {
+    logout({ logoutParams: { returnTo: window.location.origin } });
   };
 
   return (
@@ -68,7 +71,6 @@ const Navbar = ({ user, setSearchQuery }) => {
           onBlur={() => setTimeout(() => setShowResults(false), 300)} 
         />
 
-        {/* সার্চ ড্রপডাউন মেনু */}
         <AnimatePresence>
           {showResults && (
             <motion.div
@@ -90,7 +92,6 @@ const Navbar = ({ user, setSearchQuery }) => {
                       onClick={() => navigate(`/profile/${d.id}`)}
                       className="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-all border-b border-white/5 last:border-none group"
                     >
-                      {/* ইউজার অ্যাভাটার */}
                       <div className="relative">
                         <img src={d.img} className="w-11 h-11 rounded-2xl object-cover border border-white/10 group-hover:border-cyan-500/50 transition-all" alt={d.name} />
                         <div className="absolute -bottom-1 -right-1 text-cyan-400 bg-[#0f172a] rounded-full p-0.5">
@@ -98,15 +99,12 @@ const Navbar = ({ user, setSearchQuery }) => {
                         </div>
                       </div>
                       
-                      {/* নাম ও তথ্য */}
                       <div className="flex-1">
                         <p className="text-[12px] font-black text-white uppercase italic tracking-tighter group-hover:text-cyan-400 transition-colors">{d.name}</p>
                         <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">{d.status}</p>
                       </div>
 
-                      {/* অ্যাকশন বাটনসমূহ */}
                       <div className="flex items-center gap-2">
-                        {/* মেসেঞ্জার বাটন */}
                         <button 
                           onClick={(e) => { e.stopPropagation(); navigate('/messenger'); }}
                           className="p-2.5 bg-white/5 hover:bg-cyan-500/20 rounded-xl text-gray-400 hover:text-cyan-400 transition-all border border-white/5"
@@ -115,7 +113,6 @@ const Navbar = ({ user, setSearchQuery }) => {
                           <FaCommentDots size={14} />
                         </button>
                         
-                        {/* ফলো বাটন */}
                         <button 
                           onClick={(e) => toggleFollow(e, d.id)}
                           className={`text-[9px] font-black uppercase px-4 py-2 rounded-xl transition-all active:scale-90 border ${
@@ -157,14 +154,21 @@ const Navbar = ({ user, setSearchQuery }) => {
                   className="absolute right-0 mt-4 w-64 bg-[#0f172a] border border-white/10 rounded-2xl p-5 shadow-2xl z-[120] backdrop-blur-xl"
                 >
                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Neural Updates</p>
-                  <div className="text-xs text-gray-400 italic">No new signals detected...</div>
+                  <div className="text-xs text-gray-400 italic mb-4">No new signals detected...</div>
+                  
+                  {/* লগআউট বাটন এখানে যোগ করা হলো */}
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 p-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 rounded-xl text-[10px] font-black uppercase transition-all"
+                  >
+                    <FaSignOutAlt /> Sign Out
+                  </button>
                 </motion.div>
               </>
             )}
           </AnimatePresence>
         </div>
 
-        {/* প্রোফাইল বাটন */}
         <motion.div 
           whileTap={{ scale: 0.95 }}
           onClick={() => navigate(`/profile/${user?.sub}`)}

@@ -25,26 +25,33 @@ const ProtectedRoute = ({ component: Component, ...props }) => {
 };
 
 export default function App() {
-  const { isAuthenticated, isLoading, user } = useAuth0();
+  const { isAuthenticated, isLoading, user, loginWithRedirect } = useAuth0();
   const location = useLocation();
   const socket = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // ১. সকেট কানেকশন লজিক (আপডেট করা হয়েছে)
+  // ০. অটো-লগইন রিডাইরেক্ট লজিক
+  useEffect(() => {
+    // লোডিং শেষ হওয়ার পর যদি ইউজার অথেন্টিকেটেড না থাকে এবং হোম/ল্যান্ডিং পেজে থাকে
+    if (!isLoading && !isAuthenticated && location.pathname === "/") {
+      loginWithRedirect();
+    }
+  }, [isLoading, isAuthenticated, location.pathname, loginWithRedirect]);
+
+  // ১. সকেট কানেকশন লজিক (অপরিবর্তিত)
   useEffect(() => {
     if (isAuthenticated && user?.sub) {
       const socketUrl = window.location.hostname === "localhost"
         ? "http://localhost:10000"
         : "https://onyx-drift-app-final.onrender.com";
 
-      // এখানে কিছু অপশন যোগ করা হয়েছে কানেকশন স্ট্যাবল রাখতে
       socket.current = io(socketUrl, {
-        transports: ["websocket", "polling"], // websocket আগে রাখা ভালো
+        transports: ["websocket", "polling"],
         withCredentials: true,
         reconnection: true,
-        reconnectionAttempts: 10, // চেষ্টার সংখ্যা বাড়ানো হলো
+        reconnectionAttempts: 10,
         reconnectionDelay: 2000,
-        timeout: 40000 // টাইমআউট ৪০ সেকেন্ড করা হলো
+        timeout: 40000 
       });
 
       socket.current.on("connect", () => {
