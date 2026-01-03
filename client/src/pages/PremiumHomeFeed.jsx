@@ -23,7 +23,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const [mediaType, setMediaType] = useState(null); 
   const postFileInputRef = useRef(null);
 
-  // আপনার রেন্ডার সার্ভারের লিঙ্কটি এখানে সরাসরি দেওয়া হয়েছে যাতে 404 এরর না আসে
+  // আপনার রেন্ডার সার্ভারের লিঙ্ক
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
   // মেনু ক্লিক হ্যান্ডেলার
@@ -35,7 +35,8 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/api/posts`);
+      // রিকোয়েস্ট পাঠানোর সময় একটি ক্যাশ-বাস্টিং কুয়েরি যোগ করা হয়েছে যাতে 404 না আসে
+      const response = await axios.get(`${API_URL}/api/posts?t=${Date.now()}`);
       setPosts(response.data);
     } catch (err) {
       console.error("Error fetching posts:", err);

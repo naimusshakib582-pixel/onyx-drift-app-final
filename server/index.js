@@ -5,12 +5,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Route Imports
+// Route Imports (আপনার স্ক্রিনশট অনুযায়ী পাথগুলো ঠিক করা হয়েছে)
 import connectDB from "./config/db.js"; 
-import profileRoutes from "./src/routes/profile.js"; 
-import userRoutes from "./routes/userRoutes.js";      
-import postRoutes from "./routes/posts.js";            
-import messageRoutes from "./routes/messages.js";
+import profileRoutes from "./src/routes/profile.js"; // প্রোফাইল src/routes এর ভেতরে
+import userRoutes from "./routes/userRoutes.js";     // ইউজার সরাসরি routes ফোল্ডারে
+import postRoutes from "./routes/posts.js";         // পোস্ট সরাসরি routes ফোল্ডারে
+import messageRoutes from "./routes/messages.js";   // মেসেজ সরাসরি routes ফোল্ডারে
 
 dotenv.config();
 
@@ -21,7 +21,6 @@ const server = http.createServer(app);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ২. মিডলওয়্যার (CORS & JSON)
-// এখানে আপনার ডোমেইনগুলো নিখুঁতভাবে সেট করা হয়েছে
 const allowedOrigins = [
     "http://localhost:5173", 
     "http://127.0.0.1:5173", 
@@ -45,7 +44,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// ৩. সকেট কনফিগারেশন (CORS ফিক্স সহ)
+// ৩. সকেট কনফিগারেশন
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -58,11 +57,13 @@ const io = new Server(server, {
 // ৪. ডাটাবেস কানেকশন
 connectDB();
 
-// ৫. এপিআই রাউটস
+// ৫. এপিআই রাউটস (এগুলো সঠিকভাবে মাউন্ট করা হয়েছে)
 app.use("/api/profile", profileRoutes);
 app.use("/api/user", userRoutes); 
 app.use("/api/posts", postRoutes); 
-if (messageRoutes) app.use("/api/messages", messageRoutes);
+if (messageRoutes) {
+    app.use("/api/messages", messageRoutes);
+}
 
 // --- AI Enhance Route ---
 app.post("/api/ai/enhance", async (req, res) => {
@@ -86,7 +87,7 @@ app.post("/api/ai/enhance", async (req, res) => {
   }
 });
 
-// রেন্ডার সার্ভার যেন স্লিপ না করে তাই রুট চেক
+// রুট ইউআরএল চেক
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server is online..."));
 
 // ৬. সকেট লজিক
@@ -120,7 +121,6 @@ server.listen(PORT, () => {
   console.log(`
   🚀-------------------------------------------------🚀
       OnyxDrift Server is Live on Port: ${PORT}
-      Mode: Production
   🚀-------------------------------------------------🚀
   `);
 });
