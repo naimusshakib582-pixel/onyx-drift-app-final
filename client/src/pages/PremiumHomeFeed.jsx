@@ -35,7 +35,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      // রিকোয়েস্ট পাঠানোর সময় একটি ক্যাশ-বাস্টিং কুয়েরি যোগ করা হয়েছে যাতে 404 না আসে
+      // ক্যাশ-বাস্টিং কুয়েরি সহ ডাটা ফেচ
       const response = await axios.get(`${API_URL}/api/posts?t=${Date.now()}`);
       setPosts(response.data);
     } catch (err) {
@@ -118,7 +118,8 @@ const PremiumHomeFeed = ({ searchQuery }) => {
       setMediaType(null);
       fetchPosts();
     } catch (err) {
-      alert("Something went wrong while posting.");
+      console.error("Post Error:", err);
+      alert("Something went wrong while posting. Check console for details.");
     }
   };
 

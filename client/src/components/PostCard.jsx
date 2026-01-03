@@ -7,7 +7,7 @@ import {
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
 
-// এখানে onDelete প্রোপ্রপার্টি যোগ করা হয়েছে
+// এখানে onDelete প্রোপ্রপার্টি যোগ করা হয়েছে
 const PostCard = ({ post, onAction, onDelete }) => {
   const { user, getAccessTokenSilently } = useAuth0();
   const [isLiking, setIsLiking] = useState(false);
@@ -19,7 +19,7 @@ const PostCard = ({ post, onAction, onDelete }) => {
 
   if (!post) return null;
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
+  const API_URL = import.meta.env.VITE_API_URL || "https://onyx-drift-app-final.onrender.com";
   const likesArray = Array.isArray(post.likes) ? post.likes : [];
   const isLiked = likesArray.includes(user?.sub);
 
