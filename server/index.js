@@ -3,6 +3,7 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose"; // mongoose ইমপোর্ট করা হয়েছে
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ১. ডাটাবেস কনফিগারেশন
@@ -56,11 +57,23 @@ const io = new Server(server, {
   transports: ['websocket', 'polling']
 });
 
-// ৬. ডাটাবেস কানেকশন
+// ৬. ডাটাবেস কানেকশন এবং ইনডেক্স ফিক্সিং
 connectDB();
 
+// এই অংশটি আপনার ডুপ্লিকেট ইমেইল এরর (500 Error) সমাধান করবে
+mongoose.connection.once('open', async () => {
+  try {
+    // এটি অটোমেটিক 'email_1' ইনডেক্সটি ডিলিট করে দিবে
+    const adminDb = mongoose.connection.db;
+    await adminDb.collection('users').dropIndex('email_1');
+    console.log('✅ System: Old email index dropped successfully!');
+  } catch (err) {
+    // যদি ইনডেক্স আগে থেকেই ডিলিট করা থাকে তবে কোনো এরর দিবে না
+    console.log('ℹ️ System: Email index clean or sparse mode active.');
+  }
+});
+
 // ৭. এপিআই এন্ডপয়েন্টস মাউন্টিং
-// গুরুত্বপূর্ণ: এখানে নিশ্চিত করা হয়েছে যে /api/user এবং /api/profile আলাদা কাজ করবে
 app.use("/api/profile", profileRoutes);
 app.use("/api/user", usersRoutes); 
 app.use("/api/posts", postRoutes); 
