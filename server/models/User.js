@@ -6,11 +6,16 @@ const userSchema = new mongoose.Schema(
     auth0Id: { type: String, required: true, unique: true },
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true },
+    
+    // --- Photos (এখন কভার ইমেজ সেভ হবে) ---
     avatar: { type: String, default: "" },
+    coverImg: { type: String, default: "" }, // এই ফিল্ডটি আগে ছিল না
+    
     bio: { type: String, default: "" },
     location: { type: String, default: "" },
     workplace: { type: String, default: "" },
     isVerified: { type: Boolean, default: false },
+    isPremium: { type: Boolean, default: false }, // প্রোফাইলে ব্যাজ দেখানোর জন্য
     
     // --- Unique Security Features ---
     ghostMode: { type: Boolean, default: false },
@@ -27,7 +32,7 @@ const userSchema = new mongoose.Schema(
       }
     ],
 
-    // আইডিগুলো String হিসেবে সেভ হবে কারণ Auth0 আইডি ObjectId নয়
+    // আইডিগুলো String হিসেবে সেভ হবে
     followers: [{ type: String }], 
     following: [{ type: String }],
     friends: [{ type: String }],
