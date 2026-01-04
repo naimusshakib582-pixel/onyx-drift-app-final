@@ -4,18 +4,28 @@ const userSchema = new mongoose.Schema(
   {
     // Auth0 থেকে আসা ইউনিক আইডি (sub)
     auth0Id: { type: String, required: true, unique: true },
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true },
     
-    // --- Photos (এখন কভার ইমেজ সেভ হবে) ---
+    name: { type: String, required: true, trim: true },
+    
+    // sparse: true যোগ করা হয়েছে যাতে ইমেইল না থাকলে (null হলে) ডুপ্লিকেট এরর না দেয়
+    email: { 
+      type: String, 
+      unique: true, 
+      lowercase: true, 
+      sparse: true, 
+      required: false 
+    },
+    
+    // --- Photos ---
     avatar: { type: String, default: "" },
-    coverImg: { type: String, default: "" }, // এই ফিল্ডটি আগে ছিল না
+    coverImg: { type: String, default: "" }, 
     
     bio: { type: String, default: "" },
     location: { type: String, default: "" },
     workplace: { type: String, default: "" },
+    
     isVerified: { type: Boolean, default: false },
-    isPremium: { type: Boolean, default: false }, // প্রোফাইলে ব্যাজ দেখানোর জন্য
+    isPremium: { type: Boolean, default: false }, 
     
     // --- Unique Security Features ---
     ghostMode: { type: Boolean, default: false },
@@ -36,7 +46,8 @@ const userSchema = new mongoose.Schema(
     followers: [{ type: String }], 
     following: [{ type: String }],
     friends: [{ type: String }],
-    // এটি যোগ করা হলো যাতে রিকোয়েস্টগুলো সেভ হতে পারে (আপনার রাউট অনুযায়ী)
+    
+    // ফ্রেন্ড রিকোয়েস্ট সেভ করার জন্য
     pendingRequests: [{ type: String }], 
   },
   { timestamps: true }
