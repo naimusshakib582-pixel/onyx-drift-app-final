@@ -1,45 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaSearch, FaBell, FaCommentDots, FaUserPlus, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa'; // FaSignOutAlt যোগ করা হয়েছে
+import { FaSearch, FaBell, FaCommentDots, FaUserPlus, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { useAuth0 } from "@auth0/auth0-react"; // Auth0 ইম্পোর্ট
+import { useAuth0 } from "@auth0/auth0-react";
+import axios from 'axios';
 
 const Navbar = ({ user, setSearchQuery }) => {
   const navigate = useNavigate();
-  const { logout } = useAuth0(); // logout ফাংশন ডিক্লেয়ার করা হলো
+  const { logout, getAccessTokenSilently } = useAuth0();
   const [showNotifications, setShowNotifications] = useState(false);
   const [localSearch, setLocalSearch] = useState("");
   const [showResults, setShowResults] = useState(false);
-  const [followedUsers, setFollowedUsers] = useState([]);
+  const [searchResults, setSearchResults] = useState([]); // ব্যাকেন্ড থেকে আসা ডাটা থাকবে এখানে
+  const [loading, setLoading] = useState(false);
 
-  const drifters = [
-    { id: "1", name: "Creator_Onyx", status: "Neural Architect", img: "https://i.pravatar.cc/150?u=11" },
-    { id: "2", name: "Nexus_Drifter", status: "Verified Member", img: "https://i.pravatar.cc/150?u=12" },
-    { id: "3", name: "Sarah_Cloud", status: "Pro Artist", img: "https://i.pravatar.cc/150?u=13" },
-    { id: "4", name: "Cyber_Punk", status: "Verified Drifter", img: "https://i.pravatar.cc/150?u=14" },
-  ];
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
 
-  const filteredDrifters = drifters.filter(d => 
-    d.name.toLowerCase().includes(localSearch.toLowerCase())
-  );
+  // ব্যাকেন্ড থেকে ইউজার সার্চ করার ফাংশন
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (localSearch.length > 0) {
+        setLoading(true);
+        try {
+          const token = await getAccessTokenSilently();
+          // আপনার ব্যাকেন্ডে এই রাউটটি থাকতে হবে: /api/user/search?query=...
+          const res = await axios.get(`${API_URL}/api/user/search?query=${localSearch}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setSearchResults(res.data);
+          setShowResults(true);
+        } catch (err) {
+          console.error("Search error:", err);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    }, 300); // ৩০০০ মিলি-সেকেন্ড বিরতি যেন প্রতি টাইপে রিকোয়েস্ট না যায়
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [localSearch]);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setLocalSearch(value);
-    setSearchQuery(value); 
-    setShowResults(value.length > 0);
+    if (setSearchQuery) setSearchQuery(value);
   };
 
-  const toggleFollow = (e, userId) => {
-    e.stopPropagation();
-    if (followedUsers.includes(userId)) {
-      setFollowedUsers(followedUsers.filter(id => id !== userId));
-    } else {
-      setFollowedUsers([...followedUsers, userId]);
-    }
-  };
-
-  // লগআউট ফাংশন: এটি সরাসরি Auth0 লগইন স্ক্রিনে নিয়ে যাবে
   const handleLogout = () => {
     logout({ logoutParams: { returnTo: window.location.origin } });
   };
@@ -68,7 +77,6 @@ const Navbar = ({ user, setSearchQuery }) => {
           className="bg-transparent border-none outline-none px-3 text-xs w-full text-white placeholder-gray-600"
           onChange={handleSearchChange}
           onFocus={() => localSearch.length > 0 && setShowResults(true)}
-          onBlur={() => setTimeout(() => setShowResults(false), 300)} 
         />
 
         <AnimatePresence>
@@ -81,47 +89,41 @@ const Navbar = ({ user, setSearchQuery }) => {
             >
               <div className="p-4 border-b border-white/5 text-[10px] font-black text-gray-500 uppercase tracking-widest flex justify-between">
                 <span>Neural Connects</span>
-                <span className="text-cyan-400 animate-pulse font-bold">Live Scan</span>
+                <span className="text-cyan-400 animate-pulse font-bold">{loading ? "Scanning..." : "Live Scan"}</span>
               </div>
               
               <div className="max-h-[380px] overflow-y-auto no-scrollbar">
-                {filteredDrifters.length > 0 ? (
-                  filteredDrifters.map((d) => (
+                {searchResults.length > 0 ? (
+                  searchResults.map((d) => (
                     <div 
-                      key={d.id}
-                      onClick={() => navigate(`/profile/${d.id}`)}
+                      key={d._id}
+                      onClick={() => {
+                        navigate(`/profile/${d.auth0Id || d._id}`);
+                        setShowResults(false);
+                        setLocalSearch("");
+                      }}
                       className="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-all border-b border-white/5 last:border-none group"
                     >
                       <div className="relative">
-                        <img src={d.img} className="w-11 h-11 rounded-2xl object-cover border border-white/10 group-hover:border-cyan-500/50 transition-all" alt={d.name} />
-                        <div className="absolute -bottom-1 -right-1 text-cyan-400 bg-[#0f172a] rounded-full p-0.5">
-                          <FaCheckCircle size={10} />
-                        </div>
+                        <img src={d.avatar || d.picture} className="w-11 h-11 rounded-2xl object-cover border border-white/10 group-hover:border-cyan-500/50 transition-all" alt={d.nickname} />
+                        {d.isPremium && (
+                          <div className="absolute -bottom-1 -right-1 text-cyan-400 bg-[#0f172a] rounded-full p-0.5">
+                            <FaCheckCircle size={10} />
+                          </div>
+                        )}
                       </div>
                       
                       <div className="flex-1">
-                        <p className="text-[12px] font-black text-white uppercase italic tracking-tighter group-hover:text-cyan-400 transition-colors">{d.name}</p>
-                        <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">{d.status}</p>
+                        <p className="text-[12px] font-black text-white uppercase italic tracking-tighter group-hover:text-cyan-400 transition-colors">{d.nickname || d.name}</p>
+                        <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">{d.location || "Verified Drifter"}</p>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={(e) => { e.stopPropagation(); navigate('/messenger'); }}
                           className="p-2.5 bg-white/5 hover:bg-cyan-500/20 rounded-xl text-gray-400 hover:text-cyan-400 transition-all border border-white/5"
-                          title="Message"
                         >
                           <FaCommentDots size={14} />
-                        </button>
-                        
-                        <button 
-                          onClick={(e) => toggleFollow(e, d.id)}
-                          className={`text-[9px] font-black uppercase px-4 py-2 rounded-xl transition-all active:scale-90 border ${
-                            followedUsers.includes(d.id) 
-                            ? "bg-cyan-500 text-black border-cyan-500" 
-                            : "bg-transparent text-cyan-400 border-cyan-400/30 hover:bg-cyan-400/10"
-                          }`}
-                        >
-                          {followedUsers.includes(d.id) ? "Following" : "Follow"}
                         </button>
                       </div>
                     </div>
@@ -156,7 +158,6 @@ const Navbar = ({ user, setSearchQuery }) => {
                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Neural Updates</p>
                   <div className="text-xs text-gray-400 italic mb-4">No new signals detected...</div>
                   
-                  {/* লগআউট বাটন এখানে যোগ করা হলো */}
                   <button 
                     onClick={handleLogout}
                     className="w-full flex items-center justify-center gap-2 p-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 rounded-xl text-[10px] font-black uppercase transition-all"
@@ -185,6 +186,8 @@ const Navbar = ({ user, setSearchQuery }) => {
           </div>
         </motion.div>
       </div>
+      {/* ক্লিক করলে যেন সার্চ রেজাল্ট চলে যায় */}
+      {showResults && <div className="fixed inset-0 z-[250]" onClick={() => setShowResults(false)}></div>}
     </nav>
   );
 };
