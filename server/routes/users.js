@@ -42,8 +42,8 @@ router.put("/update-profile", auth, upload.fields([
   { name: 'cover', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const { nickname, bio, location } = req.body;
-    let updateFields = { name: nickname, bio, location };
+    const { nickname, bio, location, workplace } = req.body;
+    let updateFields = { name: nickname, bio, location, workplace };
 
     if (req.files) {
       if (req.files.avatar) updateFields.avatar = req.files.avatar[0].path;
@@ -57,7 +57,8 @@ router.put("/update-profile", auth, upload.fields([
     );
     res.json(updatedUser);
   } catch (err) {
-    res.status(500).json({ msg: 'Update Failed' });
+    console.error("Update Error:", err);
+    res.status(500).json({ msg: 'Update Failed', error: err.message });
   }
 });
 
