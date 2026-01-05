@@ -41,7 +41,7 @@ const Profile = () => {
   const [postType, setPostType] = useState("photo"); 
   const [isTransmitting, setIsTransmitting] = useState(false);
 
-  // API URL logic (Ensure it points to your Render backend)
+  // API URL logic
   const API_URL = import.meta.env.VITE_API_URL || "https://onyx-drift-api-server.onrender.com";
   const fileInputRef = useRef(null);
 
@@ -54,7 +54,7 @@ const Profile = () => {
   useEffect(() => {
     if (userProfile) {
       setEditData({
-        nickname: userProfile.name || userProfile.nickname || "",
+        nickname: userProfile.nickname || userProfile.name || "",
         bio: userProfile.bio || "",
         location: userProfile.location || ""
       });
@@ -125,16 +125,18 @@ const Profile = () => {
     }
   };
 
-  // সংশোধিত Identity Update লজিক (৫০০ এরর সমাধান)
+  // FIXED: Added 'name' field to satisfy backend validation
   const handleUpdateIdentity = async () => {
     setIsUpdating(true);
     try {
       const token = await getAccessTokenSilently();
       const formData = new FormData();
+      // 'name' ফিল্ডটি রিকোয়ার্ড হওয়ায় এটি পাঠানো বাধ্যতামূলক
+      formData.append("name", editData.nickname); 
       formData.append("nickname", editData.nickname);
       formData.append("bio", editData.bio);
       formData.append("location", editData.location);
-      formData.append("email", currentUser.email); // User identity রক্ষার জন্য ইমেইল জরুরি
+      formData.append("email", currentUser.email); 
       
       if (avatarFile) formData.append("avatar", avatarFile);
       if (coverFile) formData.append("cover", coverFile);
@@ -151,7 +153,7 @@ const Profile = () => {
       fetchProfileData(); 
     } catch (err) {
       console.error("Update Fail:", err.response?.data || err.message);
-      alert("Sync Failed! Check console for neural interferences.");
+      alert(`Sync Failed: ${err.response?.data?.error || "Neural interference detected."}`);
     } finally {
       setIsUpdating(false);
     }
@@ -180,7 +182,7 @@ const Profile = () => {
       setFile(null);
       alert("Echo Transmitted!");
     } catch (err) {
-      console.error("Transmission Error:", err);
+      console.error("Transmission Error:", err.response?.data || err.message);
       alert("Transmission Interrupted!");
     } finally {
       setIsTransmitting(false);
