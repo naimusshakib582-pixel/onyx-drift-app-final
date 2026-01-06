@@ -1,46 +1,43 @@
-import SockJS from 'sockjs-client';
-import Stomp from 'stompjs';
+import SockJS from "sockjs-client";
+import { Stomp } from "@stomp/stompjs";
 
 class WebSocketService {
     constructor() {
+        // রেন্ডার সার্ভারের সঠিক সকেট এন্ডপয়েন্ট
+        this.socketUrl = "https://onyx-drift-api-server.onrender.com/ws";
         this.stompClient = null;
-        this.connected = false;
-        this.subscribers = new Map();
     }
 
-    connect(url, userId, onConnectCallback) {
-        if (this.connected) return;
-        
-        const socket = new SockJS(`${url}/ws`);
+    connect() {
+        // যদি অলরেডি কানেক্টেড থাকে তবে নতুন করে করার দরকার নেই
+        if (this.stompClient && this.stompClient.connected) return;
+
+        const socket = new SockJS(this.socketUrl);
         this.stompClient = Stomp.over(socket);
-        this.stompClient.debug = null; 
+        this.stompClient.debug = () => {}; // কনসোলে অপ্রয়োজনীয় লগ বন্ধ রাখবে
 
         this.stompClient.connect({}, (frame) => {
-            this.connected = true;
-            console.log("🚀 Neural Link Established");
-            this.stompClient.send("/app/addNewUser", {}, JSON.stringify({ userId }));
-            if (onConnectCallback) onConnectCallback();
-        }, (error) => {
-            console.error("❌ Neural Link Failed: ", error);
-            setTimeout(() => this.connect(url, userId, onConnectCallback), 5000);
+            console.log("Connected to Onyx Neural Core");
+        }, (err) => {
+            console.error("Neural Link Error:", err);
+            // কানেকশন লস্ট হলে ৫ সেকেন্ড পর আবার চেষ্টা করবে
+            setTimeout(() => this.connect(), 5000);
         });
     }
 
     subscribe(topic, callback) {
-        if (this.stompClient && this.connected) {
-            return this.stompClient.subscribe(topic, (message) => {
-                callback(JSON.parse(message.body));
-            });
+        if (this.stompClient && this.stompClient.connected) {
+            return this.stompClient.subscribe(topic, (msg) => callback(JSON.parse(msg.body)));
         }
+        return null;
     }
 
     disconnect() {
-        if (this.stompClient !== null && this.connected) {
+        if (this.stompClient) {
             this.stompClient.disconnect();
-            this.connected = false;
+            console.log("Disconnected from Neural Core");
         }
     }
 }
 
-const webSocketService = new WebSocketService();
-export default webSocketService;
+export default new WebSocketService();

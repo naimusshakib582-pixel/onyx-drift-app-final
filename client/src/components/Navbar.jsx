@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaSearch, FaBell, FaCommentDots, FaUserPlus, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa';
+import { FaSearch, FaBell, FaCommentDots, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from 'axios';
-// ১. সকেট সার্ভিস ইমপোর্ট করা হলো
 import webSocketService from "../services/WebSocketService"; 
 
 const Navbar = ({ user, setSearchQuery }) => {
@@ -16,30 +15,42 @@ const Navbar = ({ user, setSearchQuery }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // ২. নোটিফিকেশন স্টেট
   const [notifications, setNotifications] = useState([]);
   const [hasNewNotification, setHasNewNotification] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
+  // ১. ইউআরএল হ্যান্ডলিং (আগের ফাইলগুলোর সাথে সামঞ্জস্য রেখে)
+  const BASE = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-api-server.onrender.com").replace(/\/$/, "");
+  const API_URL = `${BASE}/api`;
 
-  // ৩. সকেট লজিক: নোটিফিকেশন সাবস্ক্রাইব করা
+  // ২. সকেট সাবস্ক্রিপশন এবং ক্লিনআপ
   useEffect(() => {
+    let subscription = null;
+
     if (user?.sub) {
-      // রিয়েল-টাইম নোটিফিকেশন শোনার জন্য সাবস্ক্রিপশন
-      webSocketService.subscribe(`/topic/notifications/${user.sub}`, (data) => {
+      subscription = webSocketService.subscribe(`/topic/notifications/${user.sub}`, (data) => {
         setNotifications((prev) => [data, ...prev]);
-        setHasNewNotification(true); // নতুন সিগন্যাল আসলে লাল ডট দেখাবে
+        setHasNewNotification(true);
       });
     }
+
+    // কম্পোনেন্ট আনমাউন্ট হলে সাবস্ক্রিপশন রিমুভ করা
+    return () => {
+      if (subscription) {
+        // যদি আপনার সার্ভিসে unsubscribe মেথড থাকে তবে সেটি কল করুন
+        // webSocketService.unsubscribe(`/topic/notifications/${user.sub}`);
+      }
+    };
   }, [user]);
 
+  // ৩. সার্চ লজিক (Debounced)
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
-      if (localSearch.length > 0) {
+      if (localSearch.trim().length > 0) {
         setLoading(true);
         try {
           const token = await getAccessTokenSilently();
-          const res = await axios.get(`${API_URL}/api/user/search?query=${localSearch}`, {
+          const res = await axios.get(`${API_URL}/user/search`, {
+            params: { query: localSearch },
             headers: { Authorization: `Bearer ${token}` }
           });
           setSearchResults(res.data);
@@ -53,7 +64,7 @@ const Navbar = ({ user, setSearchQuery }) => {
         setSearchResults([]);
         setShowResults(false);
       }
-    }, 300);
+    }, 400);
 
     return () => clearTimeout(delayDebounceFn);
   }, [localSearch, getAccessTokenSilently, API_URL]);
@@ -65,13 +76,14 @@ const Navbar = ({ user, setSearchQuery }) => {
   };
 
   const handleLogout = () => {
-    webSocketService.disconnect(); // লগআউট করলে সকেট ডিসকানেক্ট হবে
+    webSocketService.disconnect();
     logout({ logoutParams: { returnTo: window.location.origin } });
   };
 
   return (
     <nav className="h-[75px] px-6 flex items-center justify-between bg-transparent w-full relative z-[200]">
       
+      {/* Logo Section */}
       <div className="flex items-center gap-3 min-w-fit cursor-pointer" onClick={() => navigate('/feed')}>
         <motion.div
           whileTap={{ scale: 0.9 }}
@@ -82,6 +94,7 @@ const Navbar = ({ user, setSearchQuery }) => {
         <h1 className="hidden md:block text-xl font-black text-white italic tracking-tighter">ONYXDRIFT</h1>
       </div>
 
+      {/* Search Bar */}
       <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2 w-full max-w-md mx-8 focus-within:border-cyan-400/50 transition-all">
         <FaSearch className="text-gray-500 text-sm" />
         <input
@@ -151,17 +164,17 @@ const Navbar = ({ user, setSearchQuery }) => {
         </AnimatePresence>
       </div>
 
+      {/* Action Buttons */}
       <div className="flex items-center gap-5 min-w-fit">
         <div className="relative">
           <button 
             onClick={() => {
                 setShowNotifications(!showNotifications);
-                setHasNewNotification(false); // ক্লিক করলে ডট চলে যাবে
+                setHasNewNotification(false); 
             }} 
             className="p-2 text-gray-400 hover:text-white transition-colors relative"
           >
             <FaBell size={18} className={showNotifications ? "text-cyan-400" : ""} />
-            {/* ৪. রিয়েল-টাইম রেড ডট */}
             {hasNewNotification && (
                 <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-[#020617] shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
             )}
@@ -179,7 +192,6 @@ const Navbar = ({ user, setSearchQuery }) => {
                 >
                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Neural Updates</p>
                   
-                  {/* ৫. ডায়নামিক নোটিফিকেশন লিস্ট */}
                   <div className="max-h-[200px] overflow-y-auto no-scrollbar space-y-3 mb-4">
                     {notifications.length > 0 ? (
                         notifications.map((notif, idx) => (
@@ -204,6 +216,7 @@ const Navbar = ({ user, setSearchQuery }) => {
           </AnimatePresence>
         </div>
 
+        {/* Profile Avatar */}
         <motion.div 
           whileTap={{ scale: 0.95 }}
           onClick={() => navigate(`/profile/${user?.sub}`)}
@@ -221,7 +234,8 @@ const Navbar = ({ user, setSearchQuery }) => {
         </motion.div>
       </div>
       
-      {showResults && <div className="fixed inset-0 z-[250]" onClick={() => setShowResults(false)}></div>}
+      {/* Search Overlay */}
+      {showResults && <div className="fixed inset-0 z-[250] bg-black/20 backdrop-blur-sm" onClick={() => setShowResults(false)}></div>}
     </nav>
   );
 };
