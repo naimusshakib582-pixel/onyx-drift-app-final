@@ -8,42 +8,51 @@ import { BRAND_NAME } from "../utils/constants";
 import StorySection from "../components/StorySection";
 import PostBox from "../components/PostBox";
 import PostCard from "../components/PostCard";
-import { FaSpinner, FaBolt } from "react-icons/fa"; // FaBolt যোগ করা হয়েছে
+import { FaSpinner, FaBolt } from "react-icons/fa";
 
 const Home = ({ user, searchQuery = "" }) => { 
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isCached, setIsCached] = useState(false); // Redis/Cache ইন্ডিকেটর
+  const [isCached, setIsCached] = useState(false);
 
-  // ১. এন্টারপ্রাইজ এপিআই কনফিগারেশন (সরাসরি ভেরিয়েবল ব্যবহার না করে কনফিগার করা)
-  const API_BASE_URL = "https://onyx-drift-api-server.onrender.com/api";
+  // ১. এপিআই ইউআরএল ফিক্স (এনভায়রনমেন্ট ভেরিয়েবল সাপোর্টসহ)
+  const BASE = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-api-server.onrender.com").replace(/\/$/, "");
+  const API_BASE_URL = `${BASE}/api`;
 
-  // ২. মেমোইজড ফেচ ফাংশন (পারফরম্যান্স অপ্টিমাইজেশনের জন্য)
+  // ২. মেমোইজড ফেচ ফাংশন
   const fetchPosts = useCallback(async () => {
     try {
-      const token = await getAccessTokenSilently();
+      // টোকেন না থাকলেও যাতে পাবলিক পোস্ট দেখা যায় তার জন্য ট্রাই-ক্যাচ
+      let headers = { "Cache-Control": "no-cache" };
+      
+      if (isAuthenticated) {
+        try {
+          const token = await getAccessTokenSilently();
+          headers["Authorization"] = `Bearer ${token}`;
+        } catch (tokenErr) {
+          console.warn("Silent token acquisition failed");
+        }
+      }
+
       const startTime = Date.now();
 
+      // ৩. রিকোয়েস্ট পাঠানো (টাইমস্ট্যাম্পসহ যাতে ব্রাউজার ক্যাশ না করে)
       const response = await axios.get(`${API_BASE_URL}/posts`, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          "Cache-Control": "no-cache" 
-        },
-        params: { t: Date.now() } // ক্যাশ-বাস্টিং
+        headers: headers,
+        params: { t: Date.now() } 
       });
 
-      // ৩. লেটেন্সি চেক (সিস্টেম স্পিড বোঝানোর জন্য)
       const latency = Date.now() - startTime;
-      if (latency < 100) setIsCached(true); // যদি খুব দ্রুত আসে তবে এটি ক্যাশড
+      if (latency < 150) setIsCached(true); 
 
-      setPosts(response.data);
+      setPosts(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
-      console.error("Neural Sync Error:", err);
+      console.error("Neural Sync Error:", err.response?.status === 404 ? "Endpoint not found (404)" : err.message);
     } finally {
       setLoading(false);
     }
-  }, [getAccessTokenSilently]);
+  }, [getAccessTokenSilently, isAuthenticated, API_BASE_URL]);
 
   useEffect(() => {
     fetchPosts();
@@ -64,7 +73,7 @@ const Home = ({ user, searchQuery = "" }) => {
     <div className="w-full min-h-screen bg-transparent">
       <main className="w-full max-w-[680px] mx-auto py-4 flex flex-col gap-6 px-4 sm:px-0">
         
-        {/* ৫. সিস্টেম স্ট্যাটাস বার (Enterprise Look) */}
+        {/* ৫. সিস্টেম স্ট্যাটাস বার */}
         <div className="flex justify-between items-center px-4">
           <div className="flex items-center gap-2">
              <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${isCached ? 'bg-cyan-400' : 'bg-green-400'}`}></div>
@@ -106,7 +115,7 @@ const Home = ({ user, searchQuery = "" }) => {
             <AnimatePresence mode="popLayout">
               {filteredPosts.map((post) => (
                 <motion.div
-                  key={post._id}
+                  key={post._id || post.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
