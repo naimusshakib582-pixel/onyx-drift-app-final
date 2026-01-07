@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # ১. মোঙ্গো ডিবি
+  mongodb:
+    image: mongo:latest
+    container_name: onyx_db
+    ports:
+      - "27017:27017"
+
+  # ২. রেডিস ক্যাশ
+  redis:
+    image: redis:alpine
+    container_name: onyx_cache
+    ports:
+      - "6379:6379"
+
+  # ৩. নোড জেএস সার্ভিস
+  node_app:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.node
+    container_name: onyx_node_server
+    ports:
+      - "10000:10000"
+    depends_on:
+      - mongodb
+      - redis
+
+  # ৪. জাভা অথ সার্ভিস
+  java_auth:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.java
+    container_name: onyx_java_auth
+    ports:
+      - "8080:8080"

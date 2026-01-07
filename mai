@@ -1,0 +1,4 @@
+@echo off
+echo 🚀 OnyxDrift System Starting...
+node index.js
+pause

@@ -1,0 +1,18 @@
+# ১. বেস ইমেজ
+FROM node:18-alpine
+
+# ২. ডিরেক্টরি সেট করা
+WORKDIR /app
+
+# ৩. প্যাকেজ ফাইল কপি এবং ইনস্টল
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
+
+# ৪. সব কোড কপি করা
+COPY . .
+
+# ৫. পোর্ট এক্সপোজ করা
+EXPOSE 10000
+
+# ৬. রান কমান্ড
+CMD ["node", "server.js"]
