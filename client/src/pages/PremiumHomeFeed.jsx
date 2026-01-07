@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaPlus, FaTimes, FaMusic, FaMagic,
   FaCloudUploadAlt, FaImage, FaVideo, FaRegSmile, FaEllipsisH, FaPaperPlane, FaUserPlus
-} from 'react-icons/fa'; // FaUserPlus যোগ করা হয়েছে যদি ভবিষ্যতে লাগে
+} from 'react-icons/fa'; 
 import { HiMenuAlt3 } from 'react-icons/hi'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
 import { useNavigate } from 'react-router-dom'; 
+import { io } from "socket.io-client"; // সকেট ইমপোর্ট
 import PostCard from "../components/PostCard"; 
 
 const PremiumHomeFeed = ({ searchQuery }) => {
@@ -23,9 +24,28 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const [mediaFile, setMediaFile] = useState(null); 
   const [mediaType, setMediaType] = useState(null); 
   const postFileInputRef = useRef(null);
+  const socketRef = useRef(null); // সকেট রেফারেন্স
 
   // ১. API URL - স্ল্যাশ হ্যান্ডলিং
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-api-server.onrender.com").replace(/\/$/, "");
+
+  // রিয়েল-টাইম সকেট লজিক
+  useEffect(() => {
+    if (isAuthenticated) {
+      socketRef.current = io(API_URL, {
+        transports: ["polling", "websocket"],
+        withCredentials: true
+      });
+
+      socketRef.current.on("receiveNewPost", (newPost) => {
+        setPosts((prevPosts) => [newPost, ...prevPosts]);
+      });
+
+      return () => {
+        if (socketRef.current) socketRef.current.disconnect();
+      };
+    }
+  }, [isAuthenticated, API_URL]);
 
   const handleMenuClick = (path) => {
     navigate(path);
@@ -117,7 +137,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
 
       const headers = { "Content-Type": "multipart/form-data" };
       
-      // অথেনটিকেশন চেক এবং টোকেন ম্যানেজমেন্ট
       if (isAuthenticated) {
         try {
           const token = await getAccessTokenSilently();
@@ -129,14 +148,10 @@ const PremiumHomeFeed = ({ searchQuery }) => {
 
       await axios.post(`${API_URL}/api/posts`, formData, { headers });
 
-      // স্টেট ক্লিয়ার করা
       setPostText("");
       setSelectedPostMedia(null);
       setMediaFile(null);
       setMediaType(null);
-      
-      // পোস্ট হওয়ার পর ফিড রিফ্রেশ
-      setTimeout(fetchPosts, 1000);
       
     } catch (err) {
       console.error("Post Error:", err.response?.data || err);
@@ -195,7 +210,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         )}
       </AnimatePresence>
 
-      {/* মোবাইল সাইডবার ড্রয়ার */}
+      {/* মোবাইল সাইডবার ড্রয়ার */}
       <aside className={`
         fixed top-0 left-0 h-full w-[290px] bg-[#020617] border-r border-white/10 z-[1001]
         transform transition-transform duration-300 ease-in-out flex flex-col
@@ -213,7 +228,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
               <FaPlus size={14} />
               <span className="font-bold uppercase text-[11px] tracking-widest">Feed</span>
             </div>
-            {/* অন্য মেনু আইটেম */}
             <div onClick={() => handleMenuClick('/analytics')} className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer">
               <FaMagic size={16} />
               <span className="font-bold uppercase text-[11px] tracking-widest">Analytics</span>
@@ -345,7 +359,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         )}
       </AnimatePresence>
 
-      {/* স্টোরি ভিউয়ার */}
+      {/* স্টোরি ভিউয়ার */}
       <AnimatePresence>
         {viewingStory && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] bg-black flex flex-col items-center justify-center">
