@@ -28,25 +28,41 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৪. Redis কানেকশন (টুইটার স্পিডের জন্য দুটি কানেকশন দরকার)
-const REDIS_URL = process.env.REDIS_URL || "redis://default:vrf4EFLABBRLQ65e02TISHLbzC3kGiCH@redis-16125.c10.us-east-1-4.ec2.cloud.redislabs.com:16125";
+// ৪. Redis কানেকশন (Protocol Prefix নিশ্চিত করা হয়েছে)
+// আপনার দেওয়া URL টি সরাসরি ব্যবহার করা হয়েছে, তবে এটি env থেকে আসাই ভালো
+let REDIS_URL = process.env.REDIS_URL || "redis://default:vrf4EFLABBRLQ65e02TISHLbzC3kGiCH@redis-16125.c10.us-east-1-4.ec2.cloud.redislabs.com:16125";
 
-const redis = new Redis(REDIS_URL); // সাধারণ ডাটা স্টোরেজ এর জন্য
-const redisSub = new Redis(REDIS_URL); // Java থেকে আসা মেসেজ শোনার জন্য (Subscriber)
+// যদি URL-এ প্রোটোকল না থাকে তবে যোগ করে দেওয়া
+if (!REDIS_URL.startsWith("redis://") && !REDIS_URL.startsWith("rediss://")) {
+    REDIS_URL = `redis://${REDIS_URL}`;
+}
+
+const redisOptions = {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    // ক্লাউড রেডিসের জন্য নিচের লাইনটি প্রয়োজন হতে পারে
+    retryStrategy: (times) => Math.min(times * 50, 2000),
+};
+
+const redis = new Redis(REDIS_URL, redisOptions); 
+const redisSub = new Redis(REDIS_URL, redisOptions); 
 
 redis.on("connect", () => console.log("🚀 System: Redis Main Client Connected."));
-redisSub.on("connect", () => console.log("🔥 System: Redis Subscriber (Neural Link) Connected."));
+redis.on("error", (err) => console.error("❌ Redis Main Error:", err.message));
+
+redisSub.on("connect", () => console.log("🔥 System: Redis Subscriber Connected."));
+redisSub.on("error", (err) => console.error("❌ Redis Sub Error:", err.message));
 
 // ৫. AI কনফিগারেশন
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ৬. CORS কনফিগারেশন (Vercel ডোমেইন মাস্ট)
+// ৬. CORS কনফিগারেশন
 const allowedOrigins = [
     "http://localhost:5173", 
     "http://127.0.0.1:5173", 
     "https://onyx-drift-app-final.onrender.com",
     "https://onyx-drift.com",
-    "https://onyx-drift.vercel.app" // আপনার ভেরসেল লিঙ্ক
+    "https://onyx-drift.vercel.app"
 ];
 
 app.use(cors({
@@ -98,7 +114,7 @@ app.post("/api/ai/enhance", async (req, res) => {
 
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
-// ৮. সকেট ও রিয়েল-টাইম লজিক (Twitter-style Fan-out)
+// ৮. সকেট ও রিয়েল-টাইম লজিক
 const io = new Server(server, {
   cors: { 
     origin: allowedOrigins,
@@ -108,16 +124,24 @@ const io = new Server(server, {
   allowEIO3: true
 });
 
-// 🔥 Java থেকে আসা মেসেজ সরাসরি সকেটে পাঠানো (Neural Link)
-redisSub.subscribe("tweet-channel", (err) => {
-    if (err) console.error("❌ Redis Sub Error:", err);
+// Redis Pub/Sub Logic
+redisSub.subscribe("tweet-channel", (err, count) => {
+    if (err) {
+        console.error("❌ Redis Sub Subscription Error:", err.message);
+    } else {
+        console.log(`📡 Subscribed to ${count} channels. Listening for Java signals...`);
+    }
 });
 
 redisSub.on("message", (channel, message) => {
     if (channel === "tweet-channel") {
-        const postData = JSON.parse(message);
-        io.emit("receiveNewPost", postData); // সরাসরি সব ইউজারকে ব্রডকাস্ট
-        console.log("🚀 High-speed broadcast sent to clients");
+        try {
+            const postData = JSON.parse(message);
+            io.emit("receiveNewPost", postData); 
+            console.log("🚀 High-speed broadcast: New post delivered to clients");
+        } catch (e) {
+            console.error("❌ Error parsing Redis message:", e);
+        }
     }
 });
 
@@ -125,23 +149,32 @@ io.on("connection", (socket) => {
   console.log(`📡 Node Connected: ${socket.id}`);
 
   socket.on("addNewUser", async (userId) => {
-    if (userId) {
-      await redis.hset("online_users", userId, socket.id);
-      const onlineUsers = await redis.hgetall("online_users");
-      io.emit("getOnlineUsers", Object.keys(onlineUsers).map(id => ({ userId: id, socketId: onlineUsers[id] })));
+    try {
+        if (userId) {
+          await redis.hset("online_users", userId, socket.id);
+          const onlineUsers = await redis.hgetall("online_users");
+          io.emit("getOnlineUsers", Object.keys(onlineUsers).map(id => ({ userId: id, socketId: onlineUsers[id] })));
+        }
+    } catch (err) {
+        console.error("Socket AddUser Error:", err);
     }
   });
 
   socket.on("disconnect", async () => {
-    const onlineUsers = await redis.hgetall("online_users");
-    for (const [userId, socketId] of Object.entries(onlineUsers)) {
-        if (socketId === socket.id) {
-            await redis.hdel("online_users", userId);
-            break;
+    try {
+        const onlineUsers = await redis.hgetall("online_users");
+        for (const [userId, socketId] of Object.entries(onlineUsers)) {
+            if (socketId === socket.id) {
+                await redis.hdel("online_users", userId);
+                break;
+            }
         }
+        const updatedUsers = await redis.hgetall("online_users");
+        io.emit("getOnlineUsers", Object.keys(updatedUsers).map(id => ({ userId: id, socketId: updatedUsers[id] })));
+        console.log(`🔌 Node Disconnected: ${socket.id}`);
+    } catch (err) {
+        console.error("Socket Disconnect Error:", err);
     }
-    const updatedUsers = await redis.hgetall("online_users");
-    io.emit("getOnlineUsers", Object.keys(updatedUsers).map(id => ({ userId: id, socketId: updatedUsers[id] })));
   });
 });
 
