@@ -36,35 +36,39 @@ export default function App() {
     }
   }, [isLoading, isAuthenticated, location.pathname, loginWithRedirect]);
 
-  // ২. Socket.io Connection Logic (টুইটার স্পিড আর্কিটেকচার অনুযায়ী)
+  // ২. Socket.io Connection Logic (Error Fixed)
   useEffect(() => {
     if (isAuthenticated && user?.sub) {
-      // Node.js Real-time Gateway URL (যা Java থেকে Redis হয়ে ডাটা পাঠাবে)
-      const socketUrl = (import.meta.env.VITE_API_URL || "https://onyx-drift-api-server.onrender.com").replace(/\/$/, "");
+      // ফিক্স: সঠিক এনভায়রনমেন্ট ভেরিয়েবল VITE_API_BASE_URL ব্যবহার করা হয়েছে
+      const rawUrl = import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com";
+      const socketUrl = rawUrl.replace(/\/$/, ""); 
       
-      // সকেট ইনিশিয়ালাইজেশন
+      // সকেট ইনিশিয়ালাইজেশন (Render অপ্টিমাইজড)
       socket.current = io(socketUrl, {
-        transports: ["polling", "websocket"], // Render এর জন্য পোলিং অত্যন্ত জরুরি
+        transports: ["websocket", "polling"], 
         withCredentials: true,
         reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
       });
 
       socket.current.on("connect", () => {
         console.log("📡 Neural Link Established: Connected to Real-time Gateway");
-        // ইউজার আইডি রেজিস্টার করা
         socket.current.emit("addNewUser", user.sub);
       });
 
-      // Java ব্যাকেন্ড থেকে আসা লাইভ পোস্ট রিসিভ করা (টুইটার স্টাইল)
+      // Java ব্যাকেন্ড থেকে আসা লাইভ পোস্ট রিসিভ করা
       socket.current.on("receiveNewPost", (newPost) => {
         console.log("🔥 High-speed broadcast received from Java Engine:", newPost);
-        // এখানে ইভেন্ট ডিসপ্যাচ বা স্টেট আপডেট করা যাবে
+        // গ্লোবাল ইভেন্ট ডিসপ্যাচ করা যাতে ফিড অটো-আপডেট হয়
+        window.dispatchEvent(new CustomEvent("new_post_arrived", { detail: newPost }));
       });
 
       socket.current.on("connect_error", (err) => {
-        console.warn("Neural Link Signal Weak: Retrying...", err.message);
+        // লগে বারবার এরর আসা কমানোর জন্য সাইড ইফেক্ট চেক
+        if (socket.current?.active) {
+            console.warn("Neural Link Signal Weak: Retrying...");
+        }
       });
 
       return () => {
@@ -74,9 +78,9 @@ export default function App() {
         }
       };
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user?.sub]); // user.sub ডিপেন্ডেন্সি হিসেবে ব্যবহার করা হয়েছে
 
-  // Loading State UI (আপনার অরিজিনাল ডিজাইন)
+  // Loading State UI (অরিজিনাল ডিজাইন)
   if (isLoading) return (
     <div className="h-screen flex items-center justify-center bg-[#020617]">
       <motion.div
