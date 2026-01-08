@@ -16,7 +16,7 @@ import connectDB from "./config/db.js";
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
 import usersRoutes from './routes/users.js'; 
-import messageRoutes from "./routes/messages.js";   
+import messageRoutes from "./routes/messages.js";    
 import uploadRoutes from './routes/upload.js';
 
 const app = express();
@@ -78,13 +78,14 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// ৭. এপিআই এন্ডপয়েন্টস (connectDB এর পরে রাউটগুলো রেজিস্টার করা হয়েছে)
+// ৭. এপিআই এন্ডপয়েন্টস
 connectDB();
 
+// --- রাউট রেজিস্ট্রেশন (এখানেই পরিবর্তন করা হয়েছে) ---
 app.use("/api/profile", profileRoutes);
-app.use("/api/user", usersRoutes); 
+app.use("/api/user", usersRoutes); // ফ্রন্টএন্ড /api/user/follow কল করলে এটি ধরবে
 app.use("/api/posts", postRoutes); 
-app.use("/api/upload", uploadRoutes); // আপলোড রাউট এখানে যোগ করা হয়েছে
+app.use("/api/upload", uploadRoutes); 
 
 if (messageRoutes) {
     app.use("/api/messages", messageRoutes);
@@ -115,8 +116,6 @@ const io = new Server(server, {
   allowEIO3: true,
   path: "/socket.io/"
 });
-
-
 
 // Redis Pub/Sub Logic
 redisSub.subscribe("tweet-channel", (err, count) => {
