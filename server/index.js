@@ -31,7 +31,6 @@ cloudinary.config({
 
 // ৪. Redis কানেকশন
 let REDIS_URL = process.env.REDIS_URL || "redis://default:vrf4EFLABBRLQ65e02TISHLbzC3kGiCH@redis-16125.c10.us-east-1-4.ec2.cloud.redislabs.com:16125";
-
 if (!REDIS_URL.startsWith("redis://") && !REDIS_URL.startsWith("rediss://")) {
     REDIS_URL = `redis://${REDIS_URL}`;
 }
@@ -45,13 +44,10 @@ const redisOptions = {
 const redis = new Redis(REDIS_URL, redisOptions); 
 const redisSub = new Redis(REDIS_URL, redisOptions); 
 
-redis.on("connect", () => console.log("🚀 System: Redis Main Client Connected."));
-redisSub.on("connect", () => console.log("🔥 System: Redis Subscriber Connected."));
-
 // ৫. AI কনফিগারেশন
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ৬. Middleware ও CORS কনফিগারেশন
+// ৬. Middleware ও CORS
 const allowedOrigins = [
     "http://localhost:5173", 
     "http://127.0.0.1:5173", 
@@ -66,7 +62,6 @@ app.use(cors({
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.log("❌ Blocked by CORS:", origin);
             callback(new Error("CORS Access Denied"));
         }
     },
@@ -78,25 +73,22 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// ৭. এপিআই এন্ডপয়েন্টস
+// ৭. ডাটাবেস কানেক্ট এবং রাউট সেটআপ
 connectDB();
 
-// --- রাউট রেজিস্ট্রেশন (এখানেই পরিবর্তন করা হয়েছে) ---
+// রাউটগুলো সরাসরি রেজিস্টার করুন (কোনো কন্ডিশন ছাড়া)
 app.use("/api/profile", profileRoutes);
-app.use("/api/user", usersRoutes); // ফ্রন্টএন্ড /api/user/follow কল করলে এটি ধরবে
+app.use("/api/user", usersRoutes);     // Follow system এর জন্য
+app.use("/api/messages", messageRoutes); // Messenger এর জন্য
 app.use("/api/posts", postRoutes); 
 app.use("/api/upload", uploadRoutes); 
-
-if (messageRoutes) {
-    app.use("/api/messages", messageRoutes);
-}
 
 // AI Enhance Route
 app.post("/api/ai/enhance", async (req, res) => {
   try {
     const { prompt } = req.body;
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(`You are OnyxDrift AI. Aesthetic rewrite for social media post: "${prompt}"`);
+    const result = await model.generateContent(`Aesthetic rewrite: "${prompt}"`);
     res.json({ enhancedText: result.response.text() });
   } catch (error) {
     res.status(500).json({ error: "AI Error" });
@@ -107,63 +99,15 @@ app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
 // ৮. সকেট ও রিয়েল-টাইম লজিক (Socket.io)
 const io = new Server(server, {
-  cors: { 
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
-  },
+  cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true },
   transports: ['websocket', 'polling'],
-  allowEIO3: true,
   path: "/socket.io/"
 });
 
-// Redis Pub/Sub Logic
-redisSub.subscribe("tweet-channel", (err, count) => {
-    if (!err) console.log(`📡 Subscribed to ${count} channels. Listening for Java signals...`);
-});
-
-redisSub.on("message", (channel, message) => {
-    if (channel === "tweet-channel") {
-        try {
-            const postData = JSON.parse(message);
-            io.emit("receiveNewPost", postData); 
-            console.log("🚀 High-speed broadcast: New post delivered to clients");
-        } catch (e) {
-            console.error("❌ Error parsing Redis message:", e);
-        }
-    }
-});
-
 io.on("connection", (socket) => {
-  console.log(`📡 Node Connected: ${socket.id}`);
-
+  console.log(`📡 Connected: ${socket.id}`);
   socket.on("addNewUser", async (userId) => {
-    try {
-        if (userId) {
-          await redis.hset("online_users", userId, socket.id);
-          const onlineUsers = await redis.hgetall("online_users");
-          io.emit("getOnlineUsers", Object.keys(onlineUsers).map(id => ({ userId: id, socketId: onlineUsers[id] })));
-        }
-    } catch (err) {
-        console.error("Socket AddUser Error:", err);
-    }
-  });
-
-  socket.on("disconnect", async () => {
-    try {
-        const onlineUsers = await redis.hgetall("online_users");
-        for (const [userId, socketId] of Object.entries(onlineUsers)) {
-            if (socketId === socket.id) {
-                await redis.hdel("online_users", userId);
-                break;
-            }
-        }
-        const updatedUsers = await redis.hgetall("online_users");
-        io.emit("getOnlineUsers", Object.keys(updatedUsers).map(id => ({ userId: id, socketId: updatedUsers[id] })));
-        console.log(`🔌 Node Disconnected: ${socket.id}`);
-    } catch (err) {
-        console.error("Socket Disconnect Error:", err);
-    }
+    if (userId) await redis.hset("online_users", userId, socket.id);
   });
 });
 
