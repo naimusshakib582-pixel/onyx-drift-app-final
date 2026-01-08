@@ -76,14 +76,12 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // ৭. ডাটাবেস কানেক্ট এবং রাউট সেটআপ
 connectDB();
 
-// [IMPORTANT FIX]: ৪MD৪ এরর দূর করতে পাথের সামঞ্জস্য করা হলো
 app.use("/api/profile", profileRoutes);
-app.use("/api/user", profileRoutes);   // এখানে profileRoutes যোগ করা হয়েছে যাতে /api/user/follow কাজ করে
+app.use("/api/user", profileRoutes);   // /api/user/follow এর জন্য
 app.use("/api/messages", messageRoutes); 
 app.use("/api/posts", postRoutes); 
 app.use("/api/upload", uploadRoutes); 
 
-// AI Enhance Route
 app.post("/api/ai/enhance", async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -97,10 +95,16 @@ app.post("/api/ai/enhance", async (req, res) => {
 
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
-// ৮. সকেট ও রিয়েল-টাইম লজিক (Socket.io)
+// ৮. সকেট ও রিয়েল-টাইম লজিক (Socket.io - Optimized for Render)
 const io = new Server(server, {
-  cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true },
-  transports: ['websocket', 'polling'],
+  cors: { 
+    origin: allowedOrigins, 
+    methods: ["GET", "POST"], 
+    credentials: true 
+  },
+  // 'polling' আগে দেওয়া হয়েছে যাতে কানেকশন ড্রপ না করে
+  transports: ['polling', 'websocket'], 
+  allowEIO3: true,
   path: "/socket.io/"
 });
 
