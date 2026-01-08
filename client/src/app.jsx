@@ -116,6 +116,7 @@ export default function App() {
                   <Route path="/analytics" element={<ProtectedRoute component={Analytics} />} />
                   <Route path="/explorer" element={<ProtectedRoute component={Explorer} />} />
                   <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
+                  <Route path="/following" element={<FollowingPage />} />
                   
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>

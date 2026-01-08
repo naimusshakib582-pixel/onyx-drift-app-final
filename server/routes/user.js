@@ -22,7 +22,6 @@ router.put("/update-profile", auth, upload.fields([
     if (location) updateFields.location = location;
     if (workplace) updateFields.workplace = workplace;
 
-    // ইমেজ চেক (Cloudinary URL সেভ হবে)
     if (req.files) {
       if (req.files.avatar) {
         updateFields.avatar = req.files.avatar[0].path;
@@ -57,7 +56,6 @@ router.get("/search", auth, async (req, res) => {
     const { query } = req.query;
     if (!query) return res.json([]);
 
-    // ইউজার সার্চ (Case Insensitive)
     const users = await User.find({
       $or: [
         { name: { $regex: query, $options: "i" } },
@@ -93,7 +91,6 @@ router.get("/profile/:id", auth, async (req, res) => {
    4️⃣ FRIEND REQUEST SYSTEM (Connect Signals)
 ========================================================== */
 
-// @desc Send Request
 router.post("/friend-request/:targetAuth0Id", auth, async (req, res) => {
   try {
     const senderId = req.user.sub || req.user.id;
@@ -112,7 +109,6 @@ router.post("/friend-request/:targetAuth0Id", auth, async (req, res) => {
   }
 });
 
-// @desc Accept Request
 router.post("/accept-friend/:senderAuth0Id", auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
@@ -142,7 +138,6 @@ router.get("/all", auth, async (req, res) => {
   try {
     const currentUserId = req.user.sub || req.user.id;
     
-    // বর্তমান ইউজার এবং যারা অলরেডি ফ্রেন্ড তাদের বাদ দিয়ে সাজেশন দেওয়া
     const users = await User.find({ 
       auth0Id: { $ne: currentUserId } 
     })
@@ -152,6 +147,55 @@ router.get("/all", auth, async (req, res) => {
     res.json(users);
   } catch (err) {
     res.status(500).json({ msg: "Could not fetch drifters" });
+  }
+});
+
+/* ==========================================================
+   6️⃣ FOLLOW SYSTEM (New Logic)
+   Route: POST api/user/follow/:targetId
+========================================================== */
+router.post("/follow/:targetId", auth, async (req, res) => {
+  try {
+    const myAuth0Id = req.user.sub || req.user.id;
+    const targetId = req.params.targetId;
+
+    if (myAuth0Id === targetId) return res.status(400).json({ msg: "Cannot follow yourself" });
+
+    const currentUser = await User.findOne({ auth0Id: myAuth0Id });
+    const isFollowing = currentUser.following.includes(targetId);
+
+    if (isFollowing) {
+      // Unfollow
+      await User.findOneAndUpdate({ auth0Id: myAuth0Id }, { $pull: { following: targetId } });
+      await User.findOneAndUpdate({ auth0Id: targetId }, { $pull: { followers: myAuth0Id } });
+      res.json({ msg: "Unfollowed successfully", isFollowing: false });
+    } else {
+      // Follow
+      await User.findOneAndUpdate({ auth0Id: myAuth0Id }, { $addToSet: { following: targetId } });
+      await User.findOneAndUpdate({ auth0Id: targetId }, { $addToSet: { followers: myAuth0Id } });
+      res.json({ msg: "Followed successfully", isFollowing: true });
+    }
+  } catch (err) {
+    res.status(500).json({ msg: "Follow operation failed" });
+  }
+});
+
+/* ==========================================================
+   7️⃣ GET FOLLOWING LIST (For Following Page)
+   Route: GET api/user/following-list
+========================================================== */
+router.get("/following-list", auth, async (req, res) => {
+  try {
+    const myId = req.user.sub || req.user.id;
+    const user = await User.findOne({ auth0Id: myId });
+    
+    // যাদের ফলো করা হয়েছে তাদের তথ্য খোঁজা
+    const followingUsers = await User.find({ auth0Id: { $in: user.following } })
+      .select("name avatar bio auth0Id isPremium");
+
+    res.json(followingUsers);
+  } catch (err) {
+    res.status(500).json({ msg: "Failed to load following orbit" });
   }
 });
 

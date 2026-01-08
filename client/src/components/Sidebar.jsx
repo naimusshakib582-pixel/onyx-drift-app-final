@@ -1,8 +1,8 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  FaHome, FaEnvelope, FaCompass, FaCog, FaSignOutAlt, FaRocket
-} from 'react-icons/fa';
+  FaHome, FaEnvelope, FaCompass, FaCog, FaSignOutAlt, FaRocket, FaUserPlus
+} from 'react-icons/fa'; // FaUserPlus আইকনটি যোগ করা হয়েছে
 import { HiOutlineChartBar } from 'react-icons/hi2';
 import { useAuth0 } from '@auth0/auth0-react';
 
@@ -11,9 +11,10 @@ const Sidebar = () => {
 
   const menuItems = [
     { name: 'Feed', icon: <FaHome />, path: '/feed' },
+    { name: 'Following', icon: <FaUserPlus />, path: '/following' }, // নতুন অপশন এখানে যোগ করা হয়েছে
     { name: 'Analytics', icon: <HiOutlineChartBar />, path: '/analytics' },
     { name: 'Messages', icon: <FaEnvelope />, path: '/messenger' },
-    { name: 'Explore', icon: <FaCompass />, path: '/explorer' }, // আপনার পাথ অনুযায়ী explorer/explore ঠিক করে নিন
+    { name: 'Explore', icon: <FaCompass />, path: '/explorer' },
     { name: 'Settings', icon: <FaCog />, path: '/settings' },
   ];
 
@@ -43,10 +44,9 @@ const Sidebar = () => {
         ))}
       </div>
 
-      {/* ২. প্রো কার্ড এবং লগআউট (নিচের সেকশন) */}
+      {/* ২. প্রো কার্ড এবং লগআউট */}
       <div className="px-2 mt-auto space-y-4">
         
-        {/* Onyx Pro Upgrade Card */}
         <div className="bg-gradient-to-br from-purple-600/20 to-cyan-500/10 rounded-[2.5rem] p-6 border border-white/5 relative overflow-hidden group shadow-2xl">
           <div className="absolute -top-2 -right-2 p-2 opacity-10 group-hover:rotate-12 transition-all duration-500 group-hover:scale-110">
              <FaRocket size={60} className="text-cyan-400" />
@@ -62,7 +62,6 @@ const Sidebar = () => {
           </div>
         </div>
 
-        {/* Logout Button */}
         <button 
           onClick={() => logout({ returnTo: window.location.origin })}
           className="w-full flex items-center gap-4 px-6 py-4 text-rose-500/70 hover:text-rose-400 hover:bg-rose-500/5 rounded-2xl transition-all duration-300 font-bold text-xs uppercase italic"
