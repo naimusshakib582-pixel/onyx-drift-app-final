@@ -50,26 +50,29 @@ redisSub.on("connect", () => console.log("🔥 System: Redis Subscriber Connecte
 // ৫. AI কনফিগারেশন
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ৬. CORS কনফিগারেশন (সংশোধিত)
+// ৬. CORS কনফিগারেশন (আপনার ডোমেইন সহ পূর্ণাঙ্গ লিস্ট)
 const allowedOrigins = [
     "http://localhost:5173", 
     "http://127.0.0.1:5173", 
     "https://onyx-drift-app-final.onrender.com",
-    "https://onyxdrift.onrender.com" // আপনার আগের ডোমেইনটি যোগ করে দেওয়া ভালো
+    "https://onyxdrift.onrender.com",
+    "https://www.onyx-drift.com", // প্রধান ডোমেইন
+    "https://onyx-drift.com"      // নন-ডব্লিউডব্লিউডব্লিউ ভার্সন
 ];
 
 app.use(cors({
     origin: function (origin, callback) {
-        // origin না থাকলে (যেমন Postman) বা লিস্টে থাকলে allow করবে
+        // origin না থাকলে (যেমন মোবাইল অ্যাপ/পোস্টম্যান) অথবা লিস্টে থাকলে এলাউ করবে
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.log("Blocked Origin:", origin); // কোন ইউআরএল ব্লক হচ্ছে তা লগে দেখাবে
+            console.log("❌ Blocked by CORS:", origin);
             callback(new Error("CORS Access Denied"));
         }
     },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"] // টোকেন ভেরিফিকেশনের জন্য এটি বাধ্যতামূলক
 }));
 
 app.use(express.json({ limit: "50mb" }));
@@ -98,16 +101,16 @@ app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 // ৮. সকেট ও রিয়েল-টাইম লজিক (CORS Fix)
 const io = new Server(server, {
   cors: { 
-    origin: allowedOrigins, // সরাসরি অ্যারেটি ব্যবহার করা হলো
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   },
-  transports: ['websocket', 'polling'], // websocket অগ্রাধিকার দেওয়া হয়েছে
+  transports: ['websocket', 'polling'],
   allowEIO3: true,
-  path: "/socket.io/" // নিশ্চিত করা হলো
+  path: "/socket.io/"
 });
 
-// Redis Pub/Sub Logic (Java integration)
+// Redis Pub/Sub Logic
 redisSub.subscribe("tweet-channel", (err, count) => {
     if (!err) console.log(`📡 Subscribed to ${count} channels. Listening for Java signals...`);
 });
