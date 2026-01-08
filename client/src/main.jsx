@@ -8,7 +8,7 @@ import "./index.css";
 
 const AUTH0_DOMAIN = "dev-6d0nxccsaycctfl1.us.auth0.com";
 const AUTH0_CLIENT_ID = "tcfTAHv3K8KC1VwtZQrqIbqsZRN2PJFr";
-const API_AUDIENCE = "https://onyx-drift-api.com";
+const API_URL = "https://onyx-drift-app-final.onrender.com";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
