@@ -2,27 +2,50 @@ import express from "express";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import auth from "../../middleware/auth.js";
-import User from "../../models/User.js"; // পাথ ঠিক আছে কিনা চেক করে নিন
+import User from "../../models/User.js";
 
-const router = express.Router(); // ১. সবার আগে রাউটার ডিক্লেয়ার করতে হবে
+const router = express.Router();
 
-// ২. Multer Setup
+// ১. Multer Setup (টেম্পোরারি স্টোরেজ)
 const upload = multer({ dest: 'uploads/' });
 
-// ৩. প্রোফাইল আপডেট (ইমেজ সহ)
+/* ==========================================================
+   ২. GET PROFILE BY ID
+   Route: GET /api/profile/:userId
+========================================================== */
+router.get("/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Auth0 ID বা MongoDB ID দুইভাবেই খোঁজার চেষ্টা করবে
+    const user = await User.findOne({ 
+      $or: [{ auth0Id: userId }, { _id: mongoose.Types.ObjectId.isValid(userId) ? userId : null }] 
+    }).select("-password");
+
+    if (!user) return res.status(404).json({ msg: "User not found in neural orbit" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).send("Neural Fetch Failed");
+  }
+});
+
+/* ==========================================================
+   ৩. UPDATE PROFILE (With Image Support)
+   Route: PUT /api/profile/update-profile
+========================================================== */
 router.put('/update-profile', auth, upload.fields([{ name: 'avatar' }, { name: 'cover' }]), async (req, res) => {
   try {
-    const { nickname, bio, location } = req.body;
-    let updateFields = { nickname, bio, location };
+    const { nickname, bio, location, workplace } = req.body;
+    let updateFields = { nickname, bio, location, workplace };
 
-    // যদি নতুন ইমেজ থাকে তবে Cloudinary-তে আপলোড হবে
+    // Avatar Upload
     if (req.files && req.files['avatar']) {
       const avatarRes = await cloudinary.uploader.upload(req.files['avatar'][0].path, {
         folder: "onyx_profiles/avatars"
       });
-      updateFields.picture = avatarRes.secure_url;
+      updateFields.avatar = avatarRes.secure_url;
     }
 
+    // Cover Image Upload
     if (req.files && req.files['cover']) {
       const coverRes = await cloudinary.uploader.upload(req.files['cover'][0].path, {
         folder: "onyx_profiles/covers"
@@ -30,40 +53,54 @@ router.put('/update-profile', auth, upload.fields([{ name: 'avatar' }, { name: '
       updateFields.coverImg = coverRes.secure_url;
     }
 
-    const updatedUser = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true });
+    // req.user.id বা req.user.sub (Auth0 এর ক্ষেত্রে) ব্যবহার করে আপডেট
+    const targetId = req.user.id || req.user.sub;
+    const updatedUser = await User.findOneAndUpdate(
+      { auth0Id: targetId }, 
+      { $set: updateFields }, 
+      { new: true, upsert: true }
+    );
+
     res.json(updatedUser);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Update Failed");
+    console.error("Update Error:", err);
+    res.status(500).json({ msg: "Update Failed", error: err.message });
   }
 });
 
-// ৪. ইউজারের প্রোফাইল ডাটা পাওয়া (GET)
-router.get("/:userId", async (req, res) => {
+/* ==========================================================
+   ৪. FOLLOW / UNFOLLOW SYSTEM (The Missing Link)
+   Route: POST /api/profile/follow/:targetId
+========================================================== */
+router.post("/follow/:targetId", auth, async (req, res) => {
   try {
-    const { userId } = req.params;
-    const user = await User.findById(userId).select("-password"); // পাসওয়ার্ড ছাড়া সব নিবে
-    if (!user) return res.status(404).json({ msg: "User not found" });
-    res.json(user);
-  } catch (err) {
-    res.status(500).send("Neural Fetch Failed");
-  }
-});
+    const myAuth0Id = req.user.id || req.user.sub;
+    const targetId = req.params.targetId;
 
-// ৫. সাধারণ প্রোফাইল আপডেট (PUT) - এটি আগেরটির সাথে মার্জ করা যেতে পারে
-router.put("/:userId", auth, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { name, avatar } = req.body;
-    // লজিক এখানে হবে
-    res.json({
-      userId,
-      name,
-      avatar,
-      message: "Profile basic info updated successfully",
-    });
+    if (myAuth0Id === targetId) return res.status(400).json({ msg: "Cannot follow yourself" });
+
+    const currentUser = await User.findOne({ auth0Id: myAuth0Id });
+    
+    // ফলো করা আছে কি না চেক করা
+    const isFollowing = currentUser.following.includes(targetId);
+
+    if (isFollowing) {
+      // Unfollow - Atomic Update
+      await Promise.all([
+        User.findOneAndUpdate({ auth0Id: myAuth0Id }, { $pull: { following: targetId } }),
+        User.findOneAndUpdate({ auth0Id: targetId }, { $pull: { followers: myAuth0Id } })
+      ]);
+      res.json({ msg: "Unfollowed successfully", isFollowing: false });
+    } else {
+      // Follow - Atomic Update
+      await Promise.all([
+        User.findOneAndUpdate({ auth0Id: myAuth0Id }, { $addToSet: { following: targetId } }),
+        User.findOneAndUpdate({ auth0Id: targetId }, { $addToSet: { followers: myAuth0Id } })
+      ]);
+      res.json({ msg: "Followed successfully", isFollowing: true });
+    }
   } catch (err) {
-    res.status(500).send("Server Error");
+    res.status(500).json({ msg: "Follow action failed", error: err.message });
   }
 });
 
