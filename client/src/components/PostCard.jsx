@@ -7,7 +7,8 @@ import {
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
 
-const PostCard = ({ post, onAction, onDelete }) => {
+// ১. এখানে onUserClick প্রপসটি রিসিভ করা হচ্ছে
+const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
   const [isLiking, setIsLiking] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -18,12 +19,9 @@ const PostCard = ({ post, onAction, onDelete }) => {
 
   if (!post) return null;
 
-  // ১. API URL ফিক্স - ট্রেইলিং স্ল্যাশ হ্যান্ডলিং এবং সঠিক এনভায়রনমেন্ট ভেরিয়েবল
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
-  
   const likesArray = Array.isArray(post.likes) ? post.likes : [];
-  // Auth0 sub ব্যবহার করে চেক করা হচ্ছে ইউজার অলরেডি লাইক করেছে কিনা
   const isLiked = user && likesArray.includes(user.sub);
 
   const togglePlay = () => {
@@ -43,7 +41,6 @@ const PostCard = ({ post, onAction, onDelete }) => {
       setIsLiking(true);
       const token = await getAccessTokenSilently();
       
-      // ২. ডাইনামিক রুট - আপনার ব্যাকএন্ডের সাথে মিল রেখে
       await axios.put(`${API_URL}/api/posts/${post._id}/like`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -109,22 +106,27 @@ const PostCard = ({ post, onAction, onDelete }) => {
     >
       <div className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="p-[2px] rounded-2xl bg-gradient-to-tr from-cyan-400 to-purple-600">
+          {/* প্রোফাইল পিকচারে ক্লিক করলে ওই ইউজারের ডিসকভারি কার্ডে নিয়ে যাবে */}
+          <div 
+            onClick={() => onUserClick && onUserClick(post.authorId)}
+            className="p-[2px] rounded-2xl bg-gradient-to-tr from-cyan-400 to-purple-600 cursor-pointer active:scale-90 transition-transform"
+          >
             <img 
               src={post.authorAvatar || `https://ui-avatars.com/api/?name=${post.authorName}`} 
               className="w-10 h-10 rounded-[0.8rem] object-cover border-2 border-[#020617]" 
               alt="author" 
             />
           </div>
-          <div>
-            <h4 className="font-black text-white text-xs tracking-tighter uppercase italic">{post.authorName || 'Anonymous'}</h4>
+          <div className="cursor-pointer" onClick={() => onUserClick && onUserClick(post.authorId)}>
+            <h4 className="font-black text-white text-xs tracking-tighter uppercase italic hover:text-cyan-400 transition-colors">
+              {post.authorName || 'Anonymous'}
+            </h4>
             <p className="text-[8px] text-gray-500 font-bold tracking-[0.2em] uppercase">
               {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Just now'} • {post.mediaType || 'neural'}
             </p>
           </div>
         </div>
 
-        {/* ৩. ডিলিট বাটন লজিক ফিক্স - চেক করা হচ্ছে authorId অথবা ইমেল দিয়ে */}
         {(user?.sub === post.authorId || user?.email === post.authorId) && (
           <button 
             onClick={(e) => {
