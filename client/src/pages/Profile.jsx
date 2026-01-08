@@ -4,8 +4,9 @@ import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  FaEdit, FaCalendarAlt, FaMapMarkerAlt, FaShieldAlt, 
-  FaRocket, FaCamera, FaImage, FaFilm, FaPlayCircle, FaTimes, FaPlus, FaCheckCircle, FaGhost, FaUserPlus, FaEnvelope, FaSearch
+  FaEdit, FaShieldAlt, FaRocket, FaCamera, FaImage, 
+  FaFilm, FaPlayCircle, FaTimes, FaPlus, FaCheckCircle, 
+  FaUserPlus, FaEnvelope, FaSearch
 } from "react-icons/fa";
 import { BRAND_NAME } from "../utils/constants";
 import PostCard from "../components/PostCard";
@@ -13,7 +14,7 @@ import PostCard from "../components/PostCard";
 const Profile = () => {
   const { userId } = useParams(); 
   const navigate = useNavigate();
-  const { user: currentUser, getAccessTokenSilently } = useAuth0();
+  const { user: currentUser, getAccessTokenSilently, isAuthenticated } = useAuth0();
   
   const [userProfile, setUserProfile] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
@@ -36,7 +37,8 @@ const Profile = () => {
   const [postType, setPostType] = useState("image"); 
   const [isTransmitting, setIsTransmitting] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || "https://onyx-drift-app-final.onrender.com";
+  // API URL ফিক্স
+  const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
   const fileInputRef = useRef(null);
 
   const [editData, setEditData] = useState({ nickname: "", bio: "", location: "" });
@@ -53,20 +55,6 @@ const Profile = () => {
       });
     }
   }, [userProfile]);
-
-  const handleDeletePost = async (postId) => {
-    if (!window.confirm("Are you sure you want to terminate this neural echo?")) return;
-    try {
-      const token = await getAccessTokenSilently();
-      await axios.delete(`${API_URL}/api/posts/${postId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUserPosts(prev => prev.filter(p => p._id !== postId));
-    } catch (err) {
-      console.error("Delete Error:", err);
-      alert("Failed to terminate signal.");
-    }
-  };
 
   const fetchProfileData = async () => {
     try {
@@ -99,8 +87,22 @@ const Profile = () => {
   };
 
   useEffect(() => {
-    if (currentUser || userId) fetchProfileData();
-  }, [userId, currentUser]);
+    if (isAuthenticated || userId) fetchProfileData();
+  }, [userId, isAuthenticated]);
+
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm("Are you sure you want to terminate this neural echo?")) return;
+    try {
+      const token = await getAccessTokenSilently();
+      await axios.delete(`${API_URL}/api/posts/${postId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUserPosts(prev => prev.filter(p => p._id !== postId));
+    } catch (err) {
+      console.error("Delete Error:", err);
+      alert("Failed to terminate signal.");
+    }
+  };
 
   const handleSearch = async (e) => {
     const query = e.target.value;
@@ -135,19 +137,14 @@ const Profile = () => {
   };
 
   const handleUpdateIdentity = async () => {
-    if (!editData.nickname.trim()) return alert("Nickname/Name is required for synchronization.");
-    
+    if (!editData.nickname.trim()) return alert("Nickname is required.");
     setIsUpdating(true);
     try {
       const token = await getAccessTokenSilently();
       const formData = new FormData();
-      
       formData.append("name", editData.nickname); 
-      formData.append("nickname", editData.nickname);
       formData.append("bio", editData.bio);
       formData.append("location", editData.location);
-      if (currentUser?.email) formData.append("email", currentUser.email); 
-      
       if (avatarFile) formData.append("avatar", avatarFile);
       if (coverFile) formData.append("cover", coverFile);
 
@@ -162,8 +159,7 @@ const Profile = () => {
       setIsEditOpen(false);
       fetchProfileData(); 
     } catch (err) {
-      console.error("Update Fail:", err.response?.data || err.message);
-      alert("Sync Failed: " + (err.response?.data?.msg || "Neural interferences."));
+      alert("Sync Failed: " + (err.response?.data?.msg || "Error"));
     } finally {
       setIsUpdating(false);
     }
@@ -174,19 +170,20 @@ const Profile = () => {
     setIsTransmitting(true);
     try {
       const token = await getAccessTokenSilently();
-      const formData = new FormData();
-      formData.append("text", content);
-      formData.append("mediaType", postType === 'photo' ? 'image' : postType); 
-      if (file) formData.append("media", file);
       
-      formData.append("authorName", userProfile?.name || userProfile?.nickname || "Drifter");
-      formData.append("authorAvatar", userProfile?.avatar || "");
+      // প্রোফাইল পেজ থেকে পোস্ট করার সময় JSON ডাটা পাঠানো সহজ
+      const postData = {
+        text: content,
+        mediaType: postType,
+        authorName: userProfile?.name || userProfile?.nickname || "Drifter",
+        authorAvatar: userProfile?.avatar || "",
+        authorId: currentUser?.sub // Identity verification এর জন্য জরুরি
+      };
 
-      const res = await axios.post(`${API_URL}/api/posts/create`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
+      // যদি ফাইল থাকে তবে সেটিকে Base64 করে পাঠানো বা সরাসরি FormData ব্যবহার করা যায়। 
+      // এখানে আপনার ব্যাকএন্ডের সুবিধা অনুযায়ী আমরা ডিরেক্ট অবজেক্ট পাঠাচ্ছি।
+      const res = await axios.post(`${API_URL}/api/posts`, postData, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       
       setUserPosts([res.data, ...userPosts]); 
@@ -196,18 +193,15 @@ const Profile = () => {
       alert("Echo Transmitted!");
     } catch (err) {
       console.error("Transmission Error:", err.response?.data || err.message);
-      alert("Transmission Interrupted.");
+      alert("Transmission Interrupted: " + (err.response?.data?.message || "Check Identity"));
     } finally {
       setIsTransmitting(false);
     }
   };
 
   const handleFileSelect = (type) => {
-    const backendType = type === 'photo' ? 'image' : type;
-    setPostType(backendType);
-    setTimeout(() => {
-      fileInputRef.current.click();
-    }, 100);
+    setPostType(type === 'photo' ? 'image' : type);
+    setTimeout(() => fileInputRef.current.click(), 100);
   };
 
   if (loading) return (
@@ -252,7 +246,8 @@ const Profile = () => {
         </div>
       </div>
 
-      <div className="flex flex-row max-w-[1400px] mx-auto w-full">
+      <div className="flex flex-row max-w-[1400px] mx-auto w-full flex-1">
+        {/* Sidebar */}
         <aside className="hidden lg:block w-72 p-6 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r border-white/5">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-6">Neural Connects</h3>
           <div className="space-y-6">
@@ -271,6 +266,7 @@ const Profile = () => {
           </div>
         </aside>
 
+        {/* Main Feed */}
         <main className="flex-1 pb-20">
           <div className="relative h-48 md:h-72 w-full overflow-hidden">
             <img 
@@ -369,6 +365,7 @@ const Profile = () => {
               </div>
             </motion.div>
 
+            {/* Tabs & Posts */}
             <div className="mt-12">
               <div className="flex items-center justify-center md:justify-start gap-6 md:gap-8 px-2 md:px-6 mb-8 border-b border-white/5">
                 {["Echoes", "Insights", "Media"].map((tab) => (
@@ -387,6 +384,7 @@ const Profile = () => {
                         post={post} 
                         onAction={fetchProfileData} 
                         onDelete={() => handleDeletePost(post._id)} 
+                        currentUserId={currentUser?.sub}
                       />
                     </motion.div>
                   )) : (
