@@ -96,3 +96,5 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #374248; }
