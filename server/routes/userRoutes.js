@@ -21,7 +21,7 @@ const upload = multer({
 ========================================================== */
 
 /**
- * ১. ড্রিপ্টার সার্চ ফাংশনালিটি (উপরে রাখা হয়েছে কনফ্লিক্ট এড়াতে)
+ * ১. ড্রিপ্টার সার্চ ফাংশনালিটি
  * Endpoint: GET /api/user/search
  */
 router.get('/search', auth, async (req, res) => {
@@ -51,36 +51,37 @@ router.post('/create', auth, upload.single('file'), createPost);
 
 /**
  * ৩. প্রোফাইল এবং পোস্ট একসাথে পাওয়া (Neural Discovery Link)
+ * গুরুত্বপূর্ণ: এটি সবার নিচে থাকবে যাতে /search এর সাথে কনফ্লিক্ট না হয়।
  * Endpoint: GET /api/user/:userId
  */
 router.get('/:userId', auth, async (req, res) => {
   try {
-    // স্পেশাল ক্যারেক্টার (যেমন '|') হ্যান্ডেল করার জন্য ডিকোড
+    // URL-এর স্পেশাল ক্যারেক্টার (যেমন '|') ডিকোড করা
     const targetId = decodeURIComponent(req.params.userId);
-    console.log(`📡 Neural Sync Request for: ${targetId}`);
+    console.log(`📡 Neural Sync Request for ID: ${targetId}`);
 
-    // ১. ডাটাবেস থেকে ইউজার খুঁজে বের করা
+    // ১. ডাটাবেস থেকে ইউজার খোঁজা
     const user = await User.findOne({ auth0Id: targetId }).lean();
 
-    // ২. ওই ইউজারের সব পোস্ট খুঁজে বের করা (সব সম্ভাব্য ফিল্ড চেক করা হচ্ছে)
+    // ২. ওই ইউজারের করা সব পোস্ট খোঁজা
     const posts = await Post.find({ 
       $or: [
         { authorAuth0Id: targetId },
         { authorId: targetId },
-        { author: targetId },
-        { user: targetId } 
+        { user: targetId },
+        { author: targetId }
       ]
     })
     .sort({ createdAt: -1 })
     .lean();
 
-    // ৩. অবজেক্ট আকারে ডাটা রেসপন্স
-    res.json({
+    // ৩. রেসপন্স পাঠানো
+    res.status(200).json({
       user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
       posts: posts || []
     });
 
-    console.log(`✅ Success: Found ${posts.length} signals for ${targetId}`);
+    console.log(`✅ Neural Sync Success: Found ${posts.length} signals for ${targetId}`);
   } catch (err) {
     console.error("❌ Neural Fetch Error:", err);
     res.status(500).json({ 

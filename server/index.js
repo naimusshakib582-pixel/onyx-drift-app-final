@@ -28,7 +28,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৪. Redis কানেকশন (Render এ Redis না থাকলে এরর হ্যান্ডলিং)
+// ৪. Redis কানেকশন
 const REDIS_URL = process.env.REDIS_URL;
 let redis;
 
@@ -44,10 +44,10 @@ if (REDIS_URL) {
     console.log("⚠️ REDIS_URL not found. Socket features might be limited.");
 }
 
-// ৫. AI কনফিগারেশন (Gemini)
+// ৫. AI কনফিগারেশন
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ৬. Middleware ও CORS সেটআপ (Render এর জন্য আপডেট করা)
+// ৬. Middleware ও CORS সেটআপ
 const allowedOrigins = [
     "http://localhost:5173", 
     "http://127.0.0.1:5173", 
@@ -73,17 +73,23 @@ app.use(cors({
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// ৭. ডাটাবেস কানেক্ট এবং রাউট মাউন্টিং
+// ৭. ডাটাবেস কানেক্ট
 connectDB();
 
-// 💡 গুরুত্বপূর্ণ: রাউট পাথগুলো চেক করুন
-app.use("/api/user", usersRoutes); // এটিই আপনার /api/user/user/:userId হ্যান্ডেল করবে
+/* ==========================================================
+    🚀 ROUTE MOUNTING (অর্ডার ঠিক করা হয়েছে)
+========================================================== */
+
+// ১. ইউজার ও প্রোফাইল রাউট
+app.use("/api/user", usersRoutes); 
 app.use("/api/profile", profileRoutes); 
-app.use("/api/messages", messageRoutes); 
+
+// ২. পোস্ট ও মেসেজ রাউট
 app.use("/api/posts", postRoutes); 
+app.use("/api/messages", messageRoutes); 
 app.use("/api/upload", uploadRoutes); 
 
-// AI Enhance Route
+// ৩. AI Enhance Route
 app.post("/api/ai/enhance", async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -97,15 +103,16 @@ app.post("/api/ai/enhance", async (req, res) => {
 
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
-// ৮. সকেট ও রিয়েল-টাইম লজিক (Transports আপডেট করা হয়েছে)
+/* ==========================================================
+    📡 SOCKET.IO LOGIC
+========================================================== */
 const io = new Server(server, {
   cors: { 
     origin: allowedOrigins, 
     methods: ["GET", "POST"], 
     credentials: true 
   },
-  // Render-এ WebSocket কানেকশন ঠিক রাখতে 'polling' কে আগে দেওয়া ভালো যদি ডিরেক্ট কানেক্ট না হয়
-  transports: ['polling', 'websocket'], 
+  transports: ['websocket', 'polling'], // WebSocket কে প্রাধান্য দেওয়া হয়েছে
   allowEIO3: true,
   path: '/socket.io/'
 });
