@@ -29,7 +29,8 @@ router.get("/", async (req, res) => {
   try {
     const posts = await Post.find()
       .sort({ createdAt: -1 })
-      .limit(30);
+      .limit(30)
+      .lean(); // পারফরম্যান্সের জন্য lean() ব্যবহার করা হয়েছে
     res.json(posts);
   } catch (err) {
     res.status(500).json({ msg: "Server error", error: err.message });
@@ -37,26 +38,28 @@ router.get("/", async (req, res) => {
 });
 
 /* =========================
-   2️⃣ Create Post (FIXED)
+   2️⃣ Create Post (ID Mapping Fixed)
 ========================= */
 router.post("/", auth, upload.single("media"), async (req, res) => {
   try {
-    const { text, mediaType, authorName, authorAvatar } = req.body;
-    
-    // req.user.id সাধারণত Auth0-এর 'sub' স্ট্রিং হয় (যেমন: auth0|123)
-    const currentUserId = req.user.id;
+    const { text, mediaType } = req.body;
+    const currentUserId = req.user.id; // Auth0 sub ID
 
-    const post = await Post.create({
+    // ১. ডাটাবেস থেকে ইউজারের লেটেস্ট তথ্য খুঁজে বের করা (নিরাপদ পদ্ধতি)
+    const userProfile = await User.findOne({ auth0Id: currentUserId });
+
+    const postData = {
       text,
       media: req.file?.path || null,
       mediaType: mediaType || (req.file?.mimetype?.includes("video") ? "video" : "image"),
-      authorName: authorName || "Unknown Drifter",
-      authorAvatar: authorAvatar || "",
-      // ফ্রন্টএন্ডের PostCard.js এর সাথে ম্যাচ করার জন্য authorAuth0Id সেভ করা হচ্ছে
-      authorAuth0Id: currentUserId, 
-      author: currentUserId, // ব্যাকআপ রেফারেন্স
-    });
+      // ইউজারের তথ্য প্রোফাইল থেকে নেওয়া হচ্ছে, ফ্রন্টএন্ডের ওপর নির্ভরতা কমানো হলো
+      authorName: userProfile?.name || "Unknown Drifter",
+      authorAvatar: userProfile?.avatar || "",
+      authorAuth0Id: currentUserId, // এটিই ফ্রন্টএন্ডে লিঙ্কিং এর কাজ করবে
+      author: currentUserId,
+    };
 
+    const post = await Post.create(postData);
     res.status(201).json(post);
   } catch (err) {
     console.error("Post Creation Error:", err);
@@ -70,7 +73,6 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
 router.get("/user/:userId", auth, async (req, res) => {
   try {
     const decodedId = decodeURIComponent(req.params.userId);
-    // authorAuth0Id অথবা author ফিল্ড চেক করা হচ্ছে
     const posts = await Post.find({ 
       $or: [{ authorAuth0Id: decodedId }, { author: decodedId }] 
     }).sort({ createdAt: -1 });
@@ -108,7 +110,6 @@ router.delete("/:id", auth, async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ msg: "Post not found" });
 
-    // চেক করা হচ্ছে মালিক কি না (author অথবা authorAuth0Id দিয়ে)
     if (post.author !== req.user.id && post.authorAuth0Id !== req.user.id)
       return res.status(401).json({ msg: "Unauthorized" });
 
@@ -123,18 +124,22 @@ router.delete("/:id", auth, async (req, res) => {
    6️⃣ Friend Requests Logic
 ========================= */
 router.post("/friend-request/:targetUserId", auth, async (req, res) => {
-  const senderId = req.user.id;
-  const { targetUserId } = req.params;
+  try {
+    const senderId = req.user.id;
+    const { targetUserId } = req.params;
 
-  if (senderId === targetUserId)
-    return res.status(400).json({ msg: "Cannot add yourself" });
+    if (senderId === targetUserId)
+      return res.status(400).json({ msg: "Cannot add yourself" });
 
-  await User.updateOne(
-    { auth0Id: targetUserId }, 
-    { $addToSet: { friendRequests: senderId } }
-  );
+    await User.updateOne(
+      { auth0Id: targetUserId }, 
+      { $addToSet: { friendRequests: senderId } }
+    );
 
-  res.json({ msg: "Signal sent successfully" });
+    res.json({ msg: "Signal sent successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: "Friend request failed" });
+  }
 });
 
 export default router;

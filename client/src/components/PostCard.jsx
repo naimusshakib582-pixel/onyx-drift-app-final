@@ -24,17 +24,26 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
   const isLiked = user && likesArray.includes(user.sub);
 
   /**
-   * প্রোফাইল বা নামের ওপর ক্লিক করলে FollowingPage-এ পাঠানোর লজিক
+   * প্রোফাইল বা নামের ওপর ক্লিক করলে আইডি খুঁজে FollowingPage-এ পাঠানো
    */
   const handleProfileClick = (e) => {
     e.stopPropagation();
-    // ব্যাকএন্ডে যে নামে আইডি সেভ করা আছে (authorAuth0Id সাধারণত Auth0 sub হয়)
-    const targetId = post.authorAuth0Id || post.authorId || post.userId;
     
+    // ১. ব্যাকএন্ডের ম্যাপ করা ID গুলো চেক করা হচ্ছে
+    const targetId = post.authorAuth0Id || post.author || post.userId;
+    
+    // ডিবাগ মেসেজ (ক্লিক করলে ব্রাউজার কনসোলে আইডি দেখতে পাবেন)
+    console.log("Neural Link Data:", { 
+      clickedUser: post.authorName, 
+      idFound: targetId 
+    });
+
     if (onUserClick && targetId) {
       onUserClick(targetId);
     } else {
       console.warn("Neural Link: Target ID not found for this drifter.");
+      // যদি আইডি না পাওয়া যায় তবে অন্তত একটি এলার্ট দেওয়া যাতে ইউজার বুঝতে পারে
+      alert("Signal lost: This drifter's identity is not linked yet.");
     }
   };
 
@@ -145,7 +154,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
         </div>
 
         {/* Delete Action */}
-        {(user?.sub === post.authorId || user?.sub === post.authorAuth0Id) && (
+        {(user?.sub === post.author || user?.sub === post.authorAuth0Id) && (
           <button 
             onClick={(e) => {
               e.stopPropagation();
