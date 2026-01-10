@@ -19,32 +19,28 @@ const FollowingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // URL থেকে userId সংগ্রহ করা
   const queryParams = new URLSearchParams(location.search);
   const targetUserId = queryParams.get('userId');
 
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
   /**
-   * ১. নির্দিষ্ট ইউজারের প্রোফাইল এবং পোস্ট ফেচ করা (Profile Mode)
+   * ১. প্রোফাইল ও পোস্ট ফেচিং (Neural Sync)
+   * সরাসরি ID পাঠানো হচ্ছে কারণ ব্যাকএন্ডে decodeURIComponent করা আছে।
    */
   const fetchTargetData = useCallback(async (id) => {
     try {
       setLoading(true);
       const token = await getAccessTokenSilently();
-      const decodedId = decodeURIComponent(id);
       
-      // ব্যাকএন্ড রুট: GET /api/user/:userId
-      const res = await axios.get(`${API_URL}/api/user/${encodeURIComponent(decodedId)}`, {
+      const res = await axios.get(`${API_URL}/api/user/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // ডাটা ডিস্ট্রিবিউশন
       if (res.data.user) {
         setUsers([res.data.user]);
       } else {
-        // ইউজার না পাওয়া গেলে ডিফল্ট অবজেক্ট
-        setUsers([{ auth0Id: decodedId, name: "Unknown Drifter" }]);
+        setUsers([{ auth0Id: id, name: "Unknown Drifter", avatar: "" }]);
       }
       
       setPosts(res.data.posts || []);
@@ -53,10 +49,10 @@ const FollowingPage = () => {
       console.error("📡 Neural Link Error:", err.response?.status);
       setLoading(false);
     }
-  }, [getAccessTokenSilently]);
+  }, [getAccessTokenSilently, API_URL]);
 
   /**
-   * ২. ইউজার লিস্ট এবং সার্চ লজিক (Search Mode)
+   * ২. গ্লোবাল সার্চ ও ডিসকভারি
    */
   const fetchUsers = useCallback(async (query = "", isInitial = false) => {
     try {
@@ -76,9 +72,8 @@ const FollowingPage = () => {
       console.error("Search Error:", err.message);
       setLoading(false);
     }
-  }, [getAccessTokenSilently, page]);
+  }, [getAccessTokenSilently, page, API_URL]);
 
-  // ইনিশিয়াল ডাটা লোড লজিক
   useEffect(() => {
     if (targetUserId) {
       setSearchTerm(""); 
@@ -89,7 +84,6 @@ const FollowingPage = () => {
     }
   }, [targetUserId, fetchTargetData, fetchUsers]);
 
-  // সার্চ ডিব্রাউন্স (যখন সার্চ পেজে থাকবে)
   useEffect(() => {
     if (targetUserId || searchTerm === "") return; 
     const delayDebounceFn = setTimeout(() => {
@@ -99,22 +93,31 @@ const FollowingPage = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm, targetUserId, fetchUsers]);
 
+  /**
+   * ৩. ফলো সিস্টেম
+   */
   const handleFollow = async (targetId) => {
     try {
       const token = await getAccessTokenSilently();
-      await axios.post(`${API_URL}/api/user/follow/${encodeURIComponent(targetId)}`, {}, {
+      const res = await axios.post(`${API_URL}/api/user/follow/${targetId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert("Neural Link Established!");
+      
+      if(res.data.followed) {
+        alert("Neural Link Established!");
+      } else {
+        alert("Neural Link Severed!");
+      }
     } catch (err) { 
       console.error("Follow failed", err); 
+      alert("Synchronization Error");
     }
   };
 
   return (
     <div className="p-4 md:p-6 bg-transparent min-h-screen font-sans max-w-7xl mx-auto selection:bg-cyan-500/30">
       
-      {/* Header Section */}
+      {/* Header */}
       <div className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <button 
@@ -131,7 +134,6 @@ const FollowingPage = () => {
           </p>
         </div>
 
-        {/* Search Bar (Only shown in discovery mode) */}
         {!targetUserId && (
           <div className="relative w-full md:w-96">
             <input 
@@ -146,7 +148,7 @@ const FollowingPage = () => {
         )}
       </div>
 
-      {/* Discovery Grid (Profile Cards) */}
+      {/* Discovery Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 mb-16">
         {users.length > 0 ? users.map((u) => (
           <div 
@@ -156,32 +158,31 @@ const FollowingPage = () => {
             <div className="flex flex-col items-center text-center">
               <div className="relative">
                 <img 
-                  src={u.avatar || u.picture || `https://ui-avatars.com/api/?name=${u.name}&background=random`} 
+                  src={u.avatar || `https://ui-avatars.com/api/?name=${u.name}&background=random`} 
                   className="w-20 h-20 md:w-24 md:h-24 rounded-[2.2rem] object-cover border-4 border-white/5 group-hover:border-cyan-500/50 transition-all" 
                   alt={u.name} 
                 />
-                {u.auth0Id === targetUserId && (
-                  <div className="absolute -top-2 -right-2 bg-cyan-500 text-black p-1.5 rounded-full animate-pulse">
-                    <FaUserCheck size={10} />
-                  </div>
-                )}
+                {/* Identity Verified Badge - নাম লক থাকার প্রমাণ */}
+                <div className="absolute -bottom-1 -right-1 bg-cyan-500 text-black p-1.5 rounded-full border-2 border-[#020617]">
+                  <FaUserCheck size={10} />
+                </div>
               </div>
               <h3 className="text-white font-black text-lg md:text-xl mt-5 italic uppercase truncate w-full">{u.name}</h3>
-              <p className="text-cyan-400/40 text-[9px] font-black tracking-widest mt-1 uppercase">{u.nickname || "DRIFTER"}</p>
+              <p className="text-cyan-400/40 text-[9px] font-black tracking-widest mt-1 uppercase">{u.nickname || "PERMANENT DRIFTER"}</p>
             </div>
             
             <div className="mt-8 grid grid-cols-3 gap-3">
                 <button onClick={() => handleFollow(u.auth0Id)} className="flex flex-col items-center justify-center p-3 md:p-4 bg-white/5 rounded-3xl border border-white/5 text-cyan-500 hover:bg-cyan-500 hover:text-black transition-all group/btn">
                   <FaUserPlus size={16} className="group-hover/btn:scale-110 transition-transform" />
-                  <span className="text-[7px] font-black mt-1">LINK</span>
+                  <span className="text-[7px] font-black mt-1 uppercase">Link</span>
                 </button>
                 <button onClick={() => navigate(`/messenger?userId=${u.auth0Id}`)} className="flex flex-col items-center justify-center p-3 md:p-4 bg-white/5 rounded-3xl border border-white/5 text-purple-500 hover:bg-purple-600 hover:text-white transition-all group/btn">
                   <FaEnvelope size={16} className="group-hover/btn:scale-110 transition-transform" />
-                  <span className="text-[7px] font-black mt-1">CHAT</span>
+                  <span className="text-[7px] font-black mt-1 uppercase">Chat</span>
                 </button>
                 <button className="flex flex-col items-center justify-center p-3 md:p-4 bg-white/5 rounded-3xl border border-white/5 text-emerald-500 hover:bg-emerald-600 hover:text-white transition-all group/btn">
                   <FaPhoneAlt size={16} className="group-hover/btn:scale-110 transition-transform" />
-                  <span className="text-[7px] font-black mt-1">CALL</span>
+                  <span className="text-[7px] font-black mt-1 uppercase">Call</span>
                 </button>
             </div>
           </div>
@@ -193,7 +194,7 @@ const FollowingPage = () => {
         )}
       </div>
 
-      {/* Neural Signals (Posts Section) */}
+      {/* Posts Section */}
       {targetUserId && !loading && (
         <div className="mt-10 md:mt-20 animate-in fade-in slide-in-from-bottom duration-1000">
           <h2 className="text-xl md:text-2xl font-black text-white italic tracking-tighter mb-8 flex items-center gap-3">
@@ -230,7 +231,7 @@ const FollowingPage = () => {
         </div>
       )}
 
-      {/* Loading Overlay */}
+      {/* Loading */}
       {loading && (
         <div className="fixed inset-0 flex items-center justify-center bg-[#020617]/80 backdrop-blur-md z-50">
           <div className="text-center">
