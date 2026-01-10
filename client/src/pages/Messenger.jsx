@@ -9,7 +9,7 @@ import {
   HiOutlineChatBubbleBottomCenterText, HiOutlineMicrophone,
   HiOutlinePaperClip, HiOutlineChevronLeft
 } from "react-icons/hi2";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Messenger = () => {
   const { user, getAccessTokenSilently } = useAuth0();
@@ -26,6 +26,7 @@ const Messenger = () => {
   const scrollRef = useRef();
   const ringtoneRef = useRef();
   const navigate = useNavigate();
+  const location = useLocation(); // URL ট্র্যাকিং এর জন্য
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
   const glassPanel = "bg-[#030712]/60 backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
@@ -36,7 +37,6 @@ const Messenger = () => {
     socket.current = io(API_URL, { transports: ["websocket"] });
 
     socket.current.on("getMessage", (data) => {
-      // শুধু কারেন্ট চ্যাটে মেসেজ আসলে আপডেট হবে
       setMessages((prev) => {
         const isAlreadyAdded = prev.some(m => m._id === data._id);
         if (isAlreadyAdded) return prev;
@@ -61,7 +61,7 @@ const Messenger = () => {
     };
   }, [user]);
 
-  // --- Fetch Conversations (with names from backend) ---
+  // --- Fetch Conversations ---
   const fetchConv = useCallback(async () => {
     try {
       const token = await getAccessTokenSilently();
@@ -74,7 +74,33 @@ const Messenger = () => {
 
   useEffect(() => { if (user?.sub) fetchConv(); }, [user, fetchConv]);
 
-  // --- Search Logic (Debounced) ---
+  // --- 🛰️ URL ID Sync Logic (Fix for your issue) ---
+  useEffect(() => {
+    const syncUrlUser = async () => {
+      const queryParams = new URLSearchParams(location.search);
+      const targetUserId = queryParams.get("userId"); // URL থেকে আইডি নেয়া হচ্ছে
+
+      if (targetUserId && user?.sub) {
+        try {
+          const token = await getAccessTokenSilently();
+          // অটোমেটিক চ্যাট কনভারসেশন তৈরি বা ফেচ করা
+          const res = await axios.post(`${API_URL}/api/messages/conversation`, {
+            senderId: user.sub,
+            receiverId: targetUserId
+          }, { headers: { Authorization: `Bearer ${token}` } });
+          
+          setCurrentChat(res.data);
+          // সার্চ টার্ম ক্লিয়ার করা যাতে ইন্টারফেস ক্লিন থাকে
+          setSearchTerm(""); 
+        } catch (err) {
+          console.error("URL Identity Sync Failed", err);
+        }
+      }
+    };
+    syncUrlUser();
+  }, [location.search, user, getAccessTokenSilently]);
+
+  // --- Search Logic ---
   useEffect(() => {
     const searchUsers = async () => {
       if (searchTerm.length < 2) {
@@ -90,7 +116,7 @@ const Messenger = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
 
-  // --- Chat Actions ---
+  // --- Manual Select User ---
   const selectUser = async (target) => {
     try {
       const token = await getAccessTokenSilently();
@@ -102,7 +128,7 @@ const Messenger = () => {
       setCurrentChat(res.data);
       setSearchTerm("");
       setSearchResults([]);
-      fetchConv(); // চ্যাট লিস্ট রিফ্রেশ
+      fetchConv();
     } catch (err) { console.error("Chat init error", err); }
   };
 
@@ -156,7 +182,7 @@ const Messenger = () => {
         <div className="w-12 h-12 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/30 shadow-[0_0_15px_cyan]">
           <HiOutlineMicrophone size={24} className="text-cyan-400" />
         </div>
-        <HiOutlineChatBubbleBottomCenterText size={28} className="text-cyan-400 cursor-pointer" onClick={() => setCurrentChat(null)} />
+        <HiOutlineChatBubbleBottomCenterText size={28} className="text-cyan-400 cursor-pointer" onClick={() => {setCurrentChat(null); navigate('/messenger');}} />
         <img src={user?.picture} className="mt-auto w-12 h-12 rounded-2xl border-2 border-cyan-500/50 hover:scale-110 transition-transform cursor-pointer" onClick={() => navigate('/feed')} alt="Profile" />
       </div>
 
@@ -176,7 +202,6 @@ const Messenger = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3 custom-scrollbar">
-          {/* Global Search Results */}
           {searchResults.length > 0 && (
             <div className="mb-6 animate-in fade-in slide-in-from-top-2">
               <p className="text-[10px] text-cyan-400 mb-2 ml-2 tracking-widest uppercase font-black">Detected Drifters</p>
@@ -193,13 +218,12 @@ const Messenger = () => {
             </div>
           )}
 
-          {/* Conversations List */}
           {conversations.length > 0 ? conversations.map((c) => {
             const isOnline = onlineUsers.some(u => c.members.includes(u.userId) && u.userId !== user.sub);
             return (
               <div 
                 key={c._id} 
-                onClick={() => setCurrentChat(c)} 
+                onClick={() => {setCurrentChat(c); navigate('/messenger');}} 
                 className={`p-4 rounded-[2rem] flex items-center gap-4 cursor-pointer transition-all duration-300 ${currentChat?._id === c._id ? 'bg-cyan-500/20 border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'hover:bg-white/5 border border-transparent'}`}
               >
                 <div className="relative">
