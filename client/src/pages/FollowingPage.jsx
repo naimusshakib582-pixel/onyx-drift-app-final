@@ -33,6 +33,7 @@ const FollowingPage = () => {
       const token = await getAccessTokenSilently();
       const currentPage = isInitial ? 1 : page;
       
+      // API endpoint: যদি query-তে পাইপ (|) থাকে তবে এটি একটি ID, নয়তো সাধারণ নাম
       const res = await axios.get(`${API_URL}/api/user/search`, {
         params: { 
           query: query, 
@@ -45,7 +46,6 @@ const FollowingPage = () => {
       if (isInitial) {
         setUsers(res.data);
       } else {
-        // ডুপ্লিকেট ডেটা এড়াতে ফিল্টার
         setUsers(prev => {
           const newUsers = res.data.filter(u => !prev.some(p => p.auth0Id === u.auth0Id));
           return [...prev, ...newUsers];
@@ -60,43 +60,36 @@ const FollowingPage = () => {
     }
   }, [getAccessTokenSilently, page]);
 
-  // ১. যখনই page পরিবর্তন হবে, ডেটা ফেচ হবে (Infinite Scroll-এর জন্য)
-  useEffect(() => {
-    if (page > 1) {
-      fetchUsers(searchTerm, false);
-    }
-  }, [page]);
-
-  // ২. URL-এ targetUserId থাকলে সরাসরি তাকে সার্চ করা
+  // ১. ইনিশিয়াল লোড এবং URL Target Handling
   useEffect(() => {
     if (targetUserId) {
-      setSearchTerm(targetUserId);
-      setPage(1);
+      // যদি URL-এ আইডি থাকে, তবে সার্চবক্সে সেটি দেখানোর দরকার নেই (ইউজার ফ্রেন্ডলি হবে)
+      // কিন্তু এপিআই কল করতে হবে ওই আইডি দিয়ে
+      setSearchTerm(""); 
       fetchUsers(targetUserId, true);
     } else {
       fetchUsers("", true);
     }
-  }, [targetUserId]);
+  }, [targetUserId]); // শুধুমাত্র targetUserId চেঞ্জ হলে কাজ করবে
 
-  // ৩. ডিব্রাউন্স সার্চ লজিক (শুধুমাত্র যখন URL-এ কোনো ID থাকবে না)
+  // ২. সার্চ ডিব্রাউন্স (শুধুমাত্র যখন URL-এ কোনো ID থাকবে না)
   useEffect(() => {
-    if (targetUserId) return; // আইডি লক থাকলে সার্চ ব্লক থাকবে
+    if (targetUserId) return; 
 
     const delayDebounceFn = setTimeout(() => {
-      setPage(1);
-      fetchUsers(searchTerm, true);
+      if (searchTerm.length >= 0) {
+        setPage(1);
+        fetchUsers(searchTerm, true);
+      }
     }, 600);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm, targetUserId]);
 
-  // ৪. ইনফিনিট স্ক্রল লজিক
+  // ৩. ইনফিনিট স্ক্রল
   useEffect(() => {
     const handleScroll = () => {
-      if (
-        window.innerHeight + document.documentElement.scrollTop + 100 >= 
-        document.documentElement.scrollHeight
-      ) {
+      if (window.innerHeight + document.documentElement.scrollTop + 100 >= document.documentElement.scrollHeight) {
         if (hasMore && !loading) {
           setPage(prev => prev + 1);
         }
@@ -106,7 +99,7 @@ const FollowingPage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [hasMore, loading]);
 
-  // ৫. ফলো/আনফলো হ্যান্ডেলার
+  // ৪. ফলো/আনফলো লজিক
   const handleFollow = async (targetId) => {
     try {
       const token = await getAccessTokenSilently();
@@ -137,17 +130,17 @@ const FollowingPage = () => {
       {/* Header & Search */}
       <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="animate-in fade-in slide-in-from-left duration-700">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-cyan-400 transition-colors text-[10px] font-black uppercase tracking-widest mb-4 group">
+          <button onClick={() => navigate('/feed')} className="flex items-center gap-2 text-gray-500 hover:text-cyan-400 transition-colors text-[10px] font-black uppercase tracking-widest mb-4 group">
             <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" /> Back to Drift
           </button>
           <h1 className="text-4xl font-black text-white italic tracking-tighter flex items-center gap-3">
             <FaRocket className="text-cyan-500 animate-bounce" /> NEURAL DISCOVERY
           </h1>
           <p className="text-gray-500 text-[10px] mt-2 uppercase tracking-[0.4em] font-bold flex items-center gap-2">
-            {searchTerm ? (
+            {targetUserId ? (
               <>
                 <span className="w-2 h-2 bg-cyan-500 rounded-full animate-ping" />
-                Identity Locked: <span className="text-cyan-400">{searchTerm}</span>
+                Identity Locked: <span className="text-cyan-400 break-all">{targetUserId}</span>
               </>
             ) : "Detecting drifters in your sector"}
           </p>
@@ -156,12 +149,20 @@ const FollowingPage = () => {
         <div className="relative w-full md:w-96 group">
           <input 
             type="text" 
-            placeholder="Search Identity Name or ID..." 
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-xs outline-none focus:border-cyan-500/50 transition-all backdrop-blur-xl shadow-2xl focus:ring-1 focus:ring-cyan-500/20"
+            placeholder="Search Identity Name..." 
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white text-xs outline-none focus:border-cyan-500/50 transition-all backdrop-blur-xl shadow-2xl"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-cyan-500 transition-colors" />
+          {searchTerm && (
+            <button 
+              onClick={() => {setSearchTerm(""); navigate('/following');}}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[8px] font-black text-gray-500 hover:text-white uppercase"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -180,18 +181,17 @@ const FollowingPage = () => {
                 : 'bg-[#0f172a]/40 border-white/5 hover:border-white/10'
               }`}
             >
-              
               {isTarget && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-cyan-500 text-black text-[8px] font-black px-4 py-1 rounded-full tracking-widest uppercase shadow-[0_0_15px_rgba(6,182,212,0.5)] z-20">
-                  Signal Locked
+                  Target Identified
                 </div>
               )}
 
               <div className="flex flex-col items-center text-center">
-                <div className="relative group-hover:rotate-3 transition-transform duration-500">
+                <div className="relative">
                   <img 
                     src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=random`} 
-                    className="w-24 h-24 rounded-[2.2rem] object-cover border-4 border-white/5 group-hover:border-cyan-500/50 transition-all duration-500 shadow-xl"
+                    className="w-24 h-24 rounded-[2.2rem] object-cover border-4 border-white/5 group-hover:border-cyan-500/50 transition-all duration-500"
                     alt={user.name}
                   />
                   {isFollowing && (
@@ -204,40 +204,37 @@ const FollowingPage = () => {
                   {user.name}
                 </h3>
                 <p className="text-cyan-400/40 text-[9px] font-black tracking-[0.3em] uppercase mt-1">
-                  @{user.nickname || "drifter"}
-                </p>
-                <p className="text-gray-500 text-[10px] mt-3 line-clamp-2 px-4 italic leading-relaxed">
-                  {user.bio || "No neural bio available for this drifter."}
+                  {user.auth0Id === auth0User?.sub ? "YOU" : user.nickname || "DRIFTER"}
                 </p>
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-8 grid grid-cols-3 gap-3 relative z-10">
+              <div className="mt-8 grid grid-cols-3 gap-3">
                 <button 
                   onClick={() => handleFollow(user.auth0Id)}
-                  className={`flex flex-col items-center justify-center gap-2 p-4 rounded-3xl transition-all border active:scale-90 ${
+                  className={`flex flex-col items-center justify-center gap-2 p-4 rounded-3xl transition-all border ${
                     isFollowing 
-                    ? 'bg-cyan-500 text-black shadow-[0_0_20px_rgba(6,182,212,0.4)] border-transparent' 
-                    : 'bg-white/5 text-cyan-500 border-white/5 hover:bg-white/10 hover:border-cyan-500/30'
+                    ? 'bg-cyan-500 text-black border-transparent' 
+                    : 'bg-white/5 text-cyan-500 border-white/5 hover:bg-white/10'
                   }`}
                 >
-                  {isFollowing ? <FaUserCheck size={18} /> : <FaUserPlus size={18} />}
+                  {isFollowing ? <FaUserCheck size={16} /> : <FaUserPlus size={16} />}
                   <span className="text-[7px] font-black uppercase tracking-widest">{isFollowing ? "Linked" : "Link"}</span>
                 </button>
 
                 <button 
                   onClick={() => navigate(`/messenger?userId=${encodeURIComponent(user.auth0Id)}`)} 
-                  className="flex flex-col items-center justify-center gap-2 p-4 bg-white/5 text-purple-500 rounded-3xl border border-white/5 hover:bg-purple-600 hover:text-white transition-all active:scale-90"
+                  className="flex flex-col items-center justify-center gap-2 p-4 bg-white/5 text-purple-500 rounded-3xl border border-white/5 hover:bg-purple-600 hover:text-white transition-all"
                 >
-                  <FaEnvelope size={18} />
+                  <FaEnvelope size={16} />
                   <span className="text-[7px] font-black uppercase tracking-widest">Chat</span>
                 </button>
 
                 <button 
                   onClick={() => navigate(`/call/${user.auth0Id?.replace(/[^a-zA-Z0-9]/g, "_")}`)} 
-                  className="flex flex-col items-center justify-center gap-2 p-4 bg-white/5 text-emerald-500 rounded-3xl border border-white/5 hover:bg-emerald-600 hover:text-white transition-all active:scale-90"
+                  className="flex flex-col items-center justify-center gap-2 p-4 bg-white/5 text-emerald-500 rounded-3xl border border-white/5 hover:bg-emerald-600 hover:text-white transition-all"
                 >
-                  <FaPhoneAlt size={18} />
+                  <FaPhoneAlt size={16} />
                   <span className="text-[7px] font-black uppercase tracking-widest">Call</span>
                 </button>
               </div>
@@ -246,20 +243,19 @@ const FollowingPage = () => {
         })}
       </div>
 
-      {/* States */}
+      {/* Loading & Empty States */}
       {loading && (
-        <div className="text-center py-20 text-cyan-500 font-black animate-pulse uppercase tracking-[0.3em] text-[10px] flex flex-col items-center gap-4">
-          <div className="w-12 h-[2px] bg-cyan-500 animate-pulse" />
+        <div className="text-center py-20 text-cyan-500 font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">
           Synchronizing Neural Nodes...
         </div>
       )}
       {!loading && users.length === 0 && (
-        <div className="col-span-full text-center py-32 animate-in fade-in duration-1000">
+        <div className="text-center py-32">
           <p className="text-gray-600 font-black uppercase tracking-[0.5em] italic text-xs">
             No drifters detected in this sector
           </p>
           <button 
-            onClick={() => {setSearchTerm(""); fetchUsers("", true);}}
+            onClick={() => {navigate('/following'); setSearchTerm(""); fetchUsers("", true);}}
             className="mt-6 text-cyan-500 text-[10px] font-bold border-b border-cyan-500/20 pb-1 hover:border-cyan-500 transition-all"
           >
             RESET RADAR
