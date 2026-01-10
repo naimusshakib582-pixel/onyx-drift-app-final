@@ -14,7 +14,7 @@ dotenv.config();
 import connectDB from "./config/db.js"; 
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
-import usersRoutes from './routes/users.js'; 
+import usersRoutes from './routes/users.js'; // এটি আপনার সার্চ ও প্রোফাইল ডাটা হ্যান্ডেল করবে
 import messageRoutes from "./routes/messages.js";      
 import uploadRoutes from './routes/upload.js';
 
@@ -28,7 +28,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৪. Redis কানেকশন
+// ৪. Redis কানেকশন (Real-time Online Presence এর জন্য)
 const REDIS_URL = process.env.REDIS_URL;
 let redis;
 
@@ -44,7 +44,7 @@ if (REDIS_URL) {
     console.log("⚠️ REDIS_URL not found. Socket features might be limited.");
 }
 
-// ৫. AI কনফিগারেশন
+// ৫. AI কনফিগারেশন (Gemini)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ৬. Middleware ও CORS সেটআপ
@@ -77,19 +77,19 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 connectDB();
 
 /* ==========================================================
-    🚀 ROUTE MOUNTING (অর্ডার ঠিক করা হয়েছে)
+    🚀 ROUTE MOUNTING (অর্ডার ও পাথ সংশোধন)
 ========================================================== */
 
-// ১. ইউজার ও প্রোফাইল রাউট
+// 💡 /api/user এর মাধ্যমে আপনার নতুন users.js ফাইলটি কানেক্ট করা হয়েছে
+// এতে /search এবং /:userId দুইটাই কাজ করবে
 app.use("/api/user", usersRoutes); 
-app.use("/api/profile", profileRoutes); 
 
-// ২. পোস্ট ও মেসেজ রাউট
+app.use("/api/profile", profileRoutes); 
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
 app.use("/api/upload", uploadRoutes); 
 
-// ৩. AI Enhance Route
+// AI Enhance Route
 app.post("/api/ai/enhance", async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -104,7 +104,7 @@ app.post("/api/ai/enhance", async (req, res) => {
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
 /* ==========================================================
-    📡 SOCKET.IO LOGIC
+    📡 SOCKET.IO LOGIC (Optimized for Render)
 ========================================================== */
 const io = new Server(server, {
   cors: { 
@@ -112,7 +112,7 @@ const io = new Server(server, {
     methods: ["GET", "POST"], 
     credentials: true 
   },
-  transports: ['websocket', 'polling'], // WebSocket কে প্রাধান্য দেওয়া হয়েছে
+  transports: ['websocket', 'polling'], 
   allowEIO3: true,
   path: '/socket.io/'
 });
