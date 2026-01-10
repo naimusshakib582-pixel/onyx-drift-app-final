@@ -11,8 +11,8 @@ const CallPage = () => {
 
   // আপনার ZegoCloud AppID এবং ServerSecret (এগুলো ZegoCloud dashboard থেকে ফ্রিতে পাবেন)
   // বর্তমানে টেস্ট করার জন্য ডেমো আইডি ব্যবহার করছি
-  const appID = 123456789; // আপনার আসল AppID এখানে বসান
-  const serverSecret = "আপনার_সার্ভার_সিক্রেট_এখানে_বসান"; 
+  const appID = 905999037; // আপনার আসল AppID এখানে বসান
+const appSign = "e84cd326a88db043bee481ea7374f7694ca16ac282043b16306a17c4c7df42b1";
 
   const myMeeting = async (element) => {
     // টোকেন জেনারেট করা

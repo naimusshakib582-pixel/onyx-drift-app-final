@@ -1,61 +1,65 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ZegoUIKitPrebuilt } from '@zegocloud/zego-uikit-prebuilt';
 
 const Call = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-
-  // আপনার ZegoCloud ড্যাশবোর্ড থেকে প্রাপ্ত তথ্য
-  const appID = 905999037; 
   
-  /**
-   * আপনার স্ক্রিনশট অনুযায়ী আপনি 'AppSign' মোড ব্যবহার করছেন।
-   * স্ক্রিনশটে থাকা 'AppSign' এর পুরো লম্বা কোডটি এখানে ইনভার্টেড কমার ভেতরে বসান।
-   */
-  const appSign = "e84cd326a88db043bee481ea7374f7694ca16ac282043b16306a17c4c7df42b1"; // আপনার ড্যাশবোর্ড থেকে পুরোটা কপি করুন
+  // ১. রেফারেন্স তৈরি করা যাতে বারবার জয়েন না হয়
+  const videoContainerRef = useRef(null);
+  const isJoined = useRef(false);
 
-  const myMeeting = async (element) => {
-    if (!roomId) return;
+  const appID = 905999037; 
+  const appSign = "e84cd326a88db043bee481ea7374f7694ca16ac282043b16306a17c4c7df42b1"; 
 
-    try {
-      // ইউনিক ইউজার আইডি এবং নাম জেনারেট করা
-      const userID = "drifter_" + Math.floor(Math.random() * 10000);
-      const userName = "User_" + userID;
+  useEffect(() => {
+    const initCall = async () => {
+      // যদি অলরেডি জয়েন করা থাকে বা কন্টেইনার না থাকে তবে রিটার্ন করবে
+      if (isJoined.current || !videoContainerRef.current) return;
+      isJoined.current = true; // ফ্ল্যাগ সেট করা হলো
 
-      /**
-       * generateKitTokenForTest এর প্যারামিটার হিসেবে 'appSign' ব্যবহার করা হচ্ছে।
-       * এটি আপনার কনসোলের ৫0১২০ এররটি ফিক্স করবে।
-       */
-      const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-        appID, 
-        appSign, 
-        roomId, 
-        userID, 
-        userName
-      );
+      try {
+        const userID = "drifter_" + Math.floor(Math.random() * 10000);
+        const userName = "User_" + userID;
 
-      const zp = ZegoUIKitPrebuilt.create(kitToken);
-      
-      zp.joinRoom({
-        container: element,
-        scenario: {
-          mode: ZegoUIKitPrebuilt.OneONoneCall, // ১-টু-১ কলিং সেটআপ
-        },
-        showScreenSharingButton: true,
-        showPreJoinView: false, // সরাসরি কলে প্রবেশ করবে
-        turnOnMicrophoneWhenJoining: true,
-        turnOnCameraWhenJoining: true,
-        showMyCameraToggleButton: true,
-        showMyMicrophoneToggleButton: true,
-        onLeaveRoom: () => {
-          navigate('/messenger'); 
-        },
-      });
-    } catch (error) {
-      console.error("ZegoCloud Initialization Failed:", error);
-    }
-  };
+        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+          appID, 
+          appSign, 
+          roomId, 
+          userID, 
+          userName
+        );
+
+        const zp = ZegoUIKitPrebuilt.create(kitToken);
+        
+        zp.joinRoom({
+          container: videoContainerRef.current,
+          scenario: {
+            mode: ZegoUIKitPrebuilt.OneONoneCall,
+          },
+          showScreenSharingButton: true,
+          showPreJoinView: false,
+          turnOnMicrophoneWhenJoining: true,
+          turnOnCameraWhenJoining: true,
+          onLeaveRoom: () => {
+            isJoined.current = false;
+            navigate('/messenger'); 
+          },
+        });
+      } catch (error) {
+        isJoined.current = false;
+        console.error("ZegoCloud Initialization Failed:", error);
+      }
+    };
+
+    initCall();
+
+    // কম্পোনেন্ট আনমাউন্ট হলে ফ্ল্যাগ রিসেট করা
+    return () => {
+      isJoined.current = false;
+    };
+  }, [roomId, navigate]);
 
   return (
     <div className="w-screen h-screen bg-[#020617] flex items-center justify-center relative overflow-hidden">
@@ -72,9 +76,9 @@ const Call = () => {
           </div>
       </div>
       
-      {/* Zego UI Container */}
+      {/* Zego UI Container - ref ব্যবহার করা হয়েছে */}
       <div 
-        ref={myMeeting} 
+        ref={videoContainerRef} 
         className="w-full h-full z-10 bg-transparent" 
         style={{ width: '100vw', height: '100vh' }}
       />
