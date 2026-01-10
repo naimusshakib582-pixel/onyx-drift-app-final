@@ -2,8 +2,12 @@ import mongoose from 'mongoose';
 
 const postSchema = new mongoose.Schema(
   {
-    // Auth0 ID একটি String, তাই এখানে String ব্যবহার করা হয়েছে
+    // এটি Auth0 'sub' আইডি স্টোর করবে
     author: { type: String, required: true }, 
+    
+    // ফ্রন্টএন্ড নেভিগেশনের জন্য এই ফিল্ডটি যোগ করা হলো
+    authorAuth0Id: { type: String, required: true }, 
+
     authorName: { type: String },
     authorAvatar: { type: String },
     text: { type: String },
@@ -27,11 +31,12 @@ const postSchema = new mongoose.Schema(
     
     views: { type: Number, default: 0 }
   },
-  { timestamps: true } // এটি স্বয়ংক্রিয়ভাবে createdAt এবং updatedAt তৈরি করবে
+  { timestamps: true }
 );
 
-// ইন্ডেক্সিং (সার্চ ফাস্ট করার জন্য)
+// ইন্ডেক্সিং (সার্চ এবং নেভিগেশন ফাস্ট করার জন্য)
 postSchema.index({ author: 1, createdAt: -1 });
+postSchema.index({ authorAuth0Id: 1 }); // নতুন ইন্ডেক্স
 
 const Post = mongoose.model('Post', postSchema);
 export default Post;

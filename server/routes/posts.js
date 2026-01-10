@@ -24,7 +24,6 @@ const upload = multer({ storage });
 
 /* =========================
    1️⃣ Get All Posts (Global Feed)
-   Endpoint: GET /api/posts
 ========================= */
 router.get("/", async (req, res) => {
   try {
@@ -38,13 +37,14 @@ router.get("/", async (req, res) => {
 });
 
 /* =========================
-   2️⃣ Create Post (FIXED ROUTE)
-   Endpoint: POST /api/posts
+   2️⃣ Create Post (FIXED)
 ========================= */
-// এখানে "/create" এর বদলে শুধু "/" দেওয়া হয়েছে যাতে ফ্রন্টএন্ড থেকে সরাসরি /api/posts এ হিট করা যায়
 router.post("/", auth, upload.single("media"), async (req, res) => {
   try {
     const { text, mediaType, authorName, authorAvatar } = req.body;
+    
+    // req.user.id সাধারণত Auth0-এর 'sub' স্ট্রিং হয় (যেমন: auth0|123)
+    const currentUserId = req.user.id;
 
     const post = await Post.create({
       text,
@@ -52,7 +52,9 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
       mediaType: mediaType || (req.file?.mimetype?.includes("video") ? "video" : "image"),
       authorName: authorName || "Unknown Drifter",
       authorAvatar: authorAvatar || "",
-      author: req.user.id, // Auth middleware থেকে আসা আইডি
+      // ফ্রন্টএন্ডের PostCard.js এর সাথে ম্যাচ করার জন্য authorAuth0Id সেভ করা হচ্ছে
+      authorAuth0Id: currentUserId, 
+      author: currentUserId, // ব্যাকআপ রেফারেন্স
     });
 
     res.status(201).json(post);
@@ -64,13 +66,14 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
 
 /* =========================
    3️⃣ Get User Specific Posts
-   Endpoint: GET /api/posts/user/:userId
 ========================= */
 router.get("/user/:userId", auth, async (req, res) => {
   try {
     const decodedId = decodeURIComponent(req.params.userId);
-    const posts = await Post.find({ author: decodedId })
-      .sort({ createdAt: -1 });
+    // authorAuth0Id অথবা author ফিল্ড চেক করা হচ্ছে
+    const posts = await Post.find({ 
+      $or: [{ authorAuth0Id: decodedId }, { author: decodedId }] 
+    }).sort({ createdAt: -1 });
 
     res.json(posts || []);
   } catch (err) {
@@ -80,7 +83,6 @@ router.get("/user/:userId", auth, async (req, res) => {
 
 /* =========================
    4️⃣ Like / Unlike Logic
-   Endpoint: PUT /api/posts/:id/like
 ========================= */
 router.put("/:id/like", auth, async (req, res) => {
   try {
@@ -100,15 +102,14 @@ router.put("/:id/like", auth, async (req, res) => {
 
 /* =========================
    5️⃣ Delete Post
-   Endpoint: DELETE /api/posts/:id
 ========================= */
 router.delete("/:id", auth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ msg: "Post not found" });
 
-    // চেক করা হচ্ছে যে ডিলিট করছে সে-ই পোস্টের মালিক কি না
-    if (post.author !== req.user.id)
+    // চেক করা হচ্ছে মালিক কি না (author অথবা authorAuth0Id দিয়ে)
+    if (post.author !== req.user.id && post.authorAuth0Id !== req.user.id)
       return res.status(401).json({ msg: "Unauthorized" });
 
     await post.deleteOne();
@@ -119,7 +120,7 @@ router.delete("/:id", auth, async (req, res) => {
 });
 
 /* =========================
-   6️⃣ Friend Requests Logic (Signals)
+   6️⃣ Friend Requests Logic
 ========================= */
 router.post("/friend-request/:targetUserId", auth, async (req, res) => {
   const senderId = req.user.id;
@@ -134,24 +135,6 @@ router.post("/friend-request/:targetUserId", auth, async (req, res) => {
   );
 
   res.json({ msg: "Signal sent successfully" });
-});
-
-router.post("/friend-accept/:senderId", auth, async (req, res) => {
-  const receiverId = req.user.id;
-  const senderId = req.params.senderId;
-
-  await Promise.all([
-    User.updateOne(
-      { auth0Id: receiverId },
-      { $pull: { friendRequests: senderId }, $addToSet: { friends: senderId } }
-    ),
-    User.updateOne(
-      { auth0Id: senderId },
-      { $addToSet: { friends: receiverId } }
-    ),
-  ]);
-
-  res.json({ msg: "Neural Link Established!" });
 });
 
 export default router;
