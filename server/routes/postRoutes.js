@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Post = require('../models/Post'); 
 const User = require('../models/User');
-const authMiddleware = require('../middleware/authMiddleware'); // আপনার কাস্টম মিডলওয়্যার
+const authMiddleware = require('../middleware/authMiddleware');
 
 // ১. সব পোস্ট গেট করা (Public)
 router.get('/', async (req, res) => {
@@ -14,16 +14,34 @@ router.get('/', async (req, res) => {
     }
 });
 
-// ২. নতুন পোস্ট তৈরি করা (Private)
-// এন্ডপয়েন্ট: POST /api/posts
+/* ==========================================================
+    ২. নির্দিষ্ট ইউজারের পোস্ট গেট করা (এটিই আপনার মিসিং ছিল)
+    এন্ডপয়েন্ট: GET /api/posts/user/:userId
+========================================================== */
+router.get('/user/:userId', authMiddleware, async (req, res) => {
+    try {
+        const targetId = decodeURIComponent(req.params.userId);
+        
+        // ডাটাবেসে authorId বা authorAuth0Id দিয়ে পোস্ট খোঁজা
+        const posts = await Post.find({ 
+            $or: [
+                { authorId: targetId },
+                { authorAuth0Id: targetId }
+            ] 
+        }).sort({ createdAt: -1 });
+
+        res.json(posts);
+    } catch (err) {
+        console.error("Neural Fetch Error:", err);
+        res.status(500).json({ message: "Failed to fetch user signals" });
+    }
+});
+
+// ৩. নতুন পোস্ট তৈরি করা
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const { text, media, mediaType, authorName, authorAvatar, authorId } = req.body;
-
-        // আপনার authMiddleware এ সেট করা req.user.id এর সাথে চেক করা হচ্ছে
-        if (authorId !== req.user.id) {
-            return res.status(403).json({ message: "Identity mismatch! Access Denied." });
-        }
+        const currentUserId = req.user.sub || req.user.id; // Auth0 আইডি
 
         const newPost = new Post({ 
             text, 
@@ -31,7 +49,8 @@ router.post('/', authMiddleware, async (req, res) => {
             mediaType, 
             authorName, 
             authorAvatar, 
-            authorId 
+            authorId: currentUserId,
+            authorAuth0Id: currentUserId // ফ্রন্টএন্ড লিঙ্কের জন্য এটিও সেভ করুন
         });
 
         const savedPost = await newPost.save();
@@ -41,15 +60,17 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
-// ৩. পোস্ট ডিলিট করা
+// ৪. পোস্ট ডিলিট করা
 router.delete('/:id', authMiddleware, async (req, res) => {
     try {
         const post = await Post.findById(req.params.id);
         if (!post) return res.status(404).json({ message: "Post not found" });
 
-        if (post.authorId !== req.user.id) {
-            return res.status(401).json({ message: "Unauthorized! You can only delete your own posts." });
+        const currentUserId = req.user.sub || req.user.id;
+        if (post.authorId !== currentUserId && post.authorAuth0Id !== currentUserId) {
+            return res.status(401).json({ message: "Unauthorized!" });
         }
+        
         await post.deleteOne();
         res.json({ message: "Post deleted successfully", postId: req.params.id });
     } catch (err) {
@@ -57,13 +78,13 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// ৪. পোস্ট লাইক করা
+// ৫. পোস্ট লাইক করা
 router.put('/:id/like', authMiddleware, async (req, res) => {
     try {
         const post = await Post.findById(req.params.id);
         if (!post) return res.status(404).json({ message: "Post not found" });
 
-        const userId = req.user.id;
+        const userId = req.user.sub || req.user.id;
         if (post.likes.includes(userId)) {
             post.likes = post.likes.filter(id => id !== userId);
         } else {

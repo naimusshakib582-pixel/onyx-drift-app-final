@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import auth from '../middleware/auth.js';
-import { createPost } from '../controllers/postController.js';
+import Post from '../models/Post.js'; // ডাইনামিক ইম্পোর্টের চেয়ে সরাসরি ইম্পোর্ট ভালো
 
 const router = express.Router();
 
@@ -20,15 +20,28 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } 
 });
 
-// Routes
+// ১. নতুন পোস্ট তৈরি
+import { createPost } from '../controllers/postController.js';
 router.post('/create', auth, upload.single('file'), createPost);
 
+// ২. নির্দিষ্ট ইউজারের সব পোস্ট পাওয়া (FIXED)
 router.get('/user/:userId', auth, async (req, res) => {
   try {
-    const Post = (await import('../models/Post.js')).default;
-    const posts = await Post.find({ user: req.params.userId }).sort({ createdAt: -1 });
+    const targetId = decodeURIComponent(req.params.userId);
+    
+    // সমাধান: ডাটাবেসে 'authorAuth0Id' অথবা 'authorId' ফিল্ড দিয়ে খোঁজা হচ্ছে
+    const posts = await Post.find({ 
+      $or: [
+        { authorAuth0Id: targetId },
+        { authorId: targetId },
+        { author: targetId }
+      ]
+    }).sort({ createdAt: -1 });
+
+    console.log(`Neural Link: Found ${posts.length} signals for ${targetId}`);
     res.json(posts);
   } catch (err) {
+    console.error("Neural Fetch Error:", err);
     res.status(500).send("Neural Link Error");
   }
 });
