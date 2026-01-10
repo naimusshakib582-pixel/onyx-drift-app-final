@@ -10,27 +10,31 @@ const Call = () => {
   const videoContainerRef = useRef(null);
   const isJoined = useRef(false);
 
-  const appID = 1086315716
-  const appSign = "foc34875af0613274b39afc9b10d6f54a720d8212c57e83423ae902e54458bbd92"; 
+  // ২. আপনার সঠিক ZegoCloud Credentials
+  // যদি Environment Variable থাকে তবে তা নেবে, না থাকলে ডিফল্ট ভ্যালু নেবে।
+  const appID = Number(import.meta.env.VITE_ZEGO_APP_ID) || 1086315716;
+  const serverSecret = import.meta.env.VITE_ZEGO_SERVER_SECRET || "faa9451e78f290d4a11ff8eb53c79bea"; 
 
   useEffect(() => {
     const initCall = async () => {
       // যদি অলরেডি জয়েন করা থাকে বা কন্টেইনার না থাকে তবে রিটার্ন করবে
       if (isJoined.current || !videoContainerRef.current) return;
-      isJoined.current = true; // ফ্ল্যাগ সেট করা হলো
+      isJoined.current = true; 
 
       try {
         const userID = "drifter_" + Math.floor(Math.random() * 10000);
         const userName = "User_" + userID;
 
+        // ৩. টোকেন জেনারেট করা (এখানে serverSecret-ই দিতে হবে)
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           appID, 
-          appSign, 
+          serverSecret, 
           roomId, 
           userID, 
           userName
         );
 
+        // ৪. কলিং ইন্টারফেস তৈরি করা
         const zp = ZegoUIKitPrebuilt.create(kitToken);
         
         zp.joinRoom({
@@ -58,12 +62,16 @@ const Call = () => {
     // কম্পোনেন্ট আনমাউন্ট হলে ফ্ল্যাগ রিসেট করা
     return () => {
       isJoined.current = false;
+      // কল পেজ থেকে বেরিয়ে গেলে জেনারেট করা ডম এলিমেন্ট পরিষ্কার করা ভালো
+      if (videoContainerRef.current) {
+        videoContainerRef.current.innerHTML = "";
+      }
     };
-  }, [roomId, navigate]);
+  }, [roomId, navigate, appID, serverSecret]);
 
   return (
     <div className="w-screen h-screen bg-[#020617] flex items-center justify-center relative overflow-hidden">
-      {/* ক্যাসি ইলাস্ট্রেশন বা ব্যাকগ্রাউন্ড লোডার */}
+      {/* লোডার এনিমেশন - ভিডিও আসার আগে এটি দেখাবে */}
       <div className="absolute inset-0 flex flex-col items-center justify-center z-0">
           <div className="w-20 h-20 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin mb-6 shadow-[0_0_50px_rgba(6,182,212,0.2)]"></div>
           <div className="text-center">
@@ -76,12 +84,19 @@ const Call = () => {
           </div>
       </div>
       
-      {/* Zego UI Container - ref ব্যবহার করা হয়েছে */}
+      {/* Zego UI Container */}
       <div 
         ref={videoContainerRef} 
         className="w-full h-full z-10 bg-transparent" 
         style={{ width: '100vw', height: '100vh' }}
       />
+
+      {/* Zego ডিফল্ট স্টাইল ওভাররাইড */}
+      <style>{`
+        .zego-view-container {
+          background-color: transparent !important;
+        }
+      `}</style>
     </div>
   );
 };

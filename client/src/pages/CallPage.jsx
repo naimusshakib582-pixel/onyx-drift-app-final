@@ -9,17 +9,17 @@ const CallPage = () => {
   const { user } = useAuth0();
   const navigate = useNavigate();
 
-  // ZegoCloud Credentials
+  // ✅ ZegoCloud Credentials (আপনার নতুন Secret দিয়ে আপডেট করা হয়েছে)
   const appID = 1086315716;
-  const serverSecret = "f0c34875a613274b39afc9b10d6f54a720d8212c57e83423ae902e54458bbd92"; 
+  const serverSecret = "faa9451e78f290d4a11ff8eb53c79bea"; 
 
   const myMeeting = async (element) => {
     if (!element || !roomId) return;
 
     try {
       /**
-       * গুরুত্বপূর্ণ: ZegoCloud UserID তে স্পেশাল ক্যারেক্টার (যেমন: auth0|...) সাপোর্ট করে না।
-       * তাই আমরা ID থেকে শুধু অক্ষর এবং সংখ্যা রেখে বাকি সব "_" দিয়ে বদলে দিচ্ছি।
+       * গুরুত্বপূর্ণ: ZegoCloud UserID তে পাইপ (|) বা স্পেশাল ক্যারেক্টার সাপোর্ট করে না।
+       * তাই আমরা auth0 ID পরিষ্কার করে নিচ্ছি।
        */
       const cleanUserID = user?.sub 
         ? user.sub.replace(/[^a-zA-Z0-9_]/g, "_") 
@@ -51,7 +51,7 @@ const CallPage = () => {
           mode: ZegoUIKitPrebuilt.OneONoneCall, 
         },
         showScreenSharingButton: true,
-        showPreJoinView: false, // সরাসরি কলে ঢোকার জন্য এটি false রাখতে পারেন
+        showPreJoinView: false, // সরাসরি কলে জয়েন করার জন্য
         onLeaveRoom: () => {
           navigate(-1); 
         },
@@ -63,13 +63,13 @@ const CallPage = () => {
 
   return (
     <div className="relative w-full h-screen bg-[#020617] flex flex-col overflow-hidden">
-      {/* HUD / টপ বার */}
+      {/* HUD / Top UI Bar */}
       <div className="absolute top-0 left-0 w-full p-6 z-[999] flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
           <div>
             <h2 className="text-cyan-400 font-black uppercase tracking-[0.3em] text-xs">Secure Channel</h2>
-            <p className="text-white/40 text-[9px] font-mono">ID: {roomId?.substring(0, 8)}... ENCRYPTED</p>
+            <p className="text-white/40 text-[9px] font-mono uppercase">Room ID: {roomId?.substring(0, 10)}...</p>
           </div>
         </div>
         
@@ -81,17 +81,22 @@ const CallPage = () => {
         </button>
       </div>
 
-      {/* ভিডিও কন্টেইনার */}
+      {/* Zego Video Container */}
       <div 
         ref={myMeeting} 
         className="zego-view-container w-full h-full"
         style={{ width: '100vw', height: '100vh' }}
       ></div>
 
-      {/* স্টাইল ওভাররাইড (Zego-র ডিফল্ট সাদা ব্যাকগ্রাউন্ড কালো করার জন্য) */}
+      {/* UI Styling Overrides */}
       <style>{`
         .zego-view-container div {
           background-color: transparent !important;
+        }
+        /* Zego-র নিচের কন্ট্রোল বার এর কালার ডার্ক করার জন্য */
+        .C66_Wf_S_Zl_98 { 
+          background: rgba(2, 6, 23, 0.8) !important;
+          backdrop-filter: blur(10px);
         }
       `}</style>
     </div>

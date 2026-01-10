@@ -17,7 +17,9 @@ const VideoCall = () => {
       // ZegoCloud Credentials (আপনার ড্যাশবোর্ড থেকে প্রাপ্ত)
      
       const appID = 1086315716
-  const appSign = "f0c34875a613274b39afc9b10d6f54a720d8212c57e83423ae902e54458bbd92"; 
+ const serverSecret = "faa9451e78f290d4a11ff8eb53c79bea"; 
+
+  
       // কিট টোকেন জেনারেট করা
       const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
         appID,
