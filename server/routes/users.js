@@ -25,7 +25,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
-// --- ২. ইউজার সার্চ এবং ডিসকভারি রাউট (ID Based) ---
+// --- ২. ইউজার সার্চ এবং ডিসকভারি রাউট ---
 router.get('/search', auth, async (req, res) => {
   try {
     const { query } = req.query;
@@ -34,53 +34,61 @@ router.get('/search', auth, async (req, res) => {
     // যদি সার্চ কোয়েরি না থাকে, ডিফল্ট ডিসকভারি মোড (অন্যান্য ইউজারদের সাজেস্ট করবে)
     if (!query || query.trim() === "") {
       users = await User.find({ auth0Id: { $ne: req.user.id } })
-        .select('name avatar auth0Id isVerified bio followers following')
+        .select('name avatar auth0Id isVerified bio followers following nickname')
         .limit(12);
     } else {
       // Regex সার্চ (নাম, ইমেইল বা আইডি দিয়ে)
+      const searchRegex = new RegExp(query, 'i');
       users = await User.find({
         $and: [
           { auth0Id: { $ne: req.user.id } },
           {
             $or: [
-              { name: { $regex: query, $options: 'i' } },
-              { email: { $regex: query, $options: 'i' } },
-              { auth0Id: { $regex: query, $options: 'i' } }
+              { name: searchRegex },
+              { nickname: searchRegex },
+              { email: searchRegex },
+              { auth0Id: searchRegex }
             ]
           }
         ]
-      }).select('name avatar auth0Id isVerified bio followers following').limit(15);
+      }).select('name avatar auth0Id isVerified bio followers following nickname').limit(15);
     }
 
     res.json(users);
   } catch (err) {
-    console.error("Search Error:", err);
+    console.error("❌ Search Error:", err);
     res.status(500).json({ msg: 'Search failed' });
   }
 });
 
-// --- ৩. ফলো/আনফলো সিস্টেম (Twitter-Style Atomic Updates) ---
+// --- ৩. ফলো/আনফলো সিস্টেম (Fixed for Auth0 ID) ---
 router.post('/follow/:targetId', auth, async (req, res) => {
   try {
-    const myId = req.user.id; // current user
-    const { targetId } = req.params; // target user
+    const myId = req.user.id; 
+    // পাইপ (|) ক্যারেক্টার হ্যান্ডেল করার জন্য ডিকোড করা হয়েছে
+    const targetId = decodeURIComponent(req.params.targetId); 
 
-    if (myId === targetId) return res.status(400).json({ msg: "Cannot follow yourself" });
+    if (myId === targetId) {
+      return res.status(400).json({ msg: "Cannot follow yourself" });
+    }
 
-    const currentUser = await User.findOne({ auth0Id: myId });
-    if (!currentUser) return res.status(404).json({ msg: "User not found" });
+    const targetUser = await User.findOne({ auth0Id: targetId });
+    if (!targetUser) {
+      return res.status(404).json({ msg: "Target user not found" });
+    }
 
-    const isFollowing = currentUser.following.includes(targetId);
+    // অলরেডি ফলো করা আছে কি না চেক
+    const isFollowing = targetUser.followers.includes(myId);
 
     if (isFollowing) {
-      // আনফলো লজিক ($pull) - Parallel Execution
+      // আনফলো লজিক
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $pull: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $pull: { followers: myId } })
       ]);
       return res.json({ msg: "Unfollowed", followed: false });
     } else {
-      // ফলো লজিক ($addToSet) - Atomic & Parallel
+      // ফলো লজিক
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $addToSet: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $addToSet: { followers: myId } })
@@ -88,6 +96,7 @@ router.post('/follow/:targetId', auth, async (req, res) => {
       return res.json({ msg: "Followed", followed: true });
     }
   } catch (err) {
+    console.error("❌ Follow Action Error:", err);
     res.status(500).json({ error: "Action failed" });
   }
 });
@@ -95,8 +104,10 @@ router.post('/follow/:targetId', auth, async (req, res) => {
 // --- ৪. প্রোফাইল ম্যানেজমেন্ট ---
 router.get('/profile/:id', auth, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.params.id })
-      .select('-password'); // পাসওয়ার্ড থাকলে বাদ দিবে
+    // এখানেও ID ডিকোড করা হয়েছে
+    const userId = decodeURIComponent(req.params.id);
+    const user = await User.findOne({ auth0Id: userId }).select('-password');
+    
     if (!user) return res.status(404).json({ msg: 'User not found' });
     res.json(user);
   } catch (err) {
@@ -137,11 +148,12 @@ router.put("/update-profile", auth, upload.fields([
   }
 });
 
-// --- ৫. ফ্রেন্ড সিস্টেম (Legacy Request System) ---
+// --- ৫. ফ্রেন্ড সিস্টেম (Legacy) ---
 router.post('/friend-request/:targetUserId', auth, async (req, res) => {
   try {
     const senderId = req.user.id;
-    const { targetUserId } = req.params;
+    const targetUserId = decodeURIComponent(req.params.targetUserId);
+    
     if (senderId === targetUserId) return res.status(400).json({ msg: "Invalid action" });
 
     await User.findOneAndUpdate(
@@ -149,28 +161,6 @@ router.post('/friend-request/:targetUserId', auth, async (req, res) => {
       { $addToSet: { friendRequests: senderId } }
     );
     res.json({ msg: "Request sent!" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post('/friend-accept/:senderId', auth, async (req, res) => {
-  try {
-    const receiverId = req.user.id;
-    const senderId = req.params.senderId;
-
-    await Promise.all([
-      User.findOneAndUpdate(
-        { auth0Id: receiverId },
-        { $pull: { friendRequests: senderId }, $addToSet: { friends: senderId } }
-      ),
-      User.findOneAndUpdate(
-        { auth0Id: senderId },
-        { $addToSet: { friends: receiverId } }
-      )
-    ]);
-
-    res.json({ msg: "Success! You are now friends." });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
