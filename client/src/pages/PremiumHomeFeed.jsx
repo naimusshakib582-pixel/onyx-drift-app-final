@@ -29,10 +29,11 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   // এপিআই ইউআরএল
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
-  // ১. প্রোফাইল ক্লিক হ্যান্ডলার (এটি PostCard-এ পাস করা হবে)
+  // ✅ প্রোফাইল ক্লিক হ্যান্ডলার (এটি PostCard থেকে কল হবে)
   const handleUserClick = (userId) => {
     if (userId) {
-      navigate(`/following?userId=${userId}`);
+      // এটি সরাসরি FollowingPage এ নিয়ে যাবে প্রোফাইল দেখানোর জন্য
+      navigate(`/following?userId=${encodeURIComponent(userId)}`);
     }
   };
 
@@ -135,7 +136,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         text: postText,
         authorName: user?.nickname || user?.name || "Anonymous",
         authorAvatar: user?.picture || "",
-        authorId: user?.sub,
+        authorId: user?.sub, // Auth0 ID
         media: selectedPostMedia,
         mediaType: mediaType
       };
@@ -319,7 +320,8 @@ const PremiumHomeFeed = ({ searchQuery }) => {
               onDelete={() => handleDeletePost(post._id || post.id)}
               currentUserId={user?.sub} 
               onAction={fetchPosts} 
-              onUserClick={handleUserClick} // এই লাইনটি ক্লিক ফিচার চালু করবে
+              // ✅ এখানে আপনার আইডি ক্লিকের জন্য ফাংশনটি পাস করা হয়েছে
+              onUserClick={handleUserClick} 
             />
           ))
         )}
