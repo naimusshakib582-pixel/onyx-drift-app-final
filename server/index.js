@@ -14,7 +14,7 @@ dotenv.config();
 import connectDB from "./config/db.js"; 
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
-import usersRoutes from './routes/users.js'; // এটি আপনার সার্চ ও প্রোফাইল ডাটা হ্যান্ডেল করবে
+import usersRoutes from './routes/users.js'; 
 import messageRoutes from "./routes/messages.js";      
 import uploadRoutes from './routes/upload.js';
 
@@ -28,10 +28,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৪. Redis কানেকশন (Real-time Online Presence এর জন্য)
+// ৪. Redis কানেকশন
 const REDIS_URL = process.env.REDIS_URL;
 let redis;
-
 if (REDIS_URL) {
     redis = new Redis(REDIS_URL, {
         maxRetriesPerRequest: null,
@@ -40,19 +39,15 @@ if (REDIS_URL) {
     });
     redis.on("error", (err) => console.log("❌ Redis Error:", err));
     redis.on("connect", () => console.log("✅ Redis Connected"));
-} else {
-    console.log("⚠️ REDIS_URL not found. Socket features might be limited.");
 }
 
-// ৫. AI কনফিগারেশন (Gemini)
+// ৫. AI কনফিগারেশন
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ৬. Middleware ও CORS সেটআপ
+// ৬. CORS সেটআপ
 const allowedOrigins = [
     "http://localhost:5173", 
-    "http://127.0.0.1:5173", 
     "https://onyx-drift-app-final.onrender.com",
-    "https://onyxdrift.onrender.com",
     "https://www.onyx-drift.com",
     "https://onyx-drift.com"
 ];
@@ -65,9 +60,7 @@ app.use(cors({
             callback(new Error("CORS Access Denied"));
         }
     },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    credentials: true
 }));
 
 app.use(express.json({ limit: "50mb" }));
@@ -77,64 +70,36 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 connectDB();
 
 /* ==========================================================
-    🚀 ROUTE MOUNTING (অর্ডার ও পাথ সংশোধন)
+    🚀 ROUTE MOUNTING (অর্ডার ঠিক করা হয়েছে)
 ========================================================== */
 
-// 💡 /api/user এর মাধ্যমে আপনার নতুন users.js ফাইলটি কানেক্ট করা হয়েছে
-// এতে /search এবং /:userId দুইটাই কাজ করবে
+// ১. ইউজার ও প্রোফাইল (Fix: /api/user এর মাধ্যমে সব প্রোফাইল লজিক কাজ করবে)
 app.use("/api/user", usersRoutes); 
-
 app.use("/api/profile", profileRoutes); 
+
+// ২. অন্যান্য রাউট
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
 app.use("/api/upload", uploadRoutes); 
 
-// AI Enhance Route
-app.post("/api/ai/enhance", async (req, res) => {
-  try {
-    const { prompt } = req.body;
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(`Aesthetic rewrite this chat message: "${prompt}"`);
-    res.json({ enhancedText: result.response.text() });
-  } catch (error) {
-    res.status(500).json({ error: "AI Error" });
-  }
-});
-
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
 /* ==========================================================
-    📡 SOCKET.IO LOGIC (Optimized for Render)
+    📡 SOCKET.IO LOGIC
 ========================================================== */
 const io = new Server(server, {
-  cors: { 
-    origin: allowedOrigins, 
-    methods: ["GET", "POST"], 
-    credentials: true 
-  },
+  cors: { origin: allowedOrigins, credentials: true },
   transports: ['websocket', 'polling'], 
-  allowEIO3: true,
   path: '/socket.io/'
 });
 
 io.on("connection", (socket) => {
-  console.log(`📡 Socket Connected: ${socket.id}`);
-  
   socket.on("addNewUser", async (userId) => {
     if (userId && redis) {
       await redis.hset("online_users", userId, socket.id);
       const allUsers = await redis.hgetall("online_users");
       const onlineList = Object.keys(allUsers).map(id => ({ userId: id, socketId: allUsers[id] }));
       io.emit("getOnlineUsers", onlineList);
-    }
-  });
-
-  socket.on("sendMessage", async ({ senderId, receiverId, text }) => {
-    if (redis) {
-        const receiverSocketId = await redis.hget("online_users", receiverId);
-        if (receiverSocketId) {
-          io.to(receiverSocketId).emit("getMessage", { senderId, text });
-        }
     }
   });
 
@@ -147,15 +112,10 @@ io.on("connection", (socket) => {
             break;
           }
         }
-        const remainingUsers = await redis.hgetall("online_users");
-        const onlineList = Object.keys(remainingUsers).map(id => ({ userId: id, socketId: remainingUsers[id] }));
-        io.emit("getOnlineUsers", onlineList);
     }
-    console.log(`❌ Socket Disconnected: ${socket.id}`);
   });
 });
 
-// ৯. সার্ভার স্টার্ট
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Neural System Online: Port ${PORT}`);
