@@ -1,8 +1,8 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  FaHome, FaEnvelope, FaCompass, FaCog, FaSignOutAlt, FaRocket, FaUserPlus
-} from 'react-icons/fa'; // FaUserPlus আইকনটি যোগ করা হয়েছে
+  FaHome, FaEnvelope, FaCompass, FaCog, FaSignOutAlt, FaRocket, FaUserPlus, FaFire
+} from 'react-icons/fa'; // FaFire আইকনটি ভাইরাল ফিডের জন্য যোগ করা হয়েছে
 import { HiOutlineChartBar } from 'react-icons/hi2';
 import { useAuth0 } from '@auth0/auth0-react';
 
@@ -11,7 +11,8 @@ const Sidebar = () => {
 
   const menuItems = [
     { name: 'Feed', icon: <FaHome />, path: '/feed' },
-    { name: 'Following', icon: <FaUserPlus />, path: '/following' }, // নতুন অপশন এখানে যোগ করা হয়েছে
+    { name: 'For You', icon: <FaFire />, path: '/viral' }, // নতুন ভাইরাল ফিড অপশন এখানে যোগ করা হয়েছে
+    { name: 'Following', icon: <FaUserPlus />, path: '/following' }, 
     { name: 'Analytics', icon: <HiOutlineChartBar />, path: '/analytics' },
     { name: 'Messages', icon: <FaEnvelope />, path: '/messenger' },
     { name: 'Explore', icon: <FaCompass />, path: '/explorer' },

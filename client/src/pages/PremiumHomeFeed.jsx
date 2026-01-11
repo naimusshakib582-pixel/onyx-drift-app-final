@@ -10,6 +10,7 @@ import axios from "axios";
 import { useNavigate } from 'react-router-dom'; 
 import { io } from "socket.io-client"; 
 import PostCard from "../components/PostCard"; 
+import { HiOutlineSparkles } from "react-icons/hi2"; // AI আইকন
 
 const PremiumHomeFeed = ({ searchQuery }) => {
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
@@ -17,6 +18,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const [postText, setPostText] = useState("");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false); // AI লোডিং স্টেট
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -29,15 +31,31 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   // এপিআই ইউআরএল
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
-  // ✅ প্রোফাইল ক্লিক হ্যান্ডলার (এটি PostCard থেকে কল হবে)
+  // ✅ AI ক্যাপশন জেনারেটর ফাংশন
+  const handleAICaption = async () => {
+    if (!postText.trim()) return alert("Please type a keyword or sentence first!");
+    setAiLoading(true);
+    try {
+      const token = await getAccessTokenSilently();
+      const { data } = await axios.post(`${API_URL}/api/communities/generate-caption`, // আপনার রাউট অনুযায়ী
+        { prompt: postText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setPostText(data.captions); // AI জেনারেটেড টেক্সট সেট করা
+    } catch (err) {
+      console.error("AI Sync Error:", err);
+      alert("AI Neural link failed. Try again.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const handleUserClick = (userId) => {
     if (userId) {
-      // এটি সরাসরি FollowingPage এ নিয়ে যাবে প্রোফাইল দেখানোর জন্য
       navigate(`/following?userId=${encodeURIComponent(userId)}`);
     }
   };
 
-  // রিয়েল-টাইম সকেট লজিক
   useEffect(() => {
     if (isAuthenticated) {
       socketRef.current = io(API_URL, {
@@ -91,7 +109,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
     }
   };
 
-  // স্টোরি স্টেট
   const [stories, setStories] = useState(() => {
     const savedStories = localStorage.getItem('user_stories');
     const currentTime = Date.now();
@@ -136,7 +153,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         text: postText,
         authorName: user?.nickname || user?.name || "Anonymous",
         authorAvatar: user?.picture || "",
-        authorId: user?.sub, // Auth0 ID
+        authorId: user?.sub, 
         media: selectedPostMedia,
         mediaType: mediaType
       };
@@ -197,44 +214,28 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         </button>
       </div>
 
-      {/* মোবাইল সাইডবার ওভারলে */}
+      {/* মোবাইল সাইডবার ওভারলে/ড্রয়ার - No changes here */}
       <AnimatePresence>
         {isSidebarOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[1000] md:hidden"
-          />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/80 backdrop-blur-md z-[1000] md:hidden" />
         )}
       </AnimatePresence>
 
-      {/* মোবাইল সাইডবার ড্রয়ার */}
-      <aside className={`
-        fixed top-0 left-0 h-full w-[290px] bg-[#020617] border-r border-white/10 z-[1001]
-        transform transition-transform duration-300 ease-in-out flex flex-col
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:hidden
-      `}>
+      <aside className={`fixed top-0 left-0 h-full w-[290px] bg-[#020617] border-r border-white/10 z-[1001] transform transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:hidden`}>
         <div className="flex justify-between items-center p-6 border-b border-white/5">
           <span className="text-cyan-400 font-black tracking-widest text-[10px]">NEURAL MENU</span>
           <button onClick={() => setIsSidebarOpen(false)} className="text-white/50"><FaTimes size={18} /></button>
         </div>
-        
         <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
           <nav className="space-y-1">
             <div onClick={() => handleMenuClick('/')} className="flex items-center gap-4 p-4 bg-cyan-500/10 text-cyan-400 rounded-2xl border border-cyan-500/20 cursor-pointer">
-              <FaPlus size={14} />
-              <span className="font-bold uppercase text-[11px] tracking-widest">Feed</span>
+              <FaPlus size={14} /> <span className="font-bold uppercase text-[11px] tracking-widest">Feed</span>
             </div>
             <div onClick={() => handleMenuClick('/analytics')} className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer">
-              <FaMagic size={16} />
-              <span className="font-bold uppercase text-[11px] tracking-widest">Analytics</span>
+              <FaMagic size={16} /> <span className="font-bold uppercase text-[11px] tracking-widest">Analytics</span>
             </div>
             <div onClick={() => handleMenuClick('/messenger')} className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer">
-              <FaPaperPlane size={16} />
-              <span className="font-bold uppercase text-[11px] tracking-widest">Messages</span>
+              <FaPaperPlane size={16} /> <span className="font-bold uppercase text-[11px] tracking-widest">Messages</span>
             </div>
           </nav>
         </div>
@@ -249,7 +250,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
             </div>
             <span className="text-[10px] font-bold uppercase text-cyan-400 mt-1">Story</span>
           </div>
-
           {stories.map((s) => (
             <div key={s.id} onClick={() => setViewingStory(s)} className="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group">
               <div className="w-14 h-14 md:w-16 md:h-16 rounded-full p-[2px] bg-gradient-to-tr from-cyan-400 to-pink-500">
@@ -263,19 +263,30 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         </div>
       </section>
 
-      {/* পোস্ট ইনপুট বক্স */}
+      {/* পোস্ট ইনপুট বক্স - AI MAGIC ADDED HERE */}
       <section className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-5 mx-3 md:mx-4">
         <div className="flex items-start gap-3 md:gap-4 mb-4">
           <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl overflow-hidden border border-white/10 shrink-0">
             <img src={user?.picture || "https://i.pravatar.cc/150"} className="w-full h-full object-cover" alt="Profile" />
           </div>
           <div className="flex-1">
-            <textarea
-              value={postText}
-              onChange={(e) => setPostText(e.target.value)}
-              placeholder={`What's on your mind?`}
-              className="w-full bg-white/5 rounded-xl md:rounded-2xl border border-white/10 px-4 py-3 text-xs md:text-sm text-white placeholder-gray-500 outline-none focus:border-cyan-500/50 transition-all resize-none min-h-[50px]"
-            />
+            <div className="relative">
+              <textarea
+                value={postText}
+                onChange={(e) => setPostText(e.target.value)}
+                placeholder={`What's on your mind?`}
+                className="w-full bg-white/5 rounded-xl md:rounded-2xl border border-white/10 px-4 py-3 text-xs md:text-sm text-white placeholder-gray-500 outline-none focus:border-cyan-500/50 transition-all resize-none min-h-[50px] pr-10"
+              />
+              {/* ✨ AI MAGIC BUTTON */}
+              <button 
+                onClick={handleAICaption}
+                disabled={aiLoading}
+                className="absolute right-3 top-3 text-cyan-400 hover:text-cyan-300 active:scale-90 transition-all disabled:opacity-50"
+                title="AI Viral Caption"
+              >
+                <HiOutlineSparkles size={20} className={aiLoading ? "animate-spin" : ""} />
+              </button>
+            </div>
 
             <AnimatePresence>
               {selectedPostMedia && (
@@ -298,7 +309,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
           </div>
 
           <button 
-            disabled={!postText.trim() && !mediaFile}
+            disabled={(!postText.trim() && !mediaFile) || aiLoading}
             onClick={handlePostSubmit}
             className="w-full sm:w-auto bg-cyan-500 text-black text-[10px] font-black uppercase px-6 py-2 rounded-xl shadow-lg active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2"
           >
@@ -320,14 +331,13 @@ const PremiumHomeFeed = ({ searchQuery }) => {
               onDelete={() => handleDeletePost(post._id || post.id)}
               currentUserId={user?.sub} 
               onAction={fetchPosts} 
-              // ✅ এখানে আপনার আইডি ক্লিকের জন্য ফাংশনটি পাস করা হয়েছে
               onUserClick={handleUserClick} 
             />
           ))
         )}
       </section>
 
-      {/* স্টোরি আপলোড মোডাল */}
+      {/* মোডাল এবং ভিউয়ার - No changes here */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4">
@@ -361,7 +371,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         )}
       </AnimatePresence>
 
-      {/* স্টোরি ভিউয়ার */}
       <AnimatePresence>
         {viewingStory && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] bg-black flex flex-col items-center justify-center">

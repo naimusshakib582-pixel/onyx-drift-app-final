@@ -18,12 +18,17 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import FollowingPage from "./pages/FollowingPage";
 import Call from "./pages/Call";
+import ViralFeed from "./pages/ViralFeed"; 
+
+// 🚀 নতুন ইউনিক কম্পোনেন্ট ইম্পোর্ট
+import CustomCursor from "./components/CustomCursor";
+import MobileNav from "./components/MobileNav";
 
 // Protected Route Component
 const ProtectedRoute = ({ component: Component, ...props }) => {
   const AuthenticatedComponent = withAuthenticationRequired(Component, {
     onRedirecting: () => (
-      <div className="h-screen flex items-center justify-center bg-[#020617] text-cyan-500 font-mono italic">
+      <div className="h-screen flex items-center justify-center bg-[#020617] text-cyan-500 font-mono italic uppercase tracking-widest">
         Initializing Neural Link...
       </div>
     ),
@@ -75,14 +80,16 @@ export default function App() {
   );
 
   // চ্যাট বা কল পেজে থাকলে সাইডবার হাইড করার লজিক
-  // ✅ এখানে মেসেঞ্জার রাউট চেক করার লজিকটি আরও শক্তিশালী করা হয়েছে
   const hideSidebar = ["/messenger", "/settings", "/"].includes(location.pathname) || 
                       location.pathname.startsWith("/messenger") || 
                       location.pathname.startsWith("/call/");
 
   return (
-    <div className="min-h-screen bg-[#020617] text-gray-200 overflow-x-hidden selection:bg-cyan-500/30 font-sans">
+    <div className="min-h-screen bg-[#020617] text-gray-200 overflow-x-hidden selection:bg-cyan-500/30 font-sans relative">
       
+      {/* 🖱️ ১. কাস্টম কার্সার (শুধুমাত্র পিসির জন্য) */}
+      <CustomCursor />
+
       {isAuthenticated && (
         <div className="fixed top-0 w-full z-[100] backdrop-blur-xl border-b border-white/5 bg-[#020617]/80">
           <Navbar user={user} socket={socket} setSearchQuery={setSearchQuery} />
@@ -108,18 +115,15 @@ export default function App() {
                   
                   <Route path="/feed" element={<ProtectedRoute component={() => <PremiumHomeFeed searchQuery={searchQuery} />} />} />
                   
-                  {/* ✅ আইডি হ্যান্ডলিং ঠিক করতে স্টার (*) যুক্ত রাউট ব্যবহার করা যেতে পারে যদি দরকার হয় */}
+                  <Route path="/viral" element={<ProtectedRoute component={ViralFeed} />} />
+                  
                   <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
-                  
-                  {/* ✅ মেসেঞ্জার রাউট */}
                   <Route path="/messenger" element={<ProtectedRoute component={Messenger} />} />
-                  
                   <Route path="/analytics" element={<ProtectedRoute component={Analytics} />} />
                   <Route path="/explorer" element={<ProtectedRoute component={Explorer} />} />
                   <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
                   <Route path="/following" element={<ProtectedRoute component={FollowingPage} />} />
                   
-                  {/* ✅ কল রাউট (roomId প্যারামিটার সহ) */}
                   <Route path="/call/:roomId" element={<ProtectedRoute component={Call} />} />
                   
                   <Route path="*" element={<Navigate to="/" />} />
@@ -129,6 +133,10 @@ export default function App() {
           </main>
         </div>
       </div>
+
+      {/* 📱 ২. মোবাইল নেভিগেশন (শুধুমাত্র মোবাইলের জন্য) */}
+      {isAuthenticated && <MobileNav />}
+
     </div>
   );
 }

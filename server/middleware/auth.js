@@ -2,40 +2,47 @@ import { auth } from 'express-oauth2-jwt-bearer';
 
 /**
  * Auth0 JWT Validation Configuration
- * এটি ফ্রন্টএন্ড থেকে আসা Bearer Token-টি RS256 অ্যালগরিদমে ভেরিফাই করে।
  */
 const checkJwt = auth({
-  audience: 'https://onyx-drift-api.com', // আপনার Auth0 API Identifier
-  issuerBaseURL: 'https://dev-6d0nxccsaycctfl1.us.auth0.com/', // আপনার Auth0 Domain (শেষে স্ল্যাশ নিশ্চিত করুন)
+  audience: 'https://onyx-drift-api.com', 
+  issuerBaseURL: 'https://dev-6d0nxccsaycctfl1.us.auth0.com/', 
   tokenSigningAlg: 'RS256'
 });
 
 /**
- * Custom Auth Middleware
- * টোকেন ভেরিফাই করার পর এটি Auth0 এর 'sub' (User ID) কে 
- * এক্সপ্রেসের ডিফল্ট req.user অবজেক্টে সেট করে দেয়।
+ * 🚀 Smart Auth Middleware (Viral-Ready)
+ * এটি টোকেন থাকলে ভেরিফাই করবে, আর না থাকলে 'Guest' হিসেবে গণ্য করবে।
+ * এতে আপনার অ্যাপের "Low Friction" ভিশন সফল হবে।
  */
 const authMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  // ১. যদি টোকেন একেবারেই না থাকে (লগইন ছাড়া ইউজার)
+  if (!authHeader) {
+    req.user = { isGuest: true, id: null };
+    return next(); // ভাইরাল ফিড দেখার জন্য গেস্টকে অ্যালাউ করছি
+  }
+
+  // ২. যদি টোকেন থাকে, তবে ভেরিফাই করো
   checkJwt(req, res, (err) => {
     if (err) {
-      console.error("❌ Auth0 Middleware Error:", err.message);
-      
-      // আরও ডিটেইলড এরর মেসেজ রেন্ডার লগের জন্য
-      return res.status(401).json({ 
-        msg: 'Unauthorized: Access Denied', 
-        error: err.message,
-        hint: "Make sure you are sending the token in the 'Authorization: Bearer <token>' header."
-      });
+      // যদি টোকেন ভুল বা এক্সপায়ারড হয়, তবে গেস্ট হিসেবে ট্রিট করো অথবা এরর দাও
+      console.warn("⚠️ Token Invalid, treating as guest:", err.message);
+      req.user = { isGuest: true, id: null };
+      return next();
     }
     
-    // টোকেন ভ্যালিড হলে ডাটাবেস অপারেশনের জন্য ইউজার আইডি সেট করা
+    // ৩. টোকেন ভ্যালিড হলে ইউজার আইডি সেট করো
     if (req.auth && req.auth.payload) {
       req.user = {
-        id: req.auth.payload.sub // এটি Auth0 থেকে আসা ইউনিক ইউজার আইডি
+        id: req.auth.payload.sub,
+        sub: req.auth.payload.sub,
+        isGuest: false // রেজিস্টার্ড ইউজার
       };
       next();
     } else {
-      return res.status(401).json({ msg: 'Token payload missing' });
+      req.user = { isGuest: true, id: null };
+      next();
     }
   });
 };

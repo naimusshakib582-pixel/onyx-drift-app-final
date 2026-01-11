@@ -2,10 +2,11 @@ import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FaHeart, FaRegHeart, FaRegComment, FaTrashAlt, 
-  FaShare, FaPaperPlane, FaPlay, FaPause, FaVolumeMute, FaVolumeUp 
+  FaShare, FaPaperPlane, FaPlay, FaPause, FaVolumeMute, FaVolumeUp, FaDownload 
 } from "react-icons/fa";
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
+import html2canvas from "html2canvas"; // এটি যোগ করা হয়েছে
 
 const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
@@ -15,6 +16,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef(null);
+  const postRef = useRef(null); // কার্ড ক্যাপচার করার জন্য রেফারেন্স
 
   if (!post) return null;
 
@@ -23,26 +25,35 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
   const likesArray = Array.isArray(post.likes) ? post.likes : [];
   const isLiked = user && likesArray.includes(user.sub);
 
-  /**
-   * প্রোফাইল বা নামের ওপর ক্লিক করলে আইডি খুঁজে FollowingPage-এ পাঠানো
-   */
+  // 🔥 ভাইরাল শেয়ার কার্ড জেনারেশন ফাংশন
+  const generateShareCard = async () => {
+    if (postRef.current) {
+      try {
+        const canvas = await html2canvas(postRef.current, {
+          backgroundColor: "#020617",
+          useCORS: true, // ক্লাউডিনারি ইমেজ সাপোর্ট করার জন্য
+          scale: 2, // হাই কোয়ালিটি ইমেজ
+          borderRadius: 40
+        });
+        const image = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = image;
+        link.download = `OnyxDrift_${post.authorName || 'post'}.png`;
+        link.click();
+      } catch (err) {
+        console.error("Share Card Error:", err);
+      }
+    }
+  };
+
   const handleProfileClick = (e) => {
     e.stopPropagation();
-    
-    // ১. ব্যাকএন্ডের ম্যাপ করা ID গুলো চেক করা হচ্ছে
     const targetId = post.authorAuth0Id || post.author || post.userId;
-    
-    // ডিবাগ মেসেজ (ক্লিক করলে ব্রাউজার কনসোলে আইডি দেখতে পাবেন)
-    console.log("Neural Link Data:", { 
-      clickedUser: post.authorName, 
-      idFound: targetId 
-    });
-
+    console.log("Neural Link Data:", { clickedUser: post.authorName, idFound: targetId });
     if (onUserClick && targetId) {
       onUserClick(targetId);
     } else {
       console.warn("Neural Link: Target ID not found for this drifter.");
-      // যদি আইডি না পাওয়া যায় তবে অন্তত একটি এলার্ট দেওয়া যাতে ইউজার বুঝতে পারে
       alert("Signal lost: This drifter's identity is not linked yet.");
     }
   };
@@ -59,15 +70,12 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
     e.stopPropagation();
     if (!isAuthenticated) return alert("Please login to like this signal");
     if (isLiking) return;
-    
     try {
       setIsLiking(true);
       const token = await getAccessTokenSilently();
-      
       await axios.put(`${API_URL}/api/posts/${post._id}/like`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       if (onAction) onAction();
     } catch (err) { 
       console.error("Like Error:", err.response?.data || err.message);
@@ -114,6 +122,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
           className="rounded-[2.2rem] w-full object-cover max-h-[600px] border border-white/10 shadow-2xl" 
           alt="Neural Grid Content"
           loading="lazy"
+          crossOrigin="anonymous" // ভাইরাল শেয়ারের জন্য জরুরি
         />
       </div>
     );
@@ -121,6 +130,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
 
   return (
     <motion.div 
+      ref={postRef} // রেফারেন্স সেট করা হলো
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true }}
@@ -139,6 +149,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
               src={post.authorAvatar || `https://ui-avatars.com/api/?name=${post.authorName || 'Drifter'}&background=random`} 
               className="w-11 h-11 rounded-[0.9rem] object-cover border-2 border-[#0b1120]" 
               alt="author" 
+              crossOrigin="anonymous"
             />
           </motion.div>
 
@@ -204,8 +215,14 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
           </button>
         </div>
         
-        <button className="p-2 text-gray-600 hover:text-white transition-all">
-            <FaShare size={18} />
+        {/* শেয়ার কার্ড ডাউনলোড বাটন */}
+        <button 
+          onClick={(e) => { e.stopPropagation(); generateShareCard(); }}
+          className="p-2 text-gray-600 hover:text-cyan-400 transition-all flex items-center gap-2"
+          title="Download Viral Share Card"
+        >
+            <FaDownload size={18} />
+            <span className="text-[10px] font-bold uppercase italic">Viral Share</span>
         </button>
       </div>
     </motion.div>

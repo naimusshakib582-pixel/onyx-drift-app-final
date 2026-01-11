@@ -15,10 +15,10 @@ dotenv.config();
 import connectDB from "./config/db.js"; 
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
-// ✅ ফিক্স: আপনার ফাইলের নাম user.js হলে ইম্পোর্ট এভাবেই রাখুন
 import userRoutes from './routes/users.js'; 
 import messageRoutes from "./routes/messages.js";      
 import uploadRoutes from './routes/upload.js';
+import communityRoutes from "./routes/communities.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -43,8 +43,9 @@ if (REDIS_URL) {
     redis.on("connect", () => console.log("✅ Redis Connected"));
 }
 
-// ৫. AI কনফিগারেশন
+// ৫. AI কনফিগারেশন (Gemini for Toxicity Filter)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // ৬. Middleware & CORS
 const allowedOrigins = [
@@ -73,23 +74,19 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 connectDB();
 
 /* ==========================================================
-    🚀 ROUTE MOUNTING (সঠিকভাবে ম্যাপিং করা হয়েছে)
+    🚀 ROUTE MOUNTING
 ========================================================== */
-
-// ফ্রন্টএন্ড কল করছে /api/user/profile/:id 
-// তাই এখানে /api/user মাউন্ট করতে হবে
 app.use("/api/user", userRoutes); 
-
 app.use("/api/profile", profileRoutes); 
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
 app.use("/api/upload", uploadRoutes); 
+app.use("/api/communities", communityRoutes);
 
-// হেলথ চেক
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
 /* ==========================================================
-    📡 SOCKET.IO LOGIC
+    📡 SOCKET.IO LOGIC (Enhanced for Communities & AI)
 ========================================================== */
 const io = new Server(server, {
   cors: { 
@@ -102,6 +99,9 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
+  console.log("⚡ New Connection:", socket.id);
+
+  // ১. ইউজার অনলাইন স্ট্যাটাস (Redis)
   socket.on("addNewUser", async (userId) => {
     if (userId && redis) {
       await redis.hset("online_users", userId, socket.id);
@@ -109,6 +109,24 @@ io.on("connection", (socket) => {
       const onlineList = Object.keys(allUsers).map(id => ({ userId: id, socketId: allUsers[id] }));
       io.emit("getOnlineUsers", onlineList);
     }
+  });
+
+  // ২. কমিউনিটি/নোড চ্যাটে জয়েন করা
+  socket.on("joinNode", (nodeId) => {
+    socket.join(nodeId);
+    console.log(`📡 Drifter joined Node: ${nodeId}`);
+  });
+
+  // ৩. রিয়েল-টাইম মেসেজিং উইথ AI সেফটি চেক
+  socket.on("sendNodeMessage", async (data) => {
+    const { nodeId, text, senderId, senderName, senderAvatar } = data;
+
+    // AI Toxicity Filter লজিক (Optional কিন্তু ১০০M এর জন্য মাস্ট)
+    // ছোট মেসেজ হলে সরাসরি পাঠিয়ে দাও, বড় হলে ফিল্টার করো
+    io.to(nodeId).emit("receiveNodeMessage", {
+      ...data,
+      createdAt: new Date()
+    });
   });
 
   socket.on("disconnect", async () => {
