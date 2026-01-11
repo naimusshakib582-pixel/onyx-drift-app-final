@@ -21,82 +21,123 @@ const upload = multer({
 ========================================================== */
 
 /**
- * ১. ড্রিপ্টার সার্চ ফাংশনালিটি
- * Endpoint: GET /api/user/search
+ * ১. ড্রিপ্টার সার্চ (Search Fix)
+ * এটি সবার উপরে রাখা হয়েছে যাতে ডায়নামিক রাউটের সাথে কনফ্লিক্ট না হয়।
  */
-router.get('/search', async (req, res) => {
+router.get('/search', auth, async (req, res) => {
   try {
     const { query } = req.query;
-    if (!query || query.trim() === "") {
-      return res.status(200).json([]);
-    }
+    if (!query || query.trim() === "") return res.json([]);
+
+    const currentUserId = req.user.sub || req.user.id;
+    const searchRegex = new RegExp(`${query.trim()}`, "i");
 
     const users = await User.find({
+      auth0Id: { $ne: currentUserId },
       $or: [
-        { name: { $regex: query, $options: 'i' } },
+        { name: { $regex: searchRegex } },
+        { nickname: { $regex: searchRegex } },
         { auth0Id: query }
       ]
     }).limit(12).lean();
     
     res.status(200).json(users);
   } catch (err) {
-    console.error("Search Error:", err);
-    res.status(500).json({ message: "Search Error" });
+    res.status(500).json({ message: "Search signal lost" });
   }
 });
 
 /**
- * ২. নতুন পোস্ট তৈরি
+ * ২. প্রোফাইল আপডেট (Update Fix)
+ */
+router.put("/update-profile", auth, upload.fields([
+  { name: 'avatar', maxCount: 1 },
+  { name: 'cover', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { nickname, name, bio, location, workplace } = req.body;
+    const targetAuth0Id = req.user.sub || req.user.id;
+    let updateFields = { name, nickname, bio, location, workplace };
+
+    if (req.files) {
+      if (req.files.avatar) updateFields.avatar = req.files.avatar[0].path;
+      if (req.files.cover) updateFields.coverImg = req.files.cover[0].path;
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { auth0Id: targetAuth0Id }, 
+      { $set: updateFields },
+      { new: true, upsert: true, lean: true }
+    );
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ msg: 'Identity Sync Failed' });
+  }
+});
+
+/**
+ * ৩. প্রোফাইল এবং পোস্ট একসাথে পাওয়া (Fixes 404 & %7C Error)
+ * এই রাউটটি আপনার কনসোলের '/api/user/profile/...' এররটি সমাধান করবে।
+ */
+router.get(['/profile/:userId', '/:userId'], auth, async (req, res) => {
+  try {
+    const rawUserId = req.params.userId;
+    if (rawUserId === 'search' || rawUserId === 'all') return;
+
+    const targetId = decodeURIComponent(rawUserId);
+    console.log(`📡 Neural Sync Request for ID: ${targetId}`);
+
+    const user = await User.findOne({ auth0Id: targetId }).lean();
+    const posts = await Post.find({ 
+      $or: [
+        { authorAuth0Id: targetId },
+        { authorId: targetId },
+        { user: targetId },
+        { author: targetId }
+      ]
+    }).sort({ createdAt: -1 }).lean();
+
+    res.status(200).json({
+      user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
+      posts: posts || []
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Neural Link Error" });
+  }
+});
+
+/**
+ * ৪. নতুন পোস্ট তৈরি
  */
 router.post('/create', auth, upload.single('file'), createPost);
 
 /**
- * ৩. প্রোফাইল রাউট (আপনার এরর দূর করার জন্য)
- * Endpoint: GET /api/user/profile/:userId
+ * ৫. ফলো সিস্টেম
  */
-router.get('/profile/:userId', async (req, res) => {
+router.post("/follow/:targetId", auth, async (req, res) => {
   try {
-    const targetId = decodeURIComponent(req.params.userId);
-    console.log(`📡 Neural Sync (Profile) for ID: ${targetId}`);
+    const myId = req.user.sub || req.user.id;
+    const targetId = decodeURIComponent(req.params.targetId);
+    if (myId === targetId) return res.status(400).json({ msg: "Self-link forbidden" });
 
-    const user = await User.findOne({ auth0Id: targetId }).lean();
-    const posts = await Post.find({ 
-      $or: [{ authorAuth0Id: targetId }, { user: targetId }, { author: targetId }]
-    }).sort({ createdAt: -1 }).lean();
+    const user = await User.findOne({ auth0Id: myId });
+    const isFollowing = user.following?.includes(targetId);
 
-    res.status(200).json({
-      user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
-      posts: posts || []
-    });
+    if (isFollowing) {
+      await Promise.all([
+        User.updateOne({ auth0Id: myId }, { $pull: { following: targetId } }),
+        User.updateOne({ auth0Id: targetId }, { $pull: { followers: myId } })
+      ]);
+      res.json({ followed: false });
+    } else {
+      await Promise.all([
+        User.updateOne({ auth0Id: myId }, { $addToSet: { following: targetId } }),
+        User.updateOne({ auth0Id: targetId }, { $addToSet: { followers: myId } })
+      ]);
+      res.json({ followed: true });
+    }
   } catch (err) {
-    res.status(500).json({ message: "Neural Link Error" });
-  }
-});
-
-/**
- * ৪. জেনারেল ডায়নামিক রাউট
- * Endpoint: GET /api/user/:userId
- * এটি সবার নিচে থাকবে যাতে অন্য রাউটের সাথে কনফ্লিক্ট না হয়।
- */
-router.get('/:userId', async (req, res) => {
-  try {
-    const rawUserId = req.params.userId;
-    if (rawUserId === 'search' || rawUserId === 'profile') return;
-
-    const targetId = decodeURIComponent(rawUserId);
-    console.log(`📡 Neural Sync (Direct) for ID: ${targetId}`);
-
-    const user = await User.findOne({ auth0Id: targetId }).lean();
-    const posts = await Post.find({ 
-      $or: [{ authorAuth0Id: targetId }, { user: targetId }, { author: targetId }]
-    }).sort({ createdAt: -1 }).lean();
-
-    res.status(200).json({
-      user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
-      posts: posts || []
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Neural Link Error" });
+    res.status(500).json({ msg: "Connection failed" });
   }
 });
 
