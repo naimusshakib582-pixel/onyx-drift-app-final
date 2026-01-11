@@ -37,54 +37,37 @@ router.get('/search', auth, async (req, res) => {
   try {
     const { query } = req.query;
     const myId = req.user.sub || req.user.id;
+    
+    // ব্যাকএন্ড টার্মিনালে চেক করার জন্য লগ
+    console.log("Search Request Received for query:", query);
+
     let filter = { auth0Id: { $ne: myId } };
 
     if (query && query.trim() !== "") {
-      // searchRegex আপডেট করা হয়েছে যাতে নামের যেকোনো অংশ মিললে খুঁজে পায়
+      // নামের যেকোনো জায়গায় অক্ষরটি থাকলে খুঁজে বের করবে
       const searchRegex = new RegExp(query.trim(), 'i'); 
       filter.$or = [
         { name: { $regex: searchRegex } }, 
         { nickname: { $regex: searchRegex } }
       ];
+    } else {
+      // কুয়েরি না থাকলে লেটেস্ট ৫ জন ইউজার দেখাবে
+      const fallbackUsers = await User.find(filter).limit(5).lean();
+      return res.json(fallbackUsers);
     }
-    
+
     const users = await User.find(filter)
       .select('name avatar auth0Id isVerified bio followers nickname')
-      .limit(12).lean();
+      .limit(20)
+      .lean();
     
+    console.log(`Found ${users.length} users for query: ${query}`);
     res.json(users);
-  } catch (err) { res.status(500).json({ msg: 'Search Failed' }); }
-});
-
-/* ==========================================================
-    📡 ৩. প্রোফাইল ডাটা ফেচিং (The Ultimate Fix)
-========================================================== */
-const getProfileData = async (req, res) => {
-  try {
-    const targetId = decodeURIComponent(req.params.userId);
-    
-    if (["all", "search", "update-profile"].includes(targetId)) return;
-
-    const user = await User.findOne({ auth0Id: targetId }).lean();
-    
-    if (!user) {
-        return res.status(404).json({ msg: "User not found in orbit" });
-    }
-
-    const posts = await Post.find({ 
-      $or: [{ authorAuth0Id: targetId }, { user: targetId }] 
-    }).sort({ createdAt: -1 }).lean();
-
-    res.json({ user, posts: posts || [] });
   } catch (err) { 
-    console.error("Profile Fetch Error:", err);
-    res.status(500).json({ msg: "Neural Link Failed" }); 
+    console.error("Search Error:", err);
+    res.status(500).json({ msg: 'Search Failed' }); 
   }
-};
-
-router.get('/profile/:userId', auth, getProfileData);
-router.get('/:userId', auth, getProfileData);
-
+});
 /* ==========================================================
     🤝 ৪. ফলো/আনফলো সিস্টেম
 ========================================================== */
