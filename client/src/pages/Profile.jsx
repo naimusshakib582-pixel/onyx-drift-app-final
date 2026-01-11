@@ -37,7 +37,7 @@ const Profile = () => {
   const [postType, setPostType] = useState("image"); 
   const [isTransmitting, setIsTransmitting] = useState(false);
 
-  // --- 🛠 API URL & ID Formatting Fix ---
+  // --- API URL ---
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
   const fileInputRef = useRef(null);
 
@@ -57,17 +57,16 @@ const Profile = () => {
   }, [userProfile]);
 
   const fetchProfileData = async () => {
-    // currentUser না আসা পর্যন্ত বা userId না থাকলে রিকোয়েস্ট থামিয়ে দেয়া
     if (!isAuthenticated && !userId) return;
 
     try {
       setLoading(true);
       const token = await getAccessTokenSilently();
       
-      // ✅ ফিক্স: সোর্স আইডি নির্ধারণ এবং URL সেফ এনকোডিং
       const rawId = userId || currentUser?.sub;
       if (!rawId) return;
       
+      // ✅ ফিক্স: সোর্স আইডি এনকোডিং
       const targetId = encodeURIComponent(rawId); 
       
       const [profileRes, postsRes, usersRes] = await Promise.all([
@@ -94,14 +93,11 @@ const Profile = () => {
   };
 
   useEffect(() => {
-    // ইউজার অথেন্টিকেটেড হলে অথবা URL এ আইডি থাকলে ডাটা ফেচ হবে
     if (isAuthenticated || userId) {
       fetchProfileData();
     }
-  }, [userId, isAuthenticated, currentUser]); // currentUser ডিপেন্ডেন্সি যোগ করা হয়েছে
+  }, [userId, isAuthenticated, currentUser]);
 
-  // ... (বাকি সব কোড একদম আগের মতোই থাকবে)
-  
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Are you sure you want to terminate this neural echo?")) return;
     try {
@@ -122,7 +118,8 @@ const Profile = () => {
     if (query.length > 2) {
       try {
         const token = await getAccessTokenSilently();
-        const res = await axios.get(`${API_URL}/api/user/search?q=${query}`, {
+        // ✅ ফিক্স: ব্যাকএন্ড 'query' কি-ওয়ার্ড খুঁজছে, 'q' নয়
+        const res = await axios.get(`${API_URL}/api/user/search?query=${query}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSearchResults(res.data);
