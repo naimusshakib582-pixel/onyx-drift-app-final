@@ -8,7 +8,7 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 const router = express.Router();
 
-// Cloudinary Storage
+// Cloudinary Storage কনফিগারেশন
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -19,41 +19,67 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* ==========================================================
-    🔍 ১. সার্চ ও ডিসকভারি
+    🌍 ১. GET ALL USERS (Discovery - Fixes 404 Error)
+========================================================== */
+router.get('/all', auth, async (req, res) => {
+  try {
+    const myId = req.user.sub || req.user.id;
+    
+    // নিজেকে বাদে অন্য সব ইউজারকে খুঁজে বের করা
+    const users = await User.find({ auth0Id: { $ne: myId } })
+      .select('name avatar auth0Id isVerified bio followers nickname')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+    
+    res.json(users);
+  } catch (err) { 
+    console.error("Discovery Error:", err);
+    res.status(500).json({ msg: 'Could not fetch drifters' }); 
+  }
+});
+
+/* ==========================================================
+    🔍 ২. সার্চ ফাংশনালিটি (Pagination সহ)
 ========================================================== */
 router.get('/search', auth, async (req, res) => {
   try {
     const { query, page = 1, limit = 12 } = req.query; 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Auth0 ID logic fixed to support req.user.sub
     const myId = req.user.sub || req.user.id;
+    
     let filter = { auth0Id: { $ne: myId } };
 
     if (query) {
-      const searchRegex = new RegExp(`^${query.trim()}`, 'i'); 
-      filter.$or = [{ name: { $regex: searchRegex } }, { nickname: { $regex: searchRegex } }];
+      const searchRegex = new RegExp(`${query.trim()}`, 'i'); 
+      filter.$or = [
+        { name: { $regex: searchRegex } }, 
+        { nickname: { $regex: searchRegex } }
+      ];
     }
 
     const users = await User.find(filter)
       .select('name avatar auth0Id isVerified bio followers nickname')
-      .skip(skip).limit(parseInt(limit)).lean();
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
     
     res.json(users);
-  } catch (err) { res.status(500).json({ msg: 'Search Failed' }); }
+  } catch (err) { 
+    console.error("Search Error:", err);
+    res.status(500).json({ msg: 'Search Failed' }); 
+  }
 });
 
 /* ==========================================================
-    📡 ২. প্রোফাইল ডাটা ফেচিং (Fix: /profile/:userId Path)
+    📡 ৩. প্রোফাইল ডাটা ফেচিং (Neural Sync)
 ========================================================== */
-// এখানে path টি /profile/:userId করা হয়েছে যাতে server.js এর /api/user এর সাথে মিলে যায়
 router.get('/profile/:userId', auth, async (req, res) => {
   try {
     const targetId = decodeURIComponent(req.params.userId);
     
     const user = await User.findOne({ auth0Id: targetId }).lean();
     
-    // ইউজার না থাকলে ৪MD৪ না পাঠিয়ে একটি ডিফল্ট অবজেক্ট পাঠানো হচ্ছে যাতে ফ্রন্টএন্ড ক্র্যাশ না করে
     if (!user) {
         return res.status(404).json({ msg: "User not found in orbit" });
     }
@@ -73,7 +99,7 @@ router.get('/profile/:userId', auth, async (req, res) => {
 });
 
 /* ==========================================================
-    🤝 ৩. ফলো/আনফলো সিস্টেম
+    🤝 ৪. ফলো/আনফলো সিস্টেম
 ========================================================== */
 router.post('/follow/:targetId', auth, async (req, res) => {
   try {
@@ -99,14 +125,18 @@ router.post('/follow/:targetId', auth, async (req, res) => {
       ]);
     }
     res.json({ followed: !isFollowing });
-  } catch (err) { res.status(500).json({ msg: "Link failed" }); }
+  } catch (err) { 
+    console.error("Follow Error:", err);
+    res.status(500).json({ msg: "Link failed" }); 
+  }
 });
 
 /* ==========================================================
-    📝 ৪. প্রোফাইল আপডেট
+    📝 ৫. প্রোফাইল আপডেট
 ========================================================== */
 router.put("/update-profile", auth, upload.fields([
-  { name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }
+  { name: 'avatar', maxCount: 1 }, 
+  { name: 'cover', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const { bio, location, workplace } = req.body;
@@ -117,13 +147,21 @@ router.put("/update-profile", auth, upload.fields([
     if (req.files?.avatar) updateFields.avatar = req.files.avatar[0].path;
     if (req.files?.cover) updateFields.coverImg = req.files.cover[0].path;
 
+    // খালি প্রোপার্টিগুলো ডাটাবেসে যাওয়ার আগে ক্লিন করা
+    Object.keys(updateFields).forEach(key => 
+      (updateFields[key] === undefined || updateFields[key] === "") && delete updateFields[key]
+    );
+
     const updatedUser = await User.findOneAndUpdate(
       { auth0Id: myId },
       { $set: updateFields },
       { new: true, lean: true }
     );
     res.json(updatedUser);
-  } catch (err) { res.status(500).json({ msg: 'Update Failed' }); }
+  } catch (err) { 
+    console.error("Update Error:", err);
+    res.status(500).json({ msg: 'Update Failed' }); 
+  }
 });
 
 export default router;
