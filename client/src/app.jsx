@@ -17,7 +17,7 @@ import Explorer from "./pages/Explorer";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import FollowingPage from "./pages/FollowingPage";
-import Call from "./pages/Call"; // ✅ ১. কল পেজটি ইম্পোর্ট করুন
+import Call from "./pages/Call";
 
 // Protected Route Component
 const ProtectedRoute = ({ component: Component, ...props }) => {
@@ -37,7 +37,7 @@ export default function App() {
   const socket = useRef(null); 
   const [searchQuery, setSearchQuery] = useState("");
 
-  // সকেট কানেকশন লজিক
+  // --- Socket Connection Logic ---
   useEffect(() => {
     if (isAuthenticated && user?.sub) {
       const socketUrl = "https://onyx-drift-app-final.onrender.com";
@@ -75,7 +75,10 @@ export default function App() {
   );
 
   // চ্যাট বা কল পেজে থাকলে সাইডবার হাইড করার লজিক
-  const hideSidebar = ["/messenger", "/settings", "/"].includes(location.pathname) || location.pathname.startsWith("/call/");
+  // ✅ এখানে মেসেঞ্জার রাউট চেক করার লজিকটি আরও শক্তিশালী করা হয়েছে
+  const hideSidebar = ["/messenger", "/settings", "/"].includes(location.pathname) || 
+                      location.pathname.startsWith("/messenger") || 
+                      location.pathname.startsWith("/call/");
 
   return (
     <div className="min-h-screen bg-[#020617] text-gray-200 overflow-x-hidden selection:bg-cyan-500/30 font-sans">
@@ -104,14 +107,19 @@ export default function App() {
                   <Route path="/" element={isAuthenticated ? <Navigate to="/feed" /> : <Landing />} />
                   
                   <Route path="/feed" element={<ProtectedRoute component={() => <PremiumHomeFeed searchQuery={searchQuery} />} />} />
+                  
+                  {/* ✅ আইডি হ্যান্ডলিং ঠিক করতে স্টার (*) যুক্ত রাউট ব্যবহার করা যেতে পারে যদি দরকার হয় */}
                   <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
+                  
+                  {/* ✅ মেসেঞ্জার রাউট */}
                   <Route path="/messenger" element={<ProtectedRoute component={Messenger} />} />
+                  
                   <Route path="/analytics" element={<ProtectedRoute component={Analytics} />} />
                   <Route path="/explorer" element={<ProtectedRoute component={Explorer} />} />
                   <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
                   <Route path="/following" element={<ProtectedRoute component={FollowingPage} />} />
                   
-                  {/* ✅ ২. কল রাউট যোগ করা হলো (roomId প্যারামিটার সহ) */}
+                  {/* ✅ কল রাউট (roomId প্যারামিটার সহ) */}
                   <Route path="/call/:roomId" element={<ProtectedRoute component={Call} />} />
                   
                   <Route path="*" element={<Navigate to="/" />} />
