@@ -37,10 +37,11 @@ const Messenger = () => {
     socket.current = io(API_URL, { transports: ["websocket"] });
 
     socket.current.on("getMessage", (data) => {
+      // শুধুমাত্র বর্তমান চ্যাটের মেসেজ আপডেট করবে
       setMessages((prev) => {
         const isAlreadyAdded = prev.some(m => m._id === data._id);
         if (isAlreadyAdded) return prev;
-        return [...prev, { ...data, createdAt: Date.now() }];
+        return [...prev, data];
       });
     });
 
@@ -57,7 +58,7 @@ const Messenger = () => {
 
     return () => {
       socket.current.disconnect();
-      if (ringtoneRef.current) ringtoneRef.current.pause();
+      stopRingtone();
     };
   }, [user]);
 
@@ -70,34 +71,9 @@ const Messenger = () => {
       });
       setConversations(res.data || []);
     } catch (err) { console.error("Conv fetch error", err); }
-  }, [user, getAccessTokenSilently]);
+  }, [user?.sub, getAccessTokenSilently]);
 
-  useEffect(() => { if (user?.sub) fetchConv(); }, [user, fetchConv]);
-
-  // --- 🛰️ URL ID Sync & Clean ---
-  useEffect(() => {
-    const syncUrlUser = async () => {
-      const queryParams = new URLSearchParams(location.search);
-      const targetUserId = queryParams.get("userId");
-
-      if (targetUserId && user?.sub) {
-        try {
-          const token = await getAccessTokenSilently();
-          const res = await axios.post(`${API_URL}/api/messages/conversation`, {
-            senderId: user.sub,
-            receiverId: targetUserId
-          }, { headers: { Authorization: `Bearer ${token}` } });
-          
-          setCurrentChat(res.data);
-          setSearchTerm("");
-          navigate('/messenger', { replace: true }); 
-        } catch (err) {
-          console.error("URL Sync Error", err);
-        }
-      }
-    };
-    syncUrlUser();
-  }, [location.search, user, getAccessTokenSilently, navigate]);
+  useEffect(() => { if (user?.sub) fetchConv(); }, [user?.sub, fetchConv]);
 
   // --- Search Logic ---
   useEffect(() => {
@@ -115,12 +91,12 @@ const Messenger = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
 
-  const selectUser = async (target) => {
+  const selectUser = async (targetId) => {
     try {
       const token = await getAccessTokenSilently();
       const res = await axios.post(`${API_URL}/api/messages/conversation`, {
         senderId: user.sub,
-        receiverId: target.auth0Id
+        receiverId: targetId
       }, { headers: { Authorization: `Bearer ${token}` } });
       
       setCurrentChat(res.data);
@@ -130,20 +106,23 @@ const Messenger = () => {
     } catch (err) { console.error("Chat init error", err); }
   };
 
+  // --- Fetch Messages when Chat Changes ---
   useEffect(() => {
     if (currentChat) {
       const fetchMsgs = async () => {
-        const res = await axios.get(`${API_URL}/api/messages/message/${currentChat._id}`);
-        setMessages(res.data);
+        try {
+          const res = await axios.get(`${API_URL}/api/messages/message/${currentChat._id}`);
+          setMessages(res.data);
+        } catch (err) { console.error(err); }
       };
       fetchMsgs();
     }
   }, [currentChat]);
 
-  const handleSend = async (text) => {
-    if (!text.trim() || !currentChat) return;
+  const handleSend = async () => {
+    if (!newMessage.trim() || !currentChat) return;
     const receiverId = currentChat.members.find(m => m !== user.sub);
-    const messageBody = { conversationId: currentChat._id, senderId: user.sub, text };
+    const messageBody = { conversationId: currentChat._id, senderId: user.sub, text: newMessage };
     
     try {
       const res = await axios.post(`${API_URL}/api/messages/message`, messageBody);
@@ -166,10 +145,17 @@ const Messenger = () => {
     navigate(`/call/${currentChat._id}?type=${type}`);
   };
 
-  useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { 
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: "smooth" }); 
+    }
+  }, [messages]);
 
   const stopRingtone = () => {
-    if (ringtoneRef.current) { ringtoneRef.current.pause(); ringtoneRef.current.currentTime = 0; }
+    if (ringtoneRef.current) { 
+      ringtoneRef.current.pause(); 
+      ringtoneRef.current.currentTime = 0; 
+    }
   };
 
   return (
@@ -180,8 +166,17 @@ const Messenger = () => {
         <div className="w-12 h-12 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/30 shadow-[0_0_15px_cyan]">
           <HiOutlineMicrophone size={24} className="text-cyan-400" />
         </div>
-        <HiOutlineChatBubbleBottomCenterText size={28} className="text-cyan-400 cursor-pointer" onClick={() => {setCurrentChat(null); navigate('/messenger');}} />
-        <img src={user?.picture} className="mt-auto w-12 h-12 rounded-2xl border-2 border-cyan-500/50 hover:scale-110 transition-transform cursor-pointer" onClick={() => navigate('/feed')} alt="Profile" />
+        <HiOutlineChatBubbleBottomCenterText 
+          size={28} 
+          className="text-cyan-400 cursor-pointer hover:scale-110 transition-all" 
+          onClick={() => {setCurrentChat(null); navigate('/messenger');}} 
+        />
+        <img 
+          src={user?.picture} 
+          className="mt-auto w-12 h-12 rounded-2xl border-2 border-cyan-500/50 hover:scale-110 transition-transform cursor-pointer" 
+          onClick={() => navigate('/feed')} 
+          alt="Profile" 
+        />
       </div>
 
       {/* 📡 Chat List & Search */}
@@ -194,7 +189,7 @@ const Messenger = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="SEARCH NEURAL ID..." 
-              className="bg-transparent border-none outline-none text-[10px] w-full tracking-widest text-cyan-200" 
+              className="bg-transparent border-none outline-none text-[10px] w-full tracking-widest text-cyan-200 uppercase" 
             />
           </div>
         </div>
@@ -204,7 +199,7 @@ const Messenger = () => {
             <div className="mb-6">
               <p className="text-[10px] text-cyan-400 mb-2 ml-2 tracking-widest uppercase font-black">Detected Drifters</p>
               {searchResults.map(u => (
-                <div key={u.auth0Id} onClick={() => selectUser(u)} className="p-3 bg-cyan-500/5 hover:bg-cyan-500/10 rounded-2xl border border-cyan-500/10 mb-2 cursor-pointer flex items-center gap-3 transition-all">
+                <div key={u.auth0Id} onClick={() => selectUser(u.auth0Id)} className="p-3 bg-cyan-500/5 hover:bg-cyan-500/10 rounded-2xl border border-cyan-500/10 mb-2 cursor-pointer flex items-center gap-3 transition-all">
                   <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.name}&background=random`} className="w-8 h-8 rounded-lg" alt={u.name} />
                   <div className="flex flex-col">
                     <span className="text-xs font-bold uppercase italic">{u.name}</span>
@@ -225,7 +220,7 @@ const Messenger = () => {
                 className={`p-4 rounded-[2rem] flex items-center gap-4 cursor-pointer transition-all duration-300 ${currentChat?._id === c._id ? 'bg-cyan-500/20 border border-cyan-500/30' : 'hover:bg-white/5 border border-transparent'}`}
               >
                 <div className="relative">
-                  <img src={`https://ui-avatars.com/api/?name=${c._id}&background=random&color=fff`} className="w-12 h-12 rounded-2xl" alt="Node" />
+                  <img src={`https://ui-avatars.com/api/?name=Node&background=06b6d4&color=fff`} className="w-12 h-12 rounded-2xl" alt="Node" />
                   {isOnline && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full border-2 border-[#010409]"></div>}
                 </div>
                 <div className="overflow-hidden">
@@ -245,7 +240,7 @@ const Messenger = () => {
         </div>
       </div>
 
-      {/* ⚔️ Main Chat Area (Fixed UI for Mobile) */}
+      {/* ⚔️ Main Chat Area */}
       <div className={`${!currentChat ? 'hidden md:flex' : 'flex'} flex-1 ${glassPanel} md:rounded-[3.5rem] flex flex-col relative overflow-hidden`}>
         {currentChat ? (
           <>
@@ -261,8 +256,8 @@ const Messenger = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => startCall('video')} className="p-2 md:p-3 bg-cyan-500/10 rounded-xl text-cyan-400 border border-cyan-500/10"><HiOutlineVideoCamera size={18} /></button>
-                <button onClick={() => startCall('voice')} className="p-2 md:p-3 bg-purple-500/10 rounded-xl text-purple-400 border border-purple-500/10"><HiOutlinePhone size={18} /></button>
+                <button onClick={() => startCall('video')} className="p-2 md:p-3 bg-cyan-500/10 rounded-xl text-cyan-400 border border-cyan-500/10 hover:bg-cyan-500/20 transition-all"><HiOutlineVideoCamera size={18} /></button>
+                <button onClick={() => startCall('voice')} className="p-2 md:p-3 bg-purple-500/10 rounded-xl text-purple-400 border border-purple-500/10 hover:bg-purple-500/20 transition-all"><HiOutlinePhone size={18} /></button>
               </div>
             </header>
 
@@ -270,7 +265,7 @@ const Messenger = () => {
               {messages.map((m, i) => {
                 const isMe = m.senderId === user?.sub;
                 return (
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2.5 md:px-6 md:py-3 shadow-xl ${isMe ? 'bg-cyan-600/30 text-white rounded-l-2xl rounded-tr-2xl border border-cyan-400/30' : 'bg-white/5 border border-white/10 text-cyan-100 rounded-r-2xl rounded-tl-2xl'}`}>
                       <p className="text-[12px] md:text-[13px] leading-relaxed font-medium break-words">{m.text}</p>
                       <div className="text-[7px] md:text-[8px] mt-1.5 opacity-50 flex justify-end gap-1 uppercase font-black tracking-tighter">
@@ -288,12 +283,13 @@ const Messenger = () => {
               <div className="flex items-center gap-2 md:gap-3 bg-[#0a0f1a] p-1.5 md:p-2 rounded-full border border-white/10 focus-within:border-cyan-500/50">
                 <button className="p-2 text-gray-500 hover:text-cyan-400"><HiOutlinePaperClip size={20} /></button>
                 <input 
-                  value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend(newMessage)}
+                  value={newMessage} 
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="NEURAL SIGNAL..."
                   className="flex-1 bg-transparent border-none outline-none text-[11px] text-cyan-100 tracking-widest uppercase placeholder:text-gray-700"
                 />
-                <button onClick={() => handleSend(newMessage)} className="bg-cyan-500 p-3 md:p-4 rounded-full text-black shadow-[0_0_15px_cyan] active:scale-90 transition-all">
+                <button onClick={handleSend} className="bg-cyan-500 p-3 md:p-4 rounded-full text-black shadow-[0_0_15px_cyan] active:scale-90 transition-all">
                   <HiOutlinePaperAirplane size={18} className="rotate-45" />
                 </button>
               </div>
@@ -332,7 +328,7 @@ const Messenger = () => {
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.2); border-radius: 10px; }
       `}</style>
     </div>
   );
