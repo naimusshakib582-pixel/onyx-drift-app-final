@@ -8,7 +8,6 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 const router = express.Router();
 
-// Cloudinary Storage কনফিগারেশন
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -19,53 +18,47 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* ==========================================================
-    🌍 ১. GET ALL USERS (Discovery)
+    🌍 ১. GET ALL USERS
 ========================================================== */
 router.get('/all', auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
     const users = await User.find({ auth0Id: { $ne: myId } })
       .select('name avatar auth0Id isVerified bio followers nickname')
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean();
+      .sort({ createdAt: -1 }).limit(20).lean();
     res.json(users);
-  } catch (err) { 
-    console.error("Discovery Error:", err);
-    res.status(500).json({ msg: 'Could not fetch drifters' }); 
-  }
+  } catch (err) { res.status(500).json({ msg: 'Fetch Failed' }); }
 });
 
 /* ==========================================================
-    🔍 ২. সার্চ ফাংশনালিটি
+    🔍 ২. SEARCH
 ========================================================== */
 router.get('/search', auth, async (req, res) => {
   try {
-    const { query, page = 1, limit = 12 } = req.query; 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const { query } = req.query;
     const myId = req.user.sub || req.user.id;
     let filter = { auth0Id: { $ne: myId } };
-
     if (query) {
       const searchRegex = new RegExp(`${query.trim()}`, 'i'); 
       filter.$or = [{ name: { $regex: searchRegex } }, { nickname: { $regex: searchRegex } }];
     }
-
-    const users = await User.find(filter)
-      .select('name avatar auth0Id isVerified bio followers nickname')
-      .skip(skip).limit(parseInt(limit)).lean();
+    const users = await User.find(filter).limit(12).lean();
     res.json(users);
   } catch (err) { res.status(500).json({ msg: 'Search Failed' }); }
 });
 
 /* ==========================================================
-    📡 ৩. প্রোফাইল ডাটা ফেচিং (FIXED: Route Mismatch Error)
+    📡 ৩. প্রোফাইল ডাটা ফেচিং (The Ultimate Fix)
 ========================================================== */
-// আপনার ফ্রন্টএন্ড রিকোয়েস্ট অনুযায়ী এখানে '/profile/:userId' থাকতে হবে
-router.get('/profile/:userId', auth, async (req, res) => {
+
+// কমন লজিক ফাংশন
+const getProfileData = async (req, res) => {
   try {
     const targetId = decodeURIComponent(req.params.userId);
     
+    // রিজার্ভড শব্দগুলো বাদ দেওয়া যাতে অন্য রাউট ডিস্টার্ব না হয়
+    if (["all", "search", "update-profile"].includes(targetId)) return;
+
     const user = await User.findOne({ auth0Id: targetId }).lean();
     
     if (!user) {
@@ -81,7 +74,13 @@ router.get('/profile/:userId', auth, async (req, res) => {
     console.error("Profile Fetch Error:", err);
     res.status(500).json({ msg: "Neural Link Failed" }); 
   }
-});
+};
+
+// সমাধান: যদি ফ্রন্টএন্ড /profile/ID কল করে
+router.get('/profile/:userId', auth, getProfileData);
+
+// সমাধান: যদি ফ্রন্টএন্ড সরাসরি /ID কল করে (যা আপনার কনসোলে দেখা যাচ্ছে)
+router.get('/:userId', auth, getProfileData);
 
 /* ==========================================================
     🤝 ৪. ফলো/আনফলো সিস্টেম
@@ -116,8 +115,7 @@ router.post('/follow/:targetId', auth, async (req, res) => {
     📝 ৫. প্রোফাইল আপডেট
 ========================================================== */
 router.put("/update-profile", auth, upload.fields([
-  { name: 'avatar', maxCount: 1 }, 
-  { name: 'cover', maxCount: 1 }
+  { name: 'avatar', maxCount: 1 }, { name: 'cover', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const { bio, location, workplace } = req.body;
