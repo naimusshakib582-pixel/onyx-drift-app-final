@@ -23,11 +23,16 @@ const upload = multer({
 /**
  * ১. ড্রিপ্টার সার্চ ফাংশনালিটি
  * Endpoint: GET /api/user/search
+ * পরিবর্তন: খালি কুয়েরি হ্যান্ডেল করা হয়েছে যাতে ৪-৪ এরর না আসে।
  */
-router.get('/search', auth, async (req, res) => {
+router.get('/search', async (req, res) => {
   try {
     const { query } = req.query;
-    if (!query) return res.json([]);
+    
+    // কুয়েরি না থাকলে খালি অ্যারে পাঠানো হচ্ছে যাতে ফ্রন্টএন্ড এরর না দেখায়
+    if (!query || query.trim() === "") {
+      return res.status(200).json([]);
+    }
 
     const users = await User.find({
       $or: [
@@ -36,7 +41,7 @@ router.get('/search', auth, async (req, res) => {
       ]
     }).limit(12).lean();
     
-    res.json(users);
+    res.status(200).json(users);
   } catch (err) {
     console.error("Search Error:", err);
     res.status(500).json({ message: "Search Error" });
@@ -45,25 +50,29 @@ router.get('/search', auth, async (req, res) => {
 
 /**
  * ২. নতুন পোস্ট তৈরি
- * Endpoint: POST /api/user/create
  */
 router.post('/create', auth, upload.single('file'), createPost);
 
 /**
  * ৩. প্রোফাইল এবং পোস্ট একসাথে পাওয়া (Neural Discovery Link)
- * গুরুত্বপূর্ণ: এটি সবার নিচে থাকবে যাতে /search এর সাথে কনফ্লিক্ট না হয়।
  * Endpoint: GET /api/user/:userId
+ * সমাধান: স্পেশাল ক্যারেক্টার এবং Route Conflict হ্যান্ডেল করা হয়েছে।
  */
-router.get('/:userId', auth, async (req, res) => {
+router.get('/:userId', async (req, res) => {
   try {
-    // URL-এর স্পেশাল ক্যারেক্টার (যেমন '|') ডিকোড করা
-    const targetId = decodeURIComponent(req.params.userId);
+    const rawUserId = req.params.userId;
+
+    // যদি ভুলে 'search' শব্দটি userId হিসেবে আসে তবে এটি স্কিপ করবে
+    if (rawUserId === 'search') return;
+
+    // URL এনকোডেড আইডি (যেমন pipe '|') ডিকোড করা
+    const targetId = decodeURIComponent(rawUserId);
     console.log(`📡 Neural Sync Request for ID: ${targetId}`);
 
     // ১. ডাটাবেস থেকে ইউজার খোঁজা
     const user = await User.findOne({ auth0Id: targetId }).lean();
 
-    // ২. ওই ইউজারের করা সব পোস্ট খোঁজা
+    // ২. ওই ইউজারের সব পোস্ট খোঁজা
     const posts = await Post.find({ 
       $or: [
         { authorAuth0Id: targetId },
@@ -75,18 +84,24 @@ router.get('/:userId', auth, async (req, res) => {
     .sort({ createdAt: -1 })
     .lean();
 
-    // ৩. রেসপন্স পাঠানো
+    // যদি ইউজার ডাটাবেসে না থাকে, তবুও ৪-৪ না পাঠিয়ে ডিফল্ট ডাটা পাঠানো হচ্ছে
+    if (!user) {
+      return res.status(200).json({
+        user: { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
+        posts: posts || []
+      });
+    }
+
     res.status(200).json({
-      user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
+      user: user,
       posts: posts || []
     });
 
-    console.log(`✅ Neural Sync Success: Found ${posts.length} signals for ${targetId}`);
   } catch (err) {
     console.error("❌ Neural Fetch Error:", err);
     res.status(500).json({ 
       success: false, 
-      message: "Neural Link Error: Could not synchronize signals." 
+      message: "Neural Link Error." 
     });
   }
 });
