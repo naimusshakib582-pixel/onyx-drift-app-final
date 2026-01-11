@@ -18,7 +18,7 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* ==========================================================
-    🌍 ১. GET ALL USERS
+    🌍 ১. GET ALL USERS (Discovery)
 ========================================================== */
 router.get('/all', auth, async (req, res) => {
   try {
@@ -31,18 +31,27 @@ router.get('/all', auth, async (req, res) => {
 });
 
 /* ==========================================================
-    🔍 ২. SEARCH
+    🔍 ২. SEARCH (FIXED: Improved Partial Name Matching)
 ========================================================== */
 router.get('/search', auth, async (req, res) => {
   try {
     const { query } = req.query;
     const myId = req.user.sub || req.user.id;
     let filter = { auth0Id: { $ne: myId } };
-    if (query) {
-      const searchRegex = new RegExp(`${query.trim()}`, 'i'); 
-      filter.$or = [{ name: { $regex: searchRegex } }, { nickname: { $regex: searchRegex } }];
+
+    if (query && query.trim() !== "") {
+      // searchRegex আপডেট করা হয়েছে যাতে নামের যেকোনো অংশ মিললে খুঁজে পায়
+      const searchRegex = new RegExp(query.trim(), 'i'); 
+      filter.$or = [
+        { name: { $regex: searchRegex } }, 
+        { nickname: { $regex: searchRegex } }
+      ];
     }
-    const users = await User.find(filter).limit(12).lean();
+    
+    const users = await User.find(filter)
+      .select('name avatar auth0Id isVerified bio followers nickname')
+      .limit(12).lean();
+    
     res.json(users);
   } catch (err) { res.status(500).json({ msg: 'Search Failed' }); }
 });
@@ -50,13 +59,10 @@ router.get('/search', auth, async (req, res) => {
 /* ==========================================================
     📡 ৩. প্রোফাইল ডাটা ফেচিং (The Ultimate Fix)
 ========================================================== */
-
-// কমন লজিক ফাংশন
 const getProfileData = async (req, res) => {
   try {
     const targetId = decodeURIComponent(req.params.userId);
     
-    // রিজার্ভড শব্দগুলো বাদ দেওয়া যাতে অন্য রাউট ডিস্টার্ব না হয়
     if (["all", "search", "update-profile"].includes(targetId)) return;
 
     const user = await User.findOne({ auth0Id: targetId }).lean();
@@ -76,10 +82,7 @@ const getProfileData = async (req, res) => {
   }
 };
 
-// সমাধান: যদি ফ্রন্টএন্ড /profile/ID কল করে
 router.get('/profile/:userId', auth, getProfileData);
-
-// সমাধান: যদি ফ্রন্টএন্ড সরাসরি /ID কল করে (যা আপনার কনসোলে দেখা যাচ্ছে)
 router.get('/:userId', auth, getProfileData);
 
 /* ==========================================================
