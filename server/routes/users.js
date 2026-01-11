@@ -19,19 +19,16 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /* ==========================================================
-    🌍 ১. GET ALL USERS (Discovery - Fixes 404 Error)
+    🌍 ১. GET ALL USERS (Discovery)
 ========================================================== */
 router.get('/all', auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
-    
-    // নিজেকে বাদে অন্য সব ইউজারকে খুঁজে বের করা
     const users = await User.find({ auth0Id: { $ne: myId } })
       .select('name avatar auth0Id isVerified bio followers nickname')
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
-    
     res.json(users);
   } catch (err) { 
     console.error("Discovery Error:", err);
@@ -40,44 +37,38 @@ router.get('/all', auth, async (req, res) => {
 });
 
 /* ==========================================================
-    🔍 ২. সার্চ ফাংশনালিটি (Pagination সহ)
+    🔍 ২. সার্চ ফাংশনালিটি
 ========================================================== */
 router.get('/search', auth, async (req, res) => {
   try {
     const { query, page = 1, limit = 12 } = req.query; 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const myId = req.user.sub || req.user.id;
-    
     let filter = { auth0Id: { $ne: myId } };
 
     if (query) {
       const searchRegex = new RegExp(`${query.trim()}`, 'i'); 
-      filter.$or = [
-        { name: { $regex: searchRegex } }, 
-        { nickname: { $regex: searchRegex } }
-      ];
+      filter.$or = [{ name: { $regex: searchRegex } }, { nickname: { $regex: searchRegex } }];
     }
 
     const users = await User.find(filter)
       .select('name avatar auth0Id isVerified bio followers nickname')
-      .skip(skip)
-      .limit(parseInt(limit))
-      .lean();
-    
+      .skip(skip).limit(parseInt(limit)).lean();
     res.json(users);
-  } catch (err) { 
-    console.error("Search Error:", err);
-    res.status(500).json({ msg: 'Search Failed' }); 
-  }
+  } catch (err) { res.status(500).json({ msg: 'Search Failed' }); }
 });
 
 /* ==========================================================
-    📡 ৩. প্রোফাইল ডাটা ফেচিং (Neural Sync)
+    📡 ৩. প্রোফাইল ডাটা ফেচিং (FIXED ROUTE)
 ========================================================== */
-router.get('/profile/:userId', auth, async (req, res) => {
+// এখানে '/profile/:userId' থেকে '/:userId' করা হয়েছে যাতে সরাসরি লিঙ্কে কাজ করে
+router.get('/:userId', auth, async (req, res) => {
   try {
     const targetId = decodeURIComponent(req.params.userId);
     
+    // "all" বা "search" কে আইডি হিসেবে কাউন্ট করা থেকে আটকানোর জন্য চেক
+    if (targetId === "all" || targetId === "search" || targetId === "update-profile") return;
+
     const user = await User.findOne({ auth0Id: targetId }).lean();
     
     if (!user) {
@@ -88,10 +79,7 @@ router.get('/profile/:userId', auth, async (req, res) => {
       $or: [{ authorAuth0Id: targetId }, { user: targetId }] 
     }).sort({ createdAt: -1 }).lean();
 
-    res.json({
-      user: user,
-      posts: posts || []
-    });
+    res.json({ user, posts: posts || [] });
   } catch (err) { 
     console.error("Profile Fetch Error:", err);
     res.status(500).json({ msg: "Neural Link Failed" }); 
@@ -105,7 +93,6 @@ router.post('/follow/:targetId', auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
     const targetId = decodeURIComponent(req.params.targetId);
-    
     if (myId === targetId) return res.status(400).json({ msg: "Self link impossible" });
 
     const targetUser = await User.findOne({ auth0Id: targetId });
@@ -125,10 +112,7 @@ router.post('/follow/:targetId', auth, async (req, res) => {
       ]);
     }
     res.json({ followed: !isFollowing });
-  } catch (err) { 
-    console.error("Follow Error:", err);
-    res.status(500).json({ msg: "Link failed" }); 
-  }
+  } catch (err) { res.status(500).json({ msg: "Link failed" }); }
 });
 
 /* ==========================================================
@@ -141,13 +125,11 @@ router.put("/update-profile", auth, upload.fields([
   try {
     const { bio, location, workplace } = req.body;
     const myId = req.user.sub || req.user.id;
-    
     let updateFields = { bio, location, workplace };
 
     if (req.files?.avatar) updateFields.avatar = req.files.avatar[0].path;
     if (req.files?.cover) updateFields.coverImg = req.files.cover[0].path;
 
-    // খালি প্রোপার্টিগুলো ডাটাবেসে যাওয়ার আগে ক্লিন করা
     Object.keys(updateFields).forEach(key => 
       (updateFields[key] === undefined || updateFields[key] === "") && delete updateFields[key]
     );
@@ -158,10 +140,7 @@ router.put("/update-profile", auth, upload.fields([
       { new: true, lean: true }
     );
     res.json(updatedUser);
-  } catch (err) { 
-    console.error("Update Error:", err);
-    res.status(500).json({ msg: 'Update Failed' }); 
-  }
+  } catch (err) { res.status(500).json({ msg: 'Update Failed' }); }
 });
 
 export default router;
