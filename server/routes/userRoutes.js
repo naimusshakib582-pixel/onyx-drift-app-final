@@ -23,13 +23,10 @@ const upload = multer({
 /**
  * ১. ড্রিপ্টার সার্চ ফাংশনালিটি
  * Endpoint: GET /api/user/search
- * পরিবর্তন: খালি কুয়েরি হ্যান্ডেল করা হয়েছে যাতে ৪-৪ এরর না আসে।
  */
 router.get('/search', async (req, res) => {
   try {
     const { query } = req.query;
-    
-    // কুয়েরি না থাকলে খালি অ্যারে পাঠানো হচ্ছে যাতে ফ্রন্টএন্ড এরর না দেখায়
     if (!query || query.trim() === "") {
       return res.status(200).json([]);
     }
@@ -54,55 +51,52 @@ router.get('/search', async (req, res) => {
 router.post('/create', auth, upload.single('file'), createPost);
 
 /**
- * ৩. প্রোফাইল এবং পোস্ট একসাথে পাওয়া (Neural Discovery Link)
+ * ৩. প্রোফাইল রাউট (আপনার এরর দূর করার জন্য)
+ * Endpoint: GET /api/user/profile/:userId
+ */
+router.get('/profile/:userId', async (req, res) => {
+  try {
+    const targetId = decodeURIComponent(req.params.userId);
+    console.log(`📡 Neural Sync (Profile) for ID: ${targetId}`);
+
+    const user = await User.findOne({ auth0Id: targetId }).lean();
+    const posts = await Post.find({ 
+      $or: [{ authorAuth0Id: targetId }, { user: targetId }, { author: targetId }]
+    }).sort({ createdAt: -1 }).lean();
+
+    res.status(200).json({
+      user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
+      posts: posts || []
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Neural Link Error" });
+  }
+});
+
+/**
+ * ৪. জেনারেল ডায়নামিক রাউট
  * Endpoint: GET /api/user/:userId
- * সমাধান: স্পেশাল ক্যারেক্টার এবং Route Conflict হ্যান্ডেল করা হয়েছে।
+ * এটি সবার নিচে থাকবে যাতে অন্য রাউটের সাথে কনফ্লিক্ট না হয়।
  */
 router.get('/:userId', async (req, res) => {
   try {
     const rawUserId = req.params.userId;
+    if (rawUserId === 'search' || rawUserId === 'profile') return;
 
-    // যদি ভুলে 'search' শব্দটি userId হিসেবে আসে তবে এটি স্কিপ করবে
-    if (rawUserId === 'search') return;
-
-    // URL এনকোডেড আইডি (যেমন pipe '|') ডিকোড করা
     const targetId = decodeURIComponent(rawUserId);
-    console.log(`📡 Neural Sync Request for ID: ${targetId}`);
+    console.log(`📡 Neural Sync (Direct) for ID: ${targetId}`);
 
-    // ১. ডাটাবেস থেকে ইউজার খোঁজা
     const user = await User.findOne({ auth0Id: targetId }).lean();
-
-    // ২. ওই ইউজারের সব পোস্ট খোঁজা
     const posts = await Post.find({ 
-      $or: [
-        { authorAuth0Id: targetId },
-        { authorId: targetId },
-        { user: targetId },
-        { author: targetId }
-      ]
-    })
-    .sort({ createdAt: -1 })
-    .lean();
-
-    // যদি ইউজার ডাটাবেসে না থাকে, তবুও ৪-৪ না পাঠিয়ে ডিফল্ট ডাটা পাঠানো হচ্ছে
-    if (!user) {
-      return res.status(200).json({
-        user: { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
-        posts: posts || []
-      });
-    }
+      $or: [{ authorAuth0Id: targetId }, { user: targetId }, { author: targetId }]
+    }).sort({ createdAt: -1 }).lean();
 
     res.status(200).json({
-      user: user,
+      user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
       posts: posts || []
     });
-
   } catch (err) {
-    console.error("❌ Neural Fetch Error:", err);
-    res.status(500).json({ 
-      success: false, 
-      message: "Neural Link Error." 
-    });
+    res.status(500).json({ message: "Neural Link Error" });
   }
 });
 
