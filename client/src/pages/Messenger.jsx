@@ -37,7 +37,6 @@ const Messenger = () => {
     socket.current = io(API_URL, { transports: ["websocket"] });
 
     socket.current.on("getMessage", (data) => {
-      // শুধুমাত্র বর্তমান চ্যাটের মেসেজ আপডেট করবে
       setMessages((prev) => {
         const isAlreadyAdded = prev.some(m => m._id === data._id);
         if (isAlreadyAdded) return prev;
@@ -240,11 +239,11 @@ const Messenger = () => {
         </div>
       </div>
 
-      {/* ⚔️ Main Chat Area */}
+      {/* ⚔️ Main Chat Area (Updated Header for Mobile) */}
       <div className={`${!currentChat ? 'hidden md:flex' : 'flex'} flex-1 ${glassPanel} md:rounded-[3.5rem] flex flex-col relative overflow-hidden`}>
         {currentChat ? (
           <>
-            <header className="px-4 py-4 md:px-6 md:py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+            <header className="sticky top-0 z-50 px-4 py-4 md:px-6 md:py-6 border-b border-white/5 flex justify-between items-center bg-[#010409]/80 backdrop-blur-md">
               <div className="flex items-center gap-3 md:gap-4">
                 <button onClick={() => setCurrentChat(null)} className="md:hidden p-1 text-cyan-400"><HiOutlineChevronLeft size={24} /></button>
                 <div className="w-10 h-10 md:w-12 md:h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20">
