@@ -24,7 +24,7 @@ router.put("/update-profile", auth, upload.fields([
     }
 
     // অপ্রয়োজনীয় undefined ফিল্ড বাদ দেওয়া
-    Object.keys(updateFields).forEach(key => updateFields[key] === undefined && delete updateFields[key]);
+    Object.keys(updateFields).forEach(key => (updateFields[key] === undefined || updateFields[key] === "") && delete updateFields[key]);
 
     const updatedUser = await User.findOneAndUpdate(
       { auth0Id: targetAuth0Id }, 
@@ -52,11 +52,11 @@ router.get("/search", auth, async (req, res) => {
 
     let searchQuery = {};
 
-    // চেক করা হচ্ছে কুয়েরিটি কি কোনো Auth0 ID (যেমন: pipe | আছে কি না)
+    // চেক করা হচ্ছে কুয়েরিটি কি কোনো Auth0 ID (যেমন: pipe | আছে কি না)
     if (query.includes('|') || query.startsWith('auth0') || query.startsWith('google')) {
       searchQuery = { auth0Id: query };
     } else {
-      // সাধারণ নাম বা ডাকনাম দিয়ে সার্চ
+      // সাধারণ নাম বা ডাকনাম দিয়ে সার্চ
       const searchRegex = new RegExp(`${query.trim()}`, "i");
       searchQuery = {
         auth0Id: { $ne: currentUserId },
@@ -81,17 +81,24 @@ router.get("/search", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    3️⃣ GET PROFILE BY ID
+    3️⃣ GET PROFILE BY ID (Fixed 404 Error)
 ========================================================== */
 router.get("/profile/:id", auth, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.params.id })
+    // ফ্রন্টএন্ড থেকে আসা এনকোডেড আইডি (%7C) কে ডিকোড (|) করা হচ্ছে
+    const targetId = decodeURIComponent(req.params.id);
+    
+    const user = await User.findOne({ auth0Id: targetId })
       .select("-__v")
       .lean();
     
-    if (!user) return res.status(404).json({ msg: "User not found in orbit" });
+    if (!user) {
+      return res.status(404).json({ msg: "User not found in orbit" });
+    }
+    
     res.json(user);
   } catch (err) {
+    console.error("Profile Fetch Error:", err);
     res.status(500).json({ msg: "Error fetching neural profile" });
   }
 });

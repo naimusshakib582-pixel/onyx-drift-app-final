@@ -37,7 +37,7 @@ const Profile = () => {
   const [postType, setPostType] = useState("image"); 
   const [isTransmitting, setIsTransmitting] = useState(false);
 
-  // API URL ফিক্স
+  // --- 🛠 API URL & ID Formatting Fix ---
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
   const fileInputRef = useRef(null);
 
@@ -57,10 +57,17 @@ const Profile = () => {
   }, [userProfile]);
 
   const fetchProfileData = async () => {
+    // currentUser না আসা পর্যন্ত বা userId না থাকলে রিকোয়েস্ট থামিয়ে দেয়া
+    if (!isAuthenticated && !userId) return;
+
     try {
       setLoading(true);
       const token = await getAccessTokenSilently();
+      
+      // ✅ ফিক্স: সোর্স আইডি নির্ধারণ এবং URL সেফ এনকোডিং
       const rawId = userId || currentUser?.sub;
+      if (!rawId) return;
+      
       const targetId = encodeURIComponent(rawId); 
       
       const [profileRes, postsRes, usersRes] = await Promise.all([
@@ -87,9 +94,14 @@ const Profile = () => {
   };
 
   useEffect(() => {
-    if (isAuthenticated || userId) fetchProfileData();
-  }, [userId, isAuthenticated]);
+    // ইউজার অথেন্টিকেটেড হলে অথবা URL এ আইডি থাকলে ডাটা ফেচ হবে
+    if (isAuthenticated || userId) {
+      fetchProfileData();
+    }
+  }, [userId, isAuthenticated, currentUser]); // currentUser ডিপেন্ডেন্সি যোগ করা হয়েছে
 
+  // ... (বাকি সব কোড একদম আগের মতোই থাকবে)
+  
   const handleDeletePost = async (postId) => {
     if (!window.confirm("Are you sure you want to terminate this neural echo?")) return;
     try {
@@ -170,18 +182,14 @@ const Profile = () => {
     setIsTransmitting(true);
     try {
       const token = await getAccessTokenSilently();
-      
-      // প্রোফাইল পেজ থেকে পোস্ট করার সময় JSON ডাটা পাঠানো সহজ
       const postData = {
         text: content,
         mediaType: postType,
         authorName: userProfile?.name || userProfile?.nickname || "Drifter",
         authorAvatar: userProfile?.avatar || "",
-        authorId: currentUser?.sub // Identity verification এর জন্য জরুরি
+        authorId: currentUser?.sub 
       };
 
-      // যদি ফাইল থাকে তবে সেটিকে Base64 করে পাঠানো বা সরাসরি FormData ব্যবহার করা যায়। 
-      // এখানে আপনার ব্যাকএন্ডের সুবিধা অনুযায়ী আমরা ডিরেক্ট অবজেক্ট পাঠাচ্ছি।
       const res = await axios.post(`${API_URL}/api/posts`, postData, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -193,7 +201,7 @@ const Profile = () => {
       alert("Echo Transmitted!");
     } catch (err) {
       console.error("Transmission Error:", err.response?.data || err.message);
-      alert("Transmission Interrupted: " + (err.response?.data?.message || "Check Identity"));
+      alert("Transmission Interrupted");
     } finally {
       setIsTransmitting(false);
     }
