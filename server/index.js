@@ -14,7 +14,7 @@ dotenv.config();
 import connectDB from "./config/db.js"; 
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
-import usersRoutes from './routes/users.js'; 
+import usersRoutes from './routes/users.js'; // এটি আপনার user.js ফাইল হওয়া উচিত
 import messageRoutes from "./routes/messages.js";      
 import uploadRoutes from './routes/upload.js';
 
@@ -28,7 +28,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৪. Redis কানেকশন (Error Handling সহ)
+// ৪. Redis কানেকশন
 const REDIS_URL = process.env.REDIS_URL;
 let redis;
 if (REDIS_URL) {
@@ -44,7 +44,7 @@ if (REDIS_URL) {
 // ৫. AI কনফিগারেশন
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ৬. CORS সেটআপ (Production ও Localhost নিশ্চিত করা)
+// ৬. Middleware & CORS
 const allowedOrigins = [
     "http://localhost:5173", 
     "https://onyx-drift-app-final.onrender.com",
@@ -54,7 +54,6 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Origin না থাকলেও (যেমন মোবাইল অ্যাপ বা পোস্টম্যান) এলাউ করবে
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
@@ -75,12 +74,9 @@ connectDB();
     🚀 ROUTE MOUNTING
 ========================================================== */
 
-// ১. ইউজার ও প্রোফাইল রাউটস
-// আপনার ফ্রন্টএন্ড কল করছে /api/user/profile/:id, তাই এটিই প্রধান রাউট
+// আপনার ফ্রন্টএন্ড কল করছে /api/user/profile/:id
 app.use("/api/user", usersRoutes); 
 app.use("/api/profile", profileRoutes); 
-
-// ২. অন্যান্য রাউট
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
 app.use("/api/upload", uploadRoutes); 
@@ -89,7 +85,7 @@ app.use("/api/upload", uploadRoutes);
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
 /* ==========================================================
-    📡 SOCKET.IO LOGIC
+    📡 SOCKET.IO LOGIC (Fixed Syntaxes)
 ========================================================== */
 const io = new Server(server, {
   cors: { 
@@ -102,7 +98,7 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  // ইউজার কানেক্ট হলে অনলাইন লিস্ট আপডেট
+  // ইউজার অনলাইন হলে
   socket.on("addNewUser", async (userId) => {
     if (userId && redis) {
       await redis.hset("online_users", userId, socket.id);
@@ -112,7 +108,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ডিসকানেক্ট হ্যান্ডলিং
+  // ডিসকানেক্ট হলে
   socket.on("disconnect", async () => {
     if (redis) {
         const allUsers = await redis.hgetall("online_users");
