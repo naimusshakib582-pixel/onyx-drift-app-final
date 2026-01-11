@@ -6,7 +6,30 @@ import upload from '../middleware/multer.js';
 const router = express.Router();
 
 /* ==========================================================
-    1️⃣ UPDATE PROFILE (Optimized)
+    1️⃣ GET PROFILE BY ID (Fixes %7C / Pipe | Error)
+========================================================== */
+router.get("/profile/:id", auth, async (req, res) => {
+  try {
+    // ফ্রন্টএন্ড থেকে আসা google-oauth2%7C... কে ডিকোড করে google-oauth2|... করা হচ্ছে
+    const targetId = decodeURIComponent(req.params.id);
+    
+    const user = await User.findOne({ auth0Id: targetId })
+      .select("-__v")
+      .lean();
+    
+    if (!user) {
+      return res.status(404).json({ msg: "Neural profile not found in drift" });
+    }
+    
+    res.json(user);
+  } catch (err) {
+    console.error("Profile Fetch Error:", err);
+    res.status(500).json({ msg: "Neural link interrupted" });
+  }
+});
+
+/* ==========================================================
+    2️⃣ UPDATE PROFILE
 ========================================================== */
 router.put("/update-profile", auth, upload.fields([
   { name: 'avatar', maxCount: 1 },
@@ -23,8 +46,10 @@ router.put("/update-profile", auth, upload.fields([
       if (req.files.cover) updateFields.coverImg = req.files.cover[0].path;
     }
 
-    // অপ্রয়োজনীয় undefined ফিল্ড বাদ দেওয়া
-    Object.keys(updateFields).forEach(key => (updateFields[key] === undefined || updateFields[key] === "") && delete updateFields[key]);
+    // অপ্রয়োজনীয় undefined বা খালি ফিল্ড বাদ দেওয়া
+    Object.keys(updateFields).forEach(key => 
+      (updateFields[key] === undefined || updateFields[key] === "") && delete updateFields[key]
+    );
 
     const updatedUser = await User.findOneAndUpdate(
       { auth0Id: targetAuth0Id }, 
@@ -40,82 +65,45 @@ router.put("/update-profile", auth, upload.fields([
 });
 
 /* ==========================================================
-    2️⃣ NEURAL SEARCH (Fixed for Exact ID & Name Search)
+    3️⃣ SEARCH DRIFTERS
 ========================================================== */
 router.get("/search", auth, async (req, res) => {
   try {
-    const { query, page = 1, limit = 12 } = req.query;
+    const { query } = req.query;
     if (!query) return res.json([]);
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
     const currentUserId = req.user.sub || req.user.id;
+    const searchRegex = new RegExp(`${query.trim()}`, "i");
 
-    let searchQuery = {};
-
-    // চেক করা হচ্ছে কুয়েরিটি কি কোনো Auth0 ID (যেমন: pipe | আছে কি না)
-    if (query.includes('|') || query.startsWith('auth0') || query.startsWith('google')) {
-      searchQuery = { auth0Id: query };
-    } else {
-      // সাধারণ নাম বা ডাকনাম দিয়ে সার্চ
-      const searchRegex = new RegExp(`${query.trim()}`, "i");
-      searchQuery = {
-        auth0Id: { $ne: currentUserId },
-        $or: [
-          { name: { $regex: searchRegex } },
-          { nickname: { $regex: searchRegex } }
-        ]
-      };
-    }
-
-    const users = await User.find(searchQuery)
-      .select("name nickname avatar auth0Id location isVerified bio followers")
-      .skip(skip)
-      .limit(parseInt(limit))
-      .lean();
+    const users = await User.find({
+      auth0Id: { $ne: currentUserId },
+      $or: [
+        { name: { $regex: searchRegex } },
+        { nickname: { $regex: searchRegex } },
+        { auth0Id: query }
+      ]
+    })
+    .select("name nickname avatar auth0Id bio isVerified")
+    .limit(10)
+    .lean();
 
     res.json(users);
   } catch (err) {
-    console.error("Search API Error:", err);
-    res.status(500).json({ msg: "Search failed" });
+    res.status(500).json({ msg: "Search signal lost" });
   }
 });
 
 /* ==========================================================
-    3️⃣ GET PROFILE BY ID (Fixed 404 Error)
-========================================================== */
-router.get("/profile/:id", auth, async (req, res) => {
-  try {
-    // ফ্রন্টএন্ড থেকে আসা এনকোডেড আইডি (%7C) কে ডিকোড (|) করা হচ্ছে
-    const targetId = decodeURIComponent(req.params.id);
-    
-    const user = await User.findOne({ auth0Id: targetId })
-      .select("-__v")
-      .lean();
-    
-    if (!user) {
-      return res.status(404).json({ msg: "User not found in orbit" });
-    }
-    
-    res.json(user);
-  } catch (err) {
-    console.error("Profile Fetch Error:", err);
-    res.status(500).json({ msg: "Error fetching neural profile" });
-  }
-});
-
-/* ==========================================================
-    4️⃣ FOLLOW SYSTEM (Atomic & Fast)
+    4️⃣ FOLLOW / UNFOLLOW SYSTEM
 ========================================================== */
 router.post("/follow/:targetId", auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
     const targetId = decodeURIComponent(req.params.targetId);
 
-    if (myId === targetId) return res.status(400).json({ msg: "Self-linking prohibited" });
+    if (myId === targetId) return res.status(400).json({ msg: "Self-link forbidden" });
 
-    const user = await User.findOne({ auth0Id: myId }).select('following').lean();
-    if (!user) return res.status(404).json({ msg: "Your profile not found" });
-
+    const user = await User.findOne({ auth0Id: myId }).select('following');
     const isFollowing = user.following?.includes(targetId);
 
     if (isFollowing) {
@@ -123,59 +111,34 @@ router.post("/follow/:targetId", auth, async (req, res) => {
         User.updateOne({ auth0Id: myId }, { $pull: { following: targetId } }),
         User.updateOne({ auth0Id: targetId }, { $pull: { followers: myId } })
       ]);
-      return res.json({ msg: "Unfollowed", followed: false });
+      res.json({ msg: "Link Terminated", followed: false });
     } else {
       await Promise.all([
         User.updateOne({ auth0Id: myId }, { $addToSet: { following: targetId } }),
         User.updateOne({ auth0Id: targetId }, { $addToSet: { followers: myId } })
       ]);
-      return res.json({ msg: "Followed", followed: true });
+      res.json({ msg: "Link Established", followed: true });
     }
   } catch (err) {
-    console.error("Follow Error:", err);
-    res.status(500).json({ msg: "Follow operation failed" });
+    res.status(500).json({ msg: "Connection failed" });
   }
 });
 
 /* ==========================================================
-    5️⃣ GET ALL DRIFTERS (Discovery)
+    5️⃣ DISCOVERY (Get All)
 ========================================================== */
 router.get("/all", auth, async (req, res) => {
   try {
     const currentUserId = req.user.sub || req.user.id;
-    const { page = 1, limit = 12 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
     const users = await User.find({ auth0Id: { $ne: currentUserId } })
-      .select("name nickname avatar auth0Id bio isVerified followers")
+      .select("name nickname avatar auth0Id bio isVerified")
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
+      .limit(20)
       .lean();
 
     res.json(users);
   } catch (err) {
-    res.status(500).json({ msg: "Could not fetch drifters" });
-  }
-});
-
-/* ==========================================================
-    6️⃣ FOLLOWING LIST
-========================================================== */
-router.get("/following-list", auth, async (req, res) => {
-  try {
-    const myId = req.user.sub || req.user.id;
-    const user = await User.findOne({ auth0Id: myId }).select('following').lean();
-    
-    if (!user || !user.following || !user.following.length) return res.json([]);
-
-    const followingUsers = await User.find({ auth0Id: { $in: user.following } })
-      .select("name nickname avatar bio auth0Id isVerified followers")
-      .lean();
-
-    res.json(followingUsers);
-  } catch (err) {
-    res.status(500).json({ msg: "Failed to load following orbit" });
+    res.status(500).json({ msg: "Discovery signal lost" });
   }
 });
 

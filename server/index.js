@@ -28,7 +28,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৪. Redis কানেকশন
+// ৪. Redis কানেকশন (Error Handling সহ)
 const REDIS_URL = process.env.REDIS_URL;
 let redis;
 if (REDIS_URL) {
@@ -44,7 +44,7 @@ if (REDIS_URL) {
 // ৫. AI কনফিগারেশন
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ৬. CORS সেটআপ
+// ৬. CORS সেটআপ (Production ও Localhost নিশ্চিত করা)
 const allowedOrigins = [
     "http://localhost:5173", 
     "https://onyx-drift-app-final.onrender.com",
@@ -54,13 +54,15 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
+        // Origin না থাকলেও (যেমন মোবাইল অ্যাপ বা পোস্টম্যান) এলাউ করবে
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
             callback(new Error("CORS Access Denied"));
         }
     },
-    credentials: true
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 }));
 
 app.use(express.json({ limit: "50mb" }));
@@ -70,10 +72,11 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 connectDB();
 
 /* ==========================================================
-    🚀 ROUTE MOUNTING (অর্ডার ঠিক করা হয়েছে)
+    🚀 ROUTE MOUNTING
 ========================================================== */
 
-// ১. ইউজার ও প্রোফাইল (Fix: /api/user এর মাধ্যমে সব প্রোফাইল লজিক কাজ করবে)
+// ১. ইউজার ও প্রোফাইল রাউটস
+// আপনার ফ্রন্টএন্ড কল করছে /api/user/profile/:id, তাই এটিই প্রধান রাউট
 app.use("/api/user", usersRoutes); 
 app.use("/api/profile", profileRoutes); 
 
@@ -82,18 +85,24 @@ app.use("/api/posts", postRoutes);
 app.use("/api/messages", messageRoutes); 
 app.use("/api/upload", uploadRoutes); 
 
+// হেলথ চেক
 app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
 /* ==========================================================
     📡 SOCKET.IO LOGIC
 ========================================================== */
 const io = new Server(server, {
-  cors: { origin: allowedOrigins, credentials: true },
+  cors: { 
+    origin: allowedOrigins, 
+    credentials: true,
+    methods: ["GET", "POST"]
+  },
   transports: ['websocket', 'polling'], 
   path: '/socket.io/'
 });
 
 io.on("connection", (socket) => {
+  // ইউজার কানেক্ট হলে অনলাইন লিস্ট আপডেট
   socket.on("addNewUser", async (userId) => {
     if (userId && redis) {
       await redis.hset("online_users", userId, socket.id);
@@ -103,12 +112,16 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ডিসকানেক্ট হ্যান্ডলিং
   socket.on("disconnect", async () => {
     if (redis) {
         const allUsers = await redis.hgetall("online_users");
         for (const [userId, socketId] of Object.entries(allUsers)) {
           if (socketId === socket.id) {
             await redis.hdel("online_users", userId);
+            const updatedUsers = await redis.hgetall("online_users");
+            const onlineList = Object.keys(updatedUsers).map(id => ({ userId: id, socketId: updatedUsers[id] }));
+            io.emit("getOnlineUsers", onlineList);
             break;
           }
         }
@@ -116,6 +129,7 @@ io.on("connection", (socket) => {
   });
 });
 
+// ৮. সার্ভার লিসেনিং
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Neural System Online: Port ${PORT}`);
