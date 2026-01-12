@@ -26,33 +26,30 @@ const FollowingPage = () => {
 
   /**
    * ১. প্রোফাইল ও পোস্ট ফেচিং (Neural Sync)
-   * এখানে পাথটি ঠিক করা হয়েছে: /api/user/profile/${id}
    */
   const fetchTargetData = useCallback(async (id) => {
     try {
       setLoading(true);
       const token = await getAccessTokenSilently();
-      
-      // পাথ সংশোধন করা হয়েছে: /api/user/profile/${id}
-      const res = await axios.get(`${API_URL}/api/user/profile/${encodeURIComponent(id)}`, {
+      const encodedId = encodeURIComponent(id);
+
+      // ব্যাকএন্ড এখন সরাসরি ইউজার অবজেক্ট দিচ্ছে
+      const res = await axios.get(`${API_URL}/api/user/profile/${encodedId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // আপনার ব্যাকএন্ড রেসপন্স স্ট্রাকচার অনুযায়ী ডাটা সেট করা
       if (res.data) {
-        setUsers([res.data]); // profile endpoint সাধারণত সরাসরি ইউজার অবজেক্ট দেয়
-      } else {
-        setUsers([{ auth0Id: id, name: "Unknown Drifter", avatar: "" }]);
+        setUsers([res.data]); 
       }
-      
-      // পোস্ট ফেচ করার জন্য আলাদা কল (যদি প্রোফাইল এন্ডপয়েন্ট পোস্ট না দেয়)
+
+      // পোস্ট ফেচিং
       try {
-          const postsRes = await axios.get(`${API_URL}/api/posts/user/${encodeURIComponent(id)}`, {
+          const postsRes = await axios.get(`${API_URL}/api/posts/user/${encodedId}`, {
               headers: { Authorization: `Bearer ${token}` }
           });
           setPosts(postsRes.data || []);
       } catch (postErr) {
-          console.error("Posts fetch error");
+          console.error("Posts sync failed");
       }
 
       setLoading(false);
@@ -71,6 +68,7 @@ const FollowingPage = () => {
       const token = await getAccessTokenSilently();
       const currentPage = isInitial ? 1 : page;
       
+      // আপনার ব্যাকএন্ডের /api/user/search এন্ডপয়েন্ট কল হচ্ছে
       const res = await axios.get(`${API_URL}/api/user/search`, {
         params: { query, page: currentPage, limit: 12 },
         headers: { Authorization: `Bearer ${token}` }
