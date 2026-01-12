@@ -27,7 +27,7 @@ const GenesisCard = ({ userData }) => {
       className="mb-8 p-6 rounded-[2.5rem] bg-gradient-to-br from-cyan-500/15 via-purple-500/10 to-transparent border border-cyan-500/30 backdrop-blur-3xl relative overflow-hidden group shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
     >
       <div className="absolute -top-4 -right-4 p-8 opacity-10 group-hover:opacity-30 group-hover:-translate-y-2 group-hover:translate-x-2 transition-all duration-700">
-         <FaRocket size={120} className="text-cyan-400 -rotate-45" />
+          <FaRocket size={120} className="text-cyan-400 -rotate-45" />
       </div>
       
       <div className="flex justify-between items-start mb-6 relative z-10">
@@ -60,14 +60,14 @@ const GenesisCard = ({ userData }) => {
         </div>
         
         <div className="flex gap-3">
-           <div className="flex-1 text-center p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
-              <p className="text-xl font-black text-white">{userData?.inviteCount || 0}</p>
-              <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Recruits</p>
-           </div>
-           <div className="flex-1 text-center p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
-              <p className="text-xl font-black text-cyan-400 uppercase tracking-tighter">{userData?.neuralRank || "Neophyte"}</p>
-              <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Neural Rank</p>
-           </div>
+            <div className="flex-1 text-center p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
+               <p className="text-xl font-black text-white">{userData?.inviteCount || 0}</p>
+               <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Recruits</p>
+            </div>
+            <div className="flex-1 text-center p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
+               <p className="text-xl font-black text-cyan-400 uppercase tracking-tighter">{userData?.neuralRank || "Neophyte"}</p>
+               <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Neural Rank</p>
+            </div>
         </div>
       </div>
     </motion.div>
@@ -105,16 +105,20 @@ const Profile = () => {
   const [coverFile, setCoverFile] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // 🛠 FIXED: API URL paths updated to match backend /api/user/profile
+  // --- 🛠 FIXED LOGIC START ---
   const fetchProfileData = async () => {
     if (!isAuthenticated) return;
     try {
       setLoading(true);
       const token = await getAccessTokenSilently();
+      
+      // গুরুত্বপূর্ণ: ID না থাকলে কারেন্ট ইউজারের আইডি নিন
       const rawId = userId || currentUser?.sub;
       if (!rawId) return;
       
+      // ID টি এনকোড করুন যাতে google-oauth2|... এর পাইপ (|) ক্যারেক্টার সমস্যা না করে
       const targetId = encodeURIComponent(rawId); 
+
       const [profileRes, postsRes, usersRes] = await Promise.all([
         axios.get(`${API_URL}/api/user/profile/${targetId}`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -132,10 +136,14 @@ const Profile = () => {
       setSuggestedUsers(usersRes.data.slice(0, 5));
     } catch (err) {
       console.error("📡 Neural Link Error:", err.message);
+      // যদি ইউজার পাওয়া না যায়, তবে আগের ডাটা ক্লিয়ার করে দিন
+      setUserProfile(null);
+      setUserPosts([]);
     } finally {
       setLoading(false);
     }
   };
+  // --- 🛠 FIXED LOGIC END ---
 
   useEffect(() => {
     if (isAuthenticated) fetchProfileData();
@@ -289,88 +297,94 @@ const Profile = () => {
             {/* 🚀 GenesisCard Integration */}
             {isOwnProfile && <GenesisCard userData={userProfile} />}
 
-            <motion.div 
-              animate={{ boxShadow: isGhostMode ? "0 0 40px rgba(255,255,255,0.05)" : "none" }}
-              className={`bg-white/5 backdrop-blur-2xl border transition-all duration-700 ${isGhostMode ? 'border-white/20' : 'border-white/10'} rounded-[2rem] md:rounded-[3rem] p-5 md:p-10 shadow-2xl mb-8`}
-            >
-              <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6">
-                <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
-                  <div className="relative">
-                    <img 
-                      src={userProfile?.avatar || currentUser?.picture} 
-                      className={`w-28 h-28 md:w-40 md:h-40 rounded-[2rem] md:rounded-[2.5rem] border-4 border-[#020617] shadow-lg object-cover bg-[#0f172a] transition-all duration-700 ${isGhostMode ? 'grayscale invert brightness-125' : ''}`} 
-                      alt="Avatar"
-                    />
-                    
-                    <div className="absolute -bottom-2 -right-2 flex flex-col items-end gap-1">
-                      {userProfile?.badge && (
-                         <div className="bg-gradient-to-tr from-cyan-400 to-purple-600 p-2 md:p-2.5 rounded-xl md:rounded-2xl border-4 border-[#020617] shadow-[0_0_15px_rgba(34,211,238,0.5)]">
-                            <FaAward className="text-white text-xs" />
-                         </div>
-                      )}
+            {userProfile ? (
+              <motion.div 
+                animate={{ boxShadow: isGhostMode ? "0 0 40px rgba(255,255,255,0.05)" : "none" }}
+                className={`bg-white/5 backdrop-blur-2xl border transition-all duration-700 ${isGhostMode ? 'border-white/20' : 'border-white/10'} rounded-[2rem] md:rounded-[3rem] p-5 md:p-10 shadow-2xl mb-8`}
+              >
+                <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6">
+                  <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
+                    <div className="relative">
+                      <img 
+                        src={userProfile?.avatar || currentUser?.picture} 
+                        className={`w-28 h-28 md:w-40 md:h-40 rounded-[2rem] md:rounded-[2.5rem] border-4 border-[#020617] shadow-lg object-cover bg-[#0f172a] transition-all duration-700 ${isGhostMode ? 'grayscale invert brightness-125' : ''}`} 
+                        alt="Avatar"
+                      />
+                      
+                      <div className="absolute -bottom-2 -right-2 flex flex-col items-end gap-1">
+                        {userProfile?.badge && (
+                           <div className="bg-gradient-to-tr from-cyan-400 to-purple-600 p-2 md:p-2.5 rounded-xl md:rounded-2xl border-4 border-[#020617] shadow-[0_0_15px_rgba(34,211,238,0.5)]">
+                              <FaAward className="text-white text-xs" />
+                           </div>
+                        )}
+                      </div>
                     </div>
+                    
+                    <div className="text-center md:text-left">
+                      <div className="flex items-center gap-2 justify-center md:justify-start">
+                        <h1 className="text-2xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-none">
+                          {isGhostMode ? "STAY_HIDDEN" : (userProfile?.name || userProfile?.nickname)}
+                        </h1>
+                        {!isGhostMode && userProfile?.isVerified && <FaCheckCircle className="text-cyan-400 text-lg shadow-cyan-500/50" />}
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
+                        <span className={`px-2 py-0.5 rounded-md text-[7px] md:text-[8px] font-black uppercase tracking-widest border transition-all duration-500 ${isGhostMode ? 'bg-white text-black border-white' : 'bg-cyan-400/10 border-cyan-400/20 text-cyan-400'}`}>
+                          {isGhostMode ? "GHOST" : `${BRAND_NAME} PRO`}
+                        </span>
+                        {userProfile?.badge && (
+                          <span className="px-2 py-0.5 rounded-md text-[7px] md:text-[8px] font-black uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                             {userProfile.badge}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 md:gap-3 w-full md:w-auto">
+                    {isOwnProfile ? (
+                      <>
+                        <button onClick={() => setIsEditOpen(true)} className="flex-1 md:flex-none px-4 md:px-6 py-3 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 font-black italic">
+                          <FaEdit /> Edit Identity
+                        </button>
+                        <button onClick={() => setIsCreateOpen(true)} className={`flex-1 md:flex-none px-4 md:px-6 py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white shadow-lg flex items-center justify-center gap-2 transition-all font-black italic ${isGhostMode ? 'bg-white text-black' : 'bg-gradient-to-r from-cyan-500 to-purple-600'}`}>
+                          <FaPlus /> New Echo
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => handleAddFriend(userId)} className="px-8 py-3 rounded-xl bg-cyan-600 text-[10px] font-black uppercase tracking-widest text-white shadow-lg">
+                        <FaUserPlus /> Connect
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-8 md:mt-10 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 pt-8 border-t border-white/5">
+                  <div className="col-span-2">
+                    <h3 className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] mb-3 transition-colors ${isGhostMode ? 'text-white' : 'text-cyan-400'}`}>Neural Signature</h3>
+                    <p className="text-gray-400 text-xs md:text-sm italic leading-relaxed">
+                      "{userProfile?.bio || "Scanning the drift..."}"
+                    </p>
                   </div>
                   
-                  <div className="text-center md:text-left">
-                    <div className="flex items-center gap-2 justify-center md:justify-start">
-                      <h1 className="text-2xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-none">
-                        {isGhostMode ? "STAY_HIDDEN" : (userProfile?.name || userProfile?.nickname)}
-                      </h1>
-                      {!isGhostMode && userProfile?.isVerified && <FaCheckCircle className="text-cyan-400 text-lg shadow-cyan-500/50" />}
+                  <div className="flex justify-around md:justify-center gap-4 bg-white/5 rounded-3xl p-6 border border-white/5 backdrop-blur-md">
+                    <div className="text-center group cursor-default">
+                      <p className="text-2xl font-black text-white group-hover:text-cyan-400 transition-colors">{userPosts.length}</p>
+                      <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Echoes</p>
                     </div>
-                    
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
-                      <span className={`px-2 py-0.5 rounded-md text-[7px] md:text-[8px] font-black uppercase tracking-widest border transition-all duration-500 ${isGhostMode ? 'bg-white text-black border-white' : 'bg-cyan-400/10 border-cyan-400/20 text-cyan-400'}`}>
-                        {isGhostMode ? "GHOST" : `${BRAND_NAME} PRO`}
-                      </span>
-                      {userProfile?.badge && (
-                        <span className="px-2 py-0.5 rounded-md text-[7px] md:text-[8px] font-black uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                           {userProfile.badge}
-                        </span>
-                      )}
+                    <div className="w-px h-8 bg-white/10 self-center"></div>
+                    <div className="text-center group cursor-default">
+                      <p className="text-2xl font-black text-cyan-400 group-hover:text-white transition-colors">{userProfile?.followers?.length || 0}</p>
+                      <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Links</p>
                     </div>
                   </div>
                 </div>
-
-                <div className="flex gap-2 md:gap-3 w-full md:w-auto">
-                  {isOwnProfile ? (
-                    <>
-                      <button onClick={() => setIsEditOpen(true)} className="flex-1 md:flex-none px-4 md:px-6 py-3 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 font-black italic">
-                        <FaEdit /> Edit Identity
-                      </button>
-                      <button onClick={() => setIsCreateOpen(true)} className={`flex-1 md:flex-none px-4 md:px-6 py-3 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white shadow-lg flex items-center justify-center gap-2 transition-all font-black italic ${isGhostMode ? 'bg-white text-black' : 'bg-gradient-to-r from-cyan-500 to-purple-600'}`}>
-                        <FaPlus /> New Echo
-                      </button>
-                    </>
-                  ) : (
-                    <button onClick={() => handleAddFriend(userId)} className="px-8 py-3 rounded-xl bg-cyan-600 text-[10px] font-black uppercase tracking-widest text-white shadow-lg">
-                      <FaUserPlus /> Connect
-                    </button>
-                  )}
-                </div>
+              </motion.div>
+            ) : (
+              <div className="text-center py-20 bg-white/5 rounded-[3rem] border border-white/10 backdrop-blur-xl">
+                 <p className="text-cyan-400 font-black uppercase tracking-widest">No Drifter Data Found In This Sector</p>
               </div>
-
-              <div className="mt-8 md:mt-10 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 pt-8 border-t border-white/5">
-                <div className="col-span-2">
-                  <h3 className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] mb-3 transition-colors ${isGhostMode ? 'text-white' : 'text-cyan-400'}`}>Neural Signature</h3>
-                  <p className="text-gray-400 text-xs md:text-sm italic leading-relaxed">
-                    "{userProfile?.bio || "Scanning the drift..."}"
-                  </p>
-                </div>
-                
-                <div className="flex justify-around md:justify-center gap-4 bg-white/5 rounded-3xl p-6 border border-white/5 backdrop-blur-md">
-                  <div className="text-center group cursor-default">
-                    <p className="text-2xl font-black text-white group-hover:text-cyan-400 transition-colors">{userPosts.length}</p>
-                    <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Echoes</p>
-                  </div>
-                  <div className="w-px h-8 bg-white/10 self-center"></div>
-                  <div className="text-center group cursor-default">
-                    <p className="text-2xl font-black text-cyan-400 group-hover:text-white transition-colors">{userProfile?.followers?.length || 0}</p>
-                    <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Links</p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+            )}
 
             {/* Tabs & Content */}
             <div className="mt-12">
