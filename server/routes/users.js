@@ -1,14 +1,16 @@
 import express from 'express';
 import User from '../models/User.js'; 
 import auth from '../middleware/auth.js'; 
-import upload from '../middleware/multer.js'; // আপনার মিডলওয়্যার পাথ চেক করে নিন
+import upload from '../middleware/multer.js'; // আপনার মিডলওয়্যার পাথ চেক করে নিন
 
 const router = express.Router();
 
 /* ==========================================================
     1️⃣ GET PROFILE BY ID (With Auto-Sync)
 ========================================================== */
-router.get(['/:id', '/profile/:id'], auth, async (req, res) => {
+// এখানে ['/profile/:id', '/:id'] ব্যবহার করা হয়েছে যাতে ফ্রন্টএন্ডের 
+// /api/user/profile/... এবং /api/user/... উভয়ই কাজ করে।
+router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
   try {
     const targetId = decodeURIComponent(req.params.id);
     
@@ -18,7 +20,7 @@ router.get(['/:id', '/profile/:id'], auth, async (req, res) => {
     
     if (!user) {
       const myId = req.user.sub || req.user.id;
-      // যদি নিজের প্রোফাইল হয় কিন্তু ডাটাবেসে না থাকে, তবে তৈরি হবে
+      // যদি নিজের প্রোফাইল হয় কিন্তু ডাটাবেসে না থাকে, তবে তৈরি হবে
       if (targetId === myId) {
         const newUser = new User({
           auth0Id: myId,
@@ -115,11 +117,9 @@ router.post("/follow/:targetId", auth, async (req, res) => {
 
     if (myId === targetId) return res.status(400).json({ msg: "Self-link forbidden" });
 
-    // টার্গেট ইউজারকে খুঁজে বের করা
     const targetUser = await User.findOne({ auth0Id: targetId });
     if (!targetUser) return res.status(404).json({ msg: "Target drifter not found" });
 
-    // চেক করা অলরেডি ফলো করা আছে কি না
     const isFollowing = targetUser.followers?.includes(myId);
 
     if (isFollowing) {
@@ -143,6 +143,7 @@ router.post("/follow/:targetId", auth, async (req, res) => {
 /* ==========================================================
     5️⃣ DISCOVERY (All Users)
 ========================================================== */
+// এই এন্ডপয়েন্টটি নিশ্চিত করবে যে /api/user/all কল করলে ডাটা আসে
 router.get("/all", auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
