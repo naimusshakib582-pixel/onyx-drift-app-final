@@ -3,6 +3,7 @@ import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useAuth0, withAuthenticationRequired } from "@auth0/auth0-react";
 import { io } from "socket.io-client"; 
 import { motion, AnimatePresence } from "framer-motion";
+import toast, { Toaster } from 'react-hot-toast'; // 🔔 নোটিফিকেশন লাইব্রেরি
 import { BRAND_NAME } from "./utils/constants";
 
 // Components & Pages
@@ -19,8 +20,7 @@ import Settings from "./pages/Settings";
 import FollowingPage from "./pages/FollowingPage";
 import Call from "./pages/Call";
 import ViralFeed from "./pages/ViralFeed"; 
-
-// 🚀 নতুন ইউনিক কম্পোনেন্ট ইম্পোর্ট
+import JoinPage from "./pages/JoinPage"; 
 import CustomCursor from "./components/CustomCursor";
 import MobileNav from "./components/MobileNav";
 
@@ -42,7 +42,7 @@ export default function App() {
   const socket = useRef(null); 
   const [searchQuery, setSearchQuery] = useState("");
 
-  // --- Socket Connection Logic ---
+  // --- 📡 Neural Socket & Notification Logic ---
   useEffect(() => {
     if (isAuthenticated && user?.sub) {
       const socketUrl = "https://onyx-drift-app-final.onrender.com";
@@ -56,6 +56,26 @@ export default function App() {
       socket.current.on("connect", () => {
         console.log("📡 Neural Link Established");
         socket.current.emit("addNewUser", user.sub);
+      });
+
+      // 🔔 রিয়েল-টাইম নোটিফিকেশন লিসেনার
+      socket.current.on("getNotification", (data) => {
+        toast.custom((t) => (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`bg-[#0f172a] border-2 border-cyan-500/50 p-4 rounded-2xl shadow-[0_0_20px_rgba(6,182,212,0.3)] flex items-center gap-4 backdrop-blur-xl`}
+          >
+            <div className="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-black font-black uppercase">
+              {data.senderName[0]}
+            </div>
+            <div>
+              <p className="text-white font-bold text-sm">{data.senderName}</p>
+              <p className="text-cyan-400/80 text-xs">{data.message || `Interacted with your neural node`}</p>
+            </div>
+          </motion.div>
+        ), { duration: 4000, position: 'top-right' });
       });
 
       return () => {
@@ -79,15 +99,14 @@ export default function App() {
     </div>
   );
 
-  // চ্যাট বা কল পেজে থাকলে সাইডবার হাইড করার লজিক
-  const hideSidebar = ["/messenger", "/settings", "/"].includes(location.pathname) || 
+  const hideSidebar = ["/messenger", "/settings", "/", "/join"].includes(location.pathname) || 
                       location.pathname.startsWith("/messenger") || 
                       location.pathname.startsWith("/call/");
 
   return (
     <div className="min-h-screen bg-[#020617] text-gray-200 overflow-x-hidden selection:bg-cyan-500/30 font-sans relative">
       
-      {/* 🖱️ ১. কাস্টম কার্সার (শুধুমাত্র পিসির জন্য) */}
+      <Toaster /> {/* 🔔 নোটিফিকেশন রেন্ডারার */}
       <CustomCursor />
 
       {isAuthenticated && (
@@ -111,19 +130,19 @@ export default function App() {
             <div className="w-full">
               <AnimatePresence mode="wait">
                 <Routes location={location} key={location.pathname}>
+                  {/* Public Routes */}
                   <Route path="/" element={isAuthenticated ? <Navigate to="/feed" /> : <Landing />} />
+                  <Route path="/join" element={<JoinPage />} /> 
                   
+                  {/* Protected Routes */}
                   <Route path="/feed" element={<ProtectedRoute component={() => <PremiumHomeFeed searchQuery={searchQuery} />} />} />
-                  
                   <Route path="/viral" element={<ProtectedRoute component={ViralFeed} />} />
-                  
                   <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
                   <Route path="/messenger" element={<ProtectedRoute component={Messenger} />} />
                   <Route path="/analytics" element={<ProtectedRoute component={Analytics} />} />
                   <Route path="/explorer" element={<ProtectedRoute component={Explorer} />} />
                   <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
                   <Route path="/following" element={<ProtectedRoute component={FollowingPage} />} />
-                  
                   <Route path="/call/:roomId" element={<ProtectedRoute component={Call} />} />
                   
                   <Route path="*" element={<Navigate to="/" />} />
@@ -134,7 +153,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* 📱 ২. মোবাইল নেভিগেশন (শুধুমাত্র মোবাইলের জন্য) */}
       {isAuthenticated && <MobileNav />}
 
     </div>

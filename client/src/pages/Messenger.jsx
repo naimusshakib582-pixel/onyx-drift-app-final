@@ -5,11 +5,12 @@ import { io } from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   HiOutlinePhone, HiOutlineVideoCamera, HiOutlinePaperAirplane, 
-  HiOutlineUser, HiCheck, HiOutlineMagnifyingGlass,
+  HiCheck, HiOutlineMagnifyingGlass, HiOutlineTrash,
   HiOutlineChatBubbleBottomCenterText, HiOutlineMicrophone,
-  HiOutlinePaperClip, HiOutlineChevronLeft
+  HiOutlineChevronLeft, HiOutlineStop, HiOutlineEllipsisVertical
 } from "react-icons/hi2";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useReactMediaRecorder } from "react-media-recorder";
 
 const Messenger = () => {
   const { user, getAccessTokenSilently } = useAuth0();
@@ -18,18 +19,18 @@ const Messenger = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState(""); 
-  const [searchResults, setSearchResults] = useState([]);
-  const [incomingCall, setIncomingCall] = useState(null);
-  
+  const [isUploadingVoice, setIsUploadingVoice] = useState(false);
+  const [remoteTyping, setRemoteTyping] = useState(false);
+  const [activeMenu, setActiveMenu] = useState(null); // মেসেজ মেনুর জন্য
+
   const socket = useRef();
   const scrollRef = useRef();
-  const ringtoneRef = useRef();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const typingTimeoutRef = useRef(null);
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
-  const glassPanel = "bg-[#030712]/60 backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]";
+  const { status, startRecording, stopRecording, mediaBlobUrl, clearBlobUrl } = 
+    useReactMediaRecorder({ audio: true, blobPropertyBag: { type: "audio/wav" } });
+
   const neonText = "text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 font-black";
 
   // --- Socket.io Setup ---
@@ -37,29 +38,40 @@ const Messenger = () => {
     socket.current = io(API_URL, { transports: ["websocket"] });
 
     socket.current.on("getMessage", (data) => {
-      setMessages((prev) => {
-        const isAlreadyAdded = prev.some(m => m._id === data._id);
-        if (isAlreadyAdded) return prev;
-        return [...prev, data];
-      });
+      setMessages((prev) => [...prev, data]);
+      if (currentChat?._id === data.conversationId) {
+        socket.current.emit("messageSeen", { messageId: data._id, senderId: data.senderId, receiverId: user.sub });
+      }
     });
 
     socket.current.on("getOnlineUsers", (users) => setOnlineUsers(users));
+    socket.current.on("displayTyping", (data) => { if (currentChat?.members.includes(data.senderId)) setRemoteTyping(true); });
+    socket.current.on("hideTyping", () => setRemoteTyping(false));
+    socket.current.on("messageSeenUpdate", ({ messageId }) => {
+      setMessages((prev) => prev.map(m => m._id === messageId ? { ...m, seen: true } : m));
+    });
 
-    socket.current.on("incomingCall", (data) => {
-      setIncomingCall(data);
-      ringtoneRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/1358/1358-preview.mp3");
-      ringtoneRef.current.loop = true;
-      ringtoneRef.current.play().catch(e => console.log("Audio play blocked"));
+    // মেসেজ ডিলিট সকেট লিসেনার
+    socket.current.on("messageDeleted", (messageId) => {
+      setMessages((prev) => prev.filter(m => m._id !== messageId));
     });
 
     if (user?.sub) socket.current.emit("addNewUser", user.sub);
+    return () => socket.current.disconnect();
+  }, [user, currentChat]);
 
-    return () => {
-      socket.current.disconnect();
-      stopRingtone();
-    };
-  }, [user]);
+  // --- Delete Message Logic ---
+  const deleteMessage = async (messageId, type) => {
+    try {
+      const receiverId = currentChat.members.find(m => m !== user.sub);
+      if (type === "everyone") {
+        await axios.delete(`${API_URL}/api/messages/${messageId}`);
+        socket.current.emit("deleteMessage", { messageId, receiverId });
+      }
+      setMessages((prev) => prev.filter(m => m._id !== messageId));
+      setActiveMenu(null);
+    } catch (err) { console.error("Deletion failed", err); }
+  };
 
   // --- Fetch Conversations ---
   const fetchConv = useCallback(async () => {
@@ -69,60 +81,26 @@ const Messenger = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setConversations(res.data || []);
-    } catch (err) { console.error("Conv fetch error", err); }
+    } catch (err) { console.error(err); }
   }, [user?.sub, getAccessTokenSilently]);
 
   useEffect(() => { if (user?.sub) fetchConv(); }, [user?.sub, fetchConv]);
 
-  // --- Search Logic ---
-  useEffect(() => {
-    const searchUsers = async () => {
-      if (searchTerm.length < 2) {
-        setSearchResults([]);
-        return;
-      }
-      try {
-        const res = await axios.get(`${API_URL}/api/user/search?query=${searchTerm}`);
-        setSearchResults(res.data);
-      } catch (err) { console.error("Search error", err); }
-    };
-    const delayDebounceFn = setTimeout(() => searchUsers(), 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
-
-  const selectUser = async (targetId) => {
-    try {
-      const token = await getAccessTokenSilently();
-      const res = await axios.post(`${API_URL}/api/messages/conversation`, {
-        senderId: user.sub,
-        receiverId: targetId
-      }, { headers: { Authorization: `Bearer ${token}` } });
-      
-      setCurrentChat(res.data);
-      setSearchTerm("");
-      setSearchResults([]);
-      fetchConv();
-    } catch (err) { console.error("Chat init error", err); }
+  // --- Typing Logic ---
+  const handleTypingEffect = (e) => {
+    setNewMessage(e.target.value);
+    if (!currentChat) return;
+    const receiverId = currentChat.members.find(m => m !== user.sub);
+    socket.current.emit("typing", { receiverId, senderId: user.sub });
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => socket.current.emit("stopTyping", { receiverId }), 2000);
   };
 
-  // --- Fetch Messages when Chat Changes ---
-  useEffect(() => {
-    if (currentChat) {
-      const fetchMsgs = async () => {
-        try {
-          const res = await axios.get(`${API_URL}/api/messages/message/${currentChat._id}`);
-          setMessages(res.data);
-        } catch (err) { console.error(err); }
-      };
-      fetchMsgs();
-    }
-  }, [currentChat]);
-
+  // --- Send Logic ---
   const handleSend = async () => {
     if (!newMessage.trim() || !currentChat) return;
     const receiverId = currentChat.members.find(m => m !== user.sub);
     const messageBody = { conversationId: currentChat._id, senderId: user.sub, text: newMessage };
-    
     try {
       const res = await axios.post(`${API_URL}/api/messages/message`, messageBody);
       socket.current.emit("sendMessage", { ...res.data, receiverId });
@@ -131,203 +109,119 @@ const Messenger = () => {
     } catch (err) { console.error(err); }
   };
 
-  const startCall = (type) => {
-    if (!currentChat) return;
-    const receiverId = currentChat.members.find(m => m !== user.sub);
-    socket.current.emit("callUser", {
-      userToCall: receiverId,
-      from: user.sub,
-      fromName: user.name,
-      type,
-      roomId: currentChat._id
-    });
-    navigate(`/call/${currentChat._id}?type=${type}`);
+  const sendVoiceMessage = async () => {
+    if (!mediaBlobUrl) return;
+    setIsUploadingVoice(true);
+    try {
+      const audioBlob = await fetch(mediaBlobUrl).then(r => r.blob());
+      const formData = new FormData();
+      formData.append("file", audioBlob);
+      const uploadRes = await axios.post(`${API_URL}/api/upload`, formData);
+      const receiverId = currentChat.members.find(m => m !== user.sub);
+      const res = await axios.post(`${API_URL}/api/messages/message`, { 
+        conversationId: currentChat._id, senderId: user.sub, 
+        text: "🎤 Voice Message", audioUrl: uploadRes.data.filePath, messageType: "audio" 
+      });
+      socket.current.emit("sendMessage", { ...res.data, receiverId });
+      setMessages((prev) => [...prev, res.data]);
+      clearBlobUrl();
+    } catch (err) { console.error(err); } finally { setIsUploadingVoice(false); }
   };
 
-  useEffect(() => { 
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" }); 
+  useEffect(() => {
+    if (currentChat) {
+      axios.get(`${API_URL}/api/messages/message/${currentChat._id}`).then(res => setMessages(res.data));
     }
-  }, [messages]);
+  }, [currentChat]);
 
-  const stopRingtone = () => {
-    if (ringtoneRef.current) { 
-      ringtoneRef.current.pause(); 
-      ringtoneRef.current.currentTime = 0; 
-    }
-  };
+  useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, remoteTyping]);
 
   return (
-    <div className="flex h-screen bg-[#010409] text-white p-0 md:p-6 gap-0 md:gap-6 font-sans overflow-hidden fixed inset-0">
+    <div className="flex h-screen bg-[#010409] text-white p-0 md:p-6 gap-0 md:gap-6 font-mono overflow-hidden fixed inset-0">
       
-      {/* 🚀 Side Nav (Desktop Only) */}
-      <div className={`hidden md:flex w-20 ${glassPanel} rounded-[2rem] flex-col items-center py-10 gap-12 border-cyan-500/20`}>
-        <div className="w-12 h-12 rounded-full bg-cyan-500/10 flex items-center justify-center border border-cyan-500/30 shadow-[0_0_15px_cyan]">
-          <HiOutlineMicrophone size={24} className="text-cyan-400" />
+      {/* 📡 Chat List */}
+      <div className={`${currentChat ? 'hidden md:flex' : 'flex'} w-full md:w-[380px] bg-[#030712]/60 backdrop-blur-2xl border border-white/[0.08] md:rounded-[3rem] flex flex-col overflow-hidden`}>
+        <div className="p-8">
+          <h2 className={`text-xl tracking-widest uppercase mb-6 ${neonText}`}>Onyx_Nodes</h2>
         </div>
-        <HiOutlineChatBubbleBottomCenterText 
-          size={28} 
-          className="text-cyan-400 cursor-pointer hover:scale-110 transition-all" 
-          onClick={() => {setCurrentChat(null); navigate('/messenger');}} 
-        />
-        <img 
-          src={user?.picture} 
-          className="mt-auto w-12 h-12 rounded-2xl border-2 border-cyan-500/50 hover:scale-110 transition-transform cursor-pointer" 
-          onClick={() => navigate('/feed')} 
-          alt="Profile" 
-        />
-      </div>
-
-      {/* 📡 Chat List & Search */}
-      <div className={`${currentChat ? 'hidden md:flex' : 'flex'} w-full md:w-[380px] ${glassPanel} md:rounded-[3rem] flex flex-col overflow-hidden`}>
-        <div className="p-6">
-          <h2 className={`text-xl uppercase italic tracking-tighter ${neonText}`}>Neonus Channels</h2>
-          <div className="mt-4 bg-white/5 p-3 rounded-2xl border border-white/10 flex items-center group focus-within:border-cyan-500/40 transition-all">
-            <HiOutlineMagnifyingGlass className="text-gray-500 mr-2 group-focus-within:text-cyan-400" />
-            <input 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="SEARCH NEURAL ID..." 
-              className="bg-transparent border-none outline-none text-[10px] w-full tracking-widest text-cyan-200 uppercase" 
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3 custom-scrollbar">
-          {searchResults.length > 0 && (
-            <div className="mb-6">
-              <p className="text-[10px] text-cyan-400 mb-2 ml-2 tracking-widest uppercase font-black">Detected Drifters</p>
-              {searchResults.map(u => (
-                <div key={u.auth0Id} onClick={() => selectUser(u.auth0Id)} className="p-3 bg-cyan-500/5 hover:bg-cyan-500/10 rounded-2xl border border-cyan-500/10 mb-2 cursor-pointer flex items-center gap-3 transition-all">
-                  <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.name}&background=random`} className="w-8 h-8 rounded-lg" alt={u.name} />
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase italic">{u.name}</span>
-                    <span className="text-[8px] text-cyan-400/50 uppercase">Neural Link Available</span>
-                  </div>
-                </div>
-              ))}
-              <hr className="border-white/5 my-4" />
+        <div className="flex-1 overflow-y-auto px-4 space-y-3 custom-scrollbar">
+          {conversations.map((c) => (
+            <div key={c._id} onClick={() => setCurrentChat(c)} className={`p-5 rounded-[2.5rem] flex items-center gap-4 cursor-pointer transition-all ${currentChat?._id === c._id ? 'bg-cyan-500/10 border border-cyan-500/20' : 'hover:bg-white/5'}`}>
+               <div className="w-12 h-12 rounded-2xl bg-gray-800 border border-white/10" />
+               <h4 className="text-xs font-black uppercase">Node_{c._id.slice(-6)}</h4>
             </div>
-          )}
-
-          {conversations.length > 0 ? conversations.map((c) => {
-            const isOnline = onlineUsers.some(u => c.members.includes(u.userId) && u.userId !== user.sub);
-            return (
-              <div 
-                key={c._id} 
-                onClick={() => setCurrentChat(c)} 
-                className={`p-4 rounded-[2rem] flex items-center gap-4 cursor-pointer transition-all duration-300 ${currentChat?._id === c._id ? 'bg-cyan-500/20 border border-cyan-500/30' : 'hover:bg-white/5 border border-transparent'}`}
-              >
-                <div className="relative">
-                  <img src={`https://ui-avatars.com/api/?name=Node&background=06b6d4&color=fff`} className="w-12 h-12 rounded-2xl" alt="Node" />
-                  {isOnline && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full border-2 border-[#010409]"></div>}
-                </div>
-                <div className="overflow-hidden">
-                  <h4 className="font-bold text-sm truncate uppercase italic tracking-wider">Node_{c._id.slice(-6)}</h4>
-                  <p className={`text-[9px] font-mono tracking-widest uppercase italic ${isOnline ? 'text-cyan-400' : 'text-gray-600'}`}>
-                    {isOnline ? 'Stable Connection' : 'Signal Lost'}
-                  </p>
-                </div>
-              </div>
-            );
-          }) : (
-            <div className="text-center py-10 opacity-20">
-               <HiOutlineChatBubbleBottomCenterText size={40} className="mx-auto" />
-               <p className="text-[9px] mt-2 uppercase font-black">No active channels</p>
-            </div>
-          )}
+          ))}
         </div>
       </div>
 
-      {/* ⚔️ Main Chat Area (Updated Header for Mobile) */}
-      <div className={`${!currentChat ? 'hidden md:flex' : 'flex'} flex-1 ${glassPanel} md:rounded-[3.5rem] flex flex-col relative overflow-hidden`}>
+      {/* ⚔️ Main Chat Area */}
+      <div className={`${!currentChat ? 'hidden md:flex' : 'flex'} flex-1 bg-[#030712]/60 backdrop-blur-2xl border border-white/[0.08] md:rounded-[3.5rem] flex flex-col relative overflow-hidden`}>
         {currentChat ? (
           <>
-            <header className="sticky top-0 z-50 px-4 py-4 md:px-6 md:py-6 border-b border-white/5 flex justify-between items-center bg-[#010409]/80 backdrop-blur-md">
-              <div className="flex items-center gap-3 md:gap-4">
-                <button onClick={() => setCurrentChat(null)} className="md:hidden p-1 text-cyan-400"><HiOutlineChevronLeft size={24} /></button>
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20">
-                    <HiOutlineUser size={20} className="text-cyan-400" />
-                </div>
-                <div className="max-w-[120px] md:max-w-none">
-                  <h3 className="text-[11px] md:text-sm font-black italic uppercase tracking-widest truncate">Node_{currentChat._id.slice(-6)}</h3>
-                  <p className="text-[8px] md:text-[9px] text-cyan-400 animate-pulse font-mono tracking-widest uppercase">Encryption Active</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => startCall('video')} className="p-2 md:p-3 bg-cyan-500/10 rounded-xl text-cyan-400 border border-cyan-500/10 hover:bg-cyan-500/20 transition-all"><HiOutlineVideoCamera size={18} /></button>
-                <button onClick={() => startCall('voice')} className="p-2 md:p-3 bg-purple-500/10 rounded-xl text-purple-400 border border-purple-500/10 hover:bg-purple-500/20 transition-all"><HiOutlinePhone size={18} /></button>
+            <header className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-[#010409]/40 backdrop-blur-md">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setCurrentChat(null)} className="md:hidden text-cyan-400"><HiOutlineChevronLeft size={24} /></button>
+                <h3 className="text-xs font-black uppercase tracking-[0.3em]">Channel: {currentChat._id.slice(-6)}</h3>
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
-              {messages.map((m, i) => {
-                const isMe = m.senderId === user?.sub;
-                return (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2.5 md:px-6 md:py-3 shadow-xl ${isMe ? 'bg-cyan-600/30 text-white rounded-l-2xl rounded-tr-2xl border border-cyan-400/30' : 'bg-white/5 border border-white/10 text-cyan-100 rounded-r-2xl rounded-tl-2xl'}`}>
-                      <p className="text-[12px] md:text-[13px] leading-relaxed font-medium break-words">{m.text}</p>
-                      <div className="text-[7px] md:text-[8px] mt-1.5 opacity-50 flex justify-end gap-1 uppercase font-black tracking-tighter">
-                        {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        {isMe && <HiCheck size={10} className="text-cyan-400" />}
+            <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar" onClick={() => setActiveMenu(null)}>
+              {messages.map((m, i) => (
+                <div key={i} className={`flex ${m.senderId === user?.sub ? 'justify-end' : 'justify-start'}`}>
+                  <div className="relative group flex flex-col">
+                    {/* Message Bubble */}
+                    <div className={`px-5 py-3 rounded-2xl border ${m.senderId === user?.sub ? 'bg-cyan-500/10 border-cyan-500/20' : 'bg-white/5 border-white/10'}`}>
+                      {m.messageType === "audio" ? <audio src={m.audioUrl} controls className="h-8 w-44 brightness-125" /> : <p className="text-[12px] leading-relaxed">{m.text}</p>}
+                      <div className="flex items-center justify-end gap-1 mt-1">
+                         <span className="text-[7px] opacity-40 uppercase">{new Date(m.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                         {m.senderId === user?.sub && <div className="flex"><HiCheck size={10} className={m.seen ? "text-cyan-400" : "text-gray-600"} /><HiCheck size={10} className={m.seen ? "text-cyan-400 -ml-1.5" : "hidden"} /></div>}
                       </div>
                     </div>
-                  </motion.div>
-                );
-              })}
+                    {/* Delete Options Menu */}
+                    <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === m._id ? null : m._id); }} className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 p-1 bg-gray-900 rounded-full border border-white/10 text-gray-500 hover:text-white transition-all">
+                      <HiOutlineEllipsisVertical size={14} />
+                    </button>
+                    {activeMenu === m._id && (
+                      <div className="absolute top-4 right-0 z-50 bg-[#0a0f1a] border border-white/10 rounded-xl py-2 shadow-2xl min-w-[120px]">
+                        <button onClick={() => deleteMessage(m._id, 'me')} className="w-full text-left px-4 py-2 text-[10px] hover:bg-white/5 flex items-center gap-2"><HiOutlineTrash size={12}/> Delete for me</button>
+                        {m.senderId === user?.sub && <button onClick={() => deleteMessage(m._id, 'everyone')} className="w-full text-left px-4 py-2 text-[10px] text-red-400 hover:bg-red-500/10 flex items-center gap-2"><HiOutlineTrash size={12}/> Delete for all</button>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {remoteTyping && <div className="text-[10px] text-cyan-500 animate-pulse font-black uppercase tracking-widest">Neural connection typing...</div>}
               <div ref={scrollRef} />
             </div>
 
-            <div className="p-4 md:p-6 bg-white/[0.01]">
-              <div className="flex items-center gap-2 md:gap-3 bg-[#0a0f1a] p-1.5 md:p-2 rounded-full border border-white/10 focus-within:border-cyan-500/50">
-                <button className="p-2 text-gray-500 hover:text-cyan-400"><HiOutlinePaperClip size={20} /></button>
-                <input 
-                  value={newMessage} 
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="NEURAL SIGNAL..."
-                  className="flex-1 bg-transparent border-none outline-none text-[11px] text-cyan-100 tracking-widest uppercase placeholder:text-gray-700"
-                />
-                <button onClick={handleSend} className="bg-cyan-500 p-3 md:p-4 rounded-full text-black shadow-[0_0_15px_cyan] active:scale-90 transition-all">
-                  <HiOutlinePaperAirplane size={18} className="rotate-45" />
+            {/* ⌨️ Input Section */}
+            <div className="p-8">
+              <div className="flex items-center gap-3 bg-white/5 p-2 rounded-[2rem] border border-white/10">
+                {status === "recording" ? (
+                  <div className="flex-1 flex items-center px-6 gap-4">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" /><span className="text-[9px] text-red-500 font-black uppercase">Recording...</span>
+                    <button onClick={stopRecording} className="ml-auto text-red-500"><HiOutlineStop size={20} /></button>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={startRecording} className="p-3 text-gray-500 hover:text-cyan-400"><HiOutlineMicrophone size={22} /></button>
+                    <input value={newMessage} onChange={handleTypingEffect} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="SIGNAL..." className="flex-1 bg-transparent border-none outline-none text-[11px] uppercase tracking-widest" />
+                  </>
+                )}
+                <button onClick={mediaBlobUrl ? sendVoiceMessage : handleSend} className={`p-4 rounded-full text-black shadow-lg transition-all ${mediaBlobUrl ? 'bg-purple-500 shadow-purple-500/40' : 'bg-cyan-500 shadow-cyan-500/40'}`}>
+                  {isUploadingVoice ? "..." : <HiOutlinePaperAirplane size={20} className={mediaBlobUrl ? "" : "rotate-45"} />}
                 </button>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-10">
-              <HiOutlineChatBubbleBottomCenterText size={80} className="text-cyan-500 opacity-20 mb-4" />
-              <h2 className="text-xl font-black uppercase tracking-[0.5em] text-white opacity-40">Neural Idle</h2>
-              <p className="text-[9px] text-cyan-400/30 uppercase mt-2 tracking-widest font-bold">Establish link with a drifter</p>
-          </div>
+          <div className="flex-1 flex flex-col items-center justify-center opacity-10"><h2 className="text-sm font-black uppercase tracking-[1em]">IDLE_NODE</h2></div>
         )}
       </div>
 
-      <AnimatePresence>
-        {incomingCall && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4">
-            <div className={`p-8 md:p-10 rounded-[3rem] md:rounded-[4rem] ${glassPanel} text-center max-w-sm w-full border-cyan-500 shadow-[0_0_100px_rgba(6,182,212,0.3)]`}>
-              <div className="relative w-20 h-20 md:w-24 md:h-24 mx-auto mb-8">
-                <div className="absolute inset-0 bg-cyan-500 rounded-full animate-ping opacity-20"></div>
-                <div className="relative w-full h-full rounded-full bg-cyan-500/20 border-2 border-cyan-500 flex items-center justify-center text-cyan-400">
-                  <HiOutlinePhone size={32} className="animate-bounce" />
-                </div>
-              </div>
-              <h2 className="text-xl md:text-2xl font-black uppercase mb-2 tracking-tighter italic">Incoming Link</h2>
-              <p className="text-cyan-400 font-mono mb-8 tracking-widest truncate uppercase text-xs">{incomingCall.fromName}</p>
-              <div className="flex flex-col gap-3">
-                <button onClick={() => { stopRingtone(); navigate(`/call/${incomingCall.roomId}?type=${incomingCall.type}`); setIncomingCall(null); }} className="w-full bg-cyan-500 text-black py-4 rounded-2xl font-black uppercase shadow-[0_0_20px_cyan]">Connect</button>
-                <button onClick={() => { stopRingtone(); setIncomingCall(null); }} className="w-full bg-red-500/10 text-red-500 border border-red-500/40 py-4 rounded-2xl font-black uppercase">Sever</button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.2); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.1); border-radius: 10px; }
       `}</style>
     </div>
   );

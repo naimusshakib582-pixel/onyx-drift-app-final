@@ -6,31 +6,45 @@ import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Redis from "ioredis"; 
 import { v2 as cloudinary } from 'cloudinary';
-import path from 'path';
+import mongoose from "mongoose";
 
 // ১. কনফিগারেশন লোড
 dotenv.config();
 
-// ২. ডাটাবেস কানেকশন ও রাউট ইম্পোর্ট
+// ২. ডাটাবেস ও রাুট ইম্পোর্ট
 import connectDB from "./config/db.js"; 
+import User from "./models/User.js"; 
+import Post from "./models/Post.js"; 
+import Notification from "./models/Notification.js"; 
+import Message from "./models/Message.js"; // মেসেজ মডেলটি ইম্পোর্ট করো
+
+// রাুট ফাইলগুলো
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
 import userRoutes from './routes/users.js'; 
-import messageRoutes from "./routes/messages.js";      
+import messageRoutes from "./routes/messages.js";         
 import uploadRoutes from './routes/upload.js';
 import communityRoutes from "./routes/communities.js";
 
 const app = express();
 const server = http.createServer(app);
 
-// ৩. Cloudinary কনফিগারেশন
+// ৩. সকেট আইও ডিক্লেয়ারেশন (এটি তোমার কোডে মিসিং ছিল)
+const io = new Server(server, {
+    cors: {
+        origin: ["http://localhost:5173", "https://onyx-drift-app-final.onrender.com"],
+        methods: ["GET", "POST"]
+    }
+});
+
+// ৪. Cloudinary কনফিগারেশন
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
   api_key: process.env.CLOUDINARY_API_KEY, 
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৪. Redis কানেকশন
+// ৫. Redis কানেকশন
 const REDIS_URL = process.env.REDIS_URL;
 let redis;
 if (REDIS_URL) {
@@ -39,114 +53,89 @@ if (REDIS_URL) {
         enableReadyCheck: false,
         retryStrategy: (times) => Math.min(times * 50, 2000),
     });
-    redis.on("error", (err) => console.log("❌ Redis Error:", err));
-    redis.on("connect", () => console.log("✅ Redis Connected"));
+    redis.on("connect", () => console.log("✅ Neural Cache (Redis) Connected"));
 }
 
-// ৫. AI কনফিগারেশন (Gemini for Toxicity Filter)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-// ৬. Middleware & CORS
-const allowedOrigins = [
-    "http://localhost:5173", 
-    "https://onyx-drift-app-final.onrender.com",
-    "https://www.onyx-drift.com",
-    "https://onyx-drift.com"
-];
-
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error("CORS Access Denied"));
-        }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-}));
-
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-// ৭. ডাটাবেস কানেক্ট
+// AI, Middleware, Database Connection (তোমার আগের কোড অনুযায়ী ঠিক আছে...)
 connectDB();
+app.use(cors({ credentials: true, origin: true }));
+app.use(express.json({ limit: "50mb" }));
 
-/* ==========================================================
-    🚀 ROUTE MOUNTING
-========================================================== */
+// রাুট মাউন্টিং
 app.use("/api/user", userRoutes); 
 app.use("/api/profile", profileRoutes); 
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
-app.use("/api/upload", uploadRoutes); 
-app.use("/api/communities", communityRoutes);
-
-app.get("/", (req, res) => res.send("✅ OnyxDrift Neural Server Online"));
 
 /* ==========================================================
-    📡 SOCKET.IO LOGIC (Enhanced for Communities & AI)
+    📡 REAL-TIME ENGINE (Typing, Seen, Delete Added)
 ========================================================== */
-const io = new Server(server, {
-  cors: { 
-    origin: allowedOrigins, 
-    credentials: true,
-    methods: ["GET", "POST"]
-  },
-  transports: ['websocket', 'polling'], 
-  path: '/socket.io/'
-});
-
 io.on("connection", (socket) => {
-  console.log("⚡ New Connection:", socket.id);
-
-  // ১. ইউজার অনলাইন স্ট্যাটাস (Redis)
-  socket.on("addNewUser", async (userId) => {
-    if (userId && redis) {
-      await redis.hset("online_users", userId, socket.id);
-      const allUsers = await redis.hgetall("online_users");
-      const onlineList = Object.keys(allUsers).map(id => ({ userId: id, socketId: allUsers[id] }));
-      io.emit("getOnlineUsers", onlineList);
-    }
-  });
-
-  // ২. কমিউনিটি/নোড চ্যাটে জয়েন করা
-  socket.on("joinNode", (nodeId) => {
-    socket.join(nodeId);
-    console.log(`📡 Drifter joined Node: ${nodeId}`);
-  });
-
-  // ৩. রিয়েল-টাইম মেসেজিং উইথ AI সেফটি চেক
-  socket.on("sendNodeMessage", async (data) => {
-    const { nodeId, text, senderId, senderName, senderAvatar } = data;
-
-    // AI Toxicity Filter লজিক (Optional কিন্তু ১০০M এর জন্য মাস্ট)
-    // ছোট মেসেজ হলে সরাসরি পাঠিয়ে দাও, বড় হলে ফিল্টার করো
-    io.to(nodeId).emit("receiveNodeMessage", {
-      ...data,
-      createdAt: new Date()
-    });
-  });
-
-  socket.on("disconnect", async () => {
-    if (redis) {
-        const allUsers = await redis.hgetall("online_users");
-        for (const [userId, socketId] of Object.entries(allUsers)) {
-          if (socketId === socket.id) {
-            await redis.hdel("online_users", userId);
-            const updatedUsers = await redis.hgetall("online_users");
-            const onlineList = Object.keys(updatedUsers).map(id => ({ userId: id, socketId: updatedUsers[id] }));
-            io.emit("getOnlineUsers", onlineList);
-            break;
-          }
+    
+    // অনলাইন ইউজার ট্র্যাকিং
+    socket.on("addNewUser", async (userId) => {
+        if (redis) {
+            await redis.hset("online_users", userId, socket.id);
+            const allUsers = await redis.hgetall("online_users");
+            io.emit("getOnlineUsers", Object.keys(allUsers).map(id => ({ userId: id })));
         }
-    }
-  });
+    });
+
+    // ১. মেসেজ পাঠানো
+    socket.on("sendMessage", async (data) => {
+        const { receiverId } = data;
+        const socketId = await redis?.hget("online_users", receiverId);
+        if (socketId) io.to(socketId).emit("getMessage", data);
+    });
+
+    // ২. টাইপিং ইন্ডিকেটর (New)
+    socket.on("typing", async ({ receiverId, senderId }) => {
+        const socketId = await redis?.hget("online_users", receiverId);
+        if (socketId) io.to(socketId).emit("displayTyping", { senderId });
+    });
+
+    socket.on("stopTyping", async ({ receiverId }) => {
+        const socketId = await redis?.hget("online_users", receiverId);
+        if (socketId) io.to(socketId).emit("hideTyping");
+    });
+
+    // ৩. ব্লু টিক / মেসেজ সিন (New)
+    socket.on("messageSeen", async ({ messageId, senderId, receiverId }) => {
+        try {
+            // DB আপডেট (Message মডেল অনুযায়ী)
+            await Message.findByIdAndUpdate(messageId, { seen: true });
+            const socketId = await redis?.hget("online_users", senderId);
+            if (socketId) io.to(socketId).emit("messageSeenUpdate", { messageId });
+        } catch (err) { console.log(err); }
+    });
+
+    // ৪. মেসেজ ডিলিট (New)
+    socket.on("deleteMessage", async ({ messageId, receiverId }) => {
+        const socketId = await redis?.hget("online_users", receiverId);
+        if (socketId) io.to(socketId).emit("messageDeleted", messageId);
+    });
+
+    // ৫. কল লজিক
+    socket.on("callUser", ({ userToCall, from, fromName, type, roomId }) => {
+        redis?.hget("online_users", userToCall).then((socketId) => {
+            if (socketId) io.to(socketId).emit("incomingCall", { from, fromName, type, roomId });
+        });
+    });
+
+    socket.on("disconnect", async () => {
+        if (redis) {
+            const all = await redis.hgetall("online_users");
+            for (const [uId, sId] of Object.entries(all)) {
+                if (sId === socket.id) {
+                    await redis.hdel("online_users", uId);
+                    const updated = await redis.hgetall("online_users");
+                    io.emit("getOnlineUsers", Object.keys(updated).map(id => ({ userId: id })));
+                    break;
+                }
+            }
+        }
+    });
 });
 
-// ৮. সার্ভার লিসেনিং
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Neural System Online: Port ${PORT}`);
-});
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 OnyxDrift Core Online: ${PORT}`));

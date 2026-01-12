@@ -6,48 +6,54 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   FaEdit, FaShieldAlt, FaRocket, FaCamera, FaImage, 
   FaFilm, FaPlayCircle, FaTimes, FaPlus, FaCheckCircle, 
-  FaUserPlus, FaEnvelope, FaSearch, FaMagic
+  FaUserPlus, FaEnvelope, FaSearch, FaMagic, FaAward
 } from "react-icons/fa";
 import { BRAND_NAME } from "../utils/constants";
 import PostCard from "../components/PostCard";
 
 // --- 🚀 GenesisCard Component (Viral Growth System) ---
 const GenesisCard = ({ userData }) => {
+  // ব্যাকএন্ড থেকে আসা inviteCode ব্যবহার করবে, না থাকলে ইউজারনেম ব্যবহার করবে
+  const inviteCode = userData?.inviteCode || userData?.nickname?.toLowerCase() || "drifter";
+  const fullInviteLink = `onyx-drift.com/join?ref=${inviteCode}`;
+
   const copyInvite = () => {
-    const inviteLink = `onyx-drift.com/join?ref=${userData.inviteCode || 'GENESIS'}`;
-    navigator.clipboard.writeText(inviteLink);
-    alert("Neural Link Copied to Clipboard!");
+    navigator.clipboard.writeText(fullInviteLink);
+    alert("Neural Link Synced to Clipboard! 🚀");
   };
 
   return (
     <motion.div 
       whileHover={{ scale: 1.01 }}
-      className="mb-8 p-6 rounded-[2.5rem] bg-gradient-to-br from-cyan-500/10 via-purple-500/5 to-transparent border border-cyan-500/20 backdrop-blur-3xl relative overflow-hidden group"
+      className="mb-8 p-6 rounded-[2.5rem] bg-gradient-to-br from-cyan-500/15 via-purple-500/10 to-transparent border border-cyan-500/30 backdrop-blur-3xl relative overflow-hidden group shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
     >
-      <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-         <FaRocket size={80} className="text-cyan-400 -rotate-45" />
+      <div className="absolute -top-4 -right-4 p-8 opacity-10 group-hover:opacity-30 group-hover:-translate-y-2 group-hover:translate-x-2 transition-all duration-700">
+         <FaRocket size={120} className="text-cyan-400 -rotate-45" />
       </div>
       
       <div className="flex justify-between items-start mb-6 relative z-10">
         <div>
-          <h3 className="text-xl font-black italic text-white tracking-tighter uppercase">Genesis Member</h3>
-          <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest">Early Adopter Status Active</p>
+          <h3 className="text-xl font-black italic text-white tracking-tighter uppercase">Genesis Node</h3>
+          <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest flex items-center gap-2">
+            <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
+            Propagation Active
+          </p>
         </div>
-        <div className="p-3 bg-cyan-500 rounded-2xl shadow-[0_0_20px_rgba(6,182,212,0.5)]">
-          <FaMagic className="text-black text-sm" />
+        <div className="p-3 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-xl group-hover:bg-cyan-500 group-hover:text-black transition-all duration-500">
+          <FaMagic className="text-sm" />
         </div>
       </div>
 
       <div className="space-y-4 relative z-10">
-        <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
-          <p className="text-[9px] text-gray-500 uppercase font-black mb-1 tracking-widest">Your Neural Invite Link</p>
+        <div className="bg-black/60 p-4 rounded-2xl border border-white/10 group-hover:border-cyan-500/50 transition-colors">
+          <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Personal Recruitment Link</p>
           <div className="flex justify-between items-center gap-4">
-            <span className="text-[10px] font-mono text-white italic truncate opacity-70">
-              onyx-drift.com/join?ref={userData.inviteCode || "XXXXXX"}
+            <span className="text-[11px] font-mono text-cyan-100 italic truncate opacity-80">
+              {fullInviteLink}
             </span>
             <button 
               onClick={copyInvite} 
-              className="text-[10px] text-cyan-400 font-black hover:text-white transition-colors uppercase tracking-tighter"
+              className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500 text-cyan-400 hover:text-black rounded-lg text-[10px] font-black transition-all uppercase tracking-tighter border border-cyan-500/50"
             >
               Copy
             </button>
@@ -56,12 +62,12 @@ const GenesisCard = ({ userData }) => {
         
         <div className="flex gap-3">
            <div className="flex-1 text-center p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
-              <p className="text-lg font-black text-white">{userData.inviteCount || 0}</p>
-              <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Recruits</p>
+              <p className="text-xl font-black text-white">{userData?.inviteCount || 0}</p>
+              <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Recruits</p>
            </div>
            <div className="flex-1 text-center p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
-              <p className="text-lg font-black text-cyan-400 uppercase tracking-tighter">{userData.neuralRank || "Neophyte"}</p>
-              <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Neural Rank</p>
+              <p className="text-xl font-black text-cyan-400 uppercase tracking-tighter">{userData?.neuralRank || "Neophyte"}</p>
+              <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest mt-1">Neural Rank</p>
            </div>
         </div>
       </div>
@@ -280,7 +286,7 @@ const Profile = () => {
           </div>
 
           <div className="max-w-[900px] mx-auto px-4 -mt-16 md:-mt-24 relative z-20">
-            {/* 🚀 STEP 10: GenesisCard Integration (Visible only on own profile) */}
+            {/* 🚀 GenesisCard Integration */}
             {isOwnProfile && <GenesisCard userData={userProfile} />}
 
             <motion.div 
@@ -295,20 +301,33 @@ const Profile = () => {
                       className={`w-28 h-28 md:w-40 md:h-40 rounded-[2rem] md:rounded-[2.5rem] border-4 border-[#020617] shadow-lg object-cover bg-[#0f172a] transition-all duration-700 ${isGhostMode ? 'grayscale invert brightness-125' : ''}`} 
                       alt="Avatar"
                     />
-                    {!isGhostMode && userProfile?.isVerified && (
-                      <div className="absolute -bottom-2 -right-2 bg-gradient-to-tr from-cyan-400 to-purple-600 p-2 md:p-2.5 rounded-xl md:rounded-2xl border-4 border-[#020617] shadow-lg">
-                        <FaShieldAlt className="text-white text-xs" />
-                      </div>
-                    )}
+                    
+                    <div className="absolute -bottom-2 -right-2 flex flex-col items-end gap-1">
+                      {userProfile?.badge && (
+                         <div className="bg-gradient-to-tr from-cyan-400 to-purple-600 p-2 md:p-2.5 rounded-xl md:rounded-2xl border-4 border-[#020617] shadow-[0_0_15px_rgba(34,211,238,0.5)]">
+                            <FaAward className="text-white text-xs" />
+                         </div>
+                      )}
+                    </div>
                   </div>
+                  
                   <div className="text-center md:text-left">
-                    <h1 className="text-2xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-none">
-                      {isGhostMode ? "STAY_HIDDEN" : (userProfile?.name || userProfile?.nickname)}
-                    </h1>
-                    <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
+                    <div className="flex items-center gap-2 justify-center md:justify-start">
+                      <h1 className="text-2xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-none">
+                        {isGhostMode ? "STAY_HIDDEN" : (userProfile?.name || userProfile?.nickname)}
+                      </h1>
+                      {!isGhostMode && userProfile?.isVerified && <FaCheckCircle className="text-cyan-400 text-lg shadow-cyan-500/50" />}
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
                       <span className={`px-2 py-0.5 rounded-md text-[7px] md:text-[8px] font-black uppercase tracking-widest border transition-all duration-500 ${isGhostMode ? 'bg-white text-black border-white' : 'bg-cyan-400/10 border-cyan-400/20 text-cyan-400'}`}>
                         {isGhostMode ? "GHOST" : `${BRAND_NAME} PRO`}
                       </span>
+                      {userProfile?.badge && (
+                        <span className="px-2 py-0.5 rounded-md text-[7px] md:text-[8px] font-black uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                           {userProfile.badge}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -338,13 +357,15 @@ const Profile = () => {
                     "{userProfile?.bio || "Scanning the drift..."}"
                   </p>
                 </div>
-                <div className="flex justify-around md:justify-center gap-4 bg-white/5 rounded-3xl p-6 border border-white/5">
-                  <div className="text-center">
-                    <p className="text-2xl font-black text-white">{userPosts.length}</p>
+                
+                <div className="flex justify-around md:justify-center gap-4 bg-white/5 rounded-3xl p-6 border border-white/5 backdrop-blur-md">
+                  <div className="text-center group cursor-default">
+                    <p className="text-2xl font-black text-white group-hover:text-cyan-400 transition-colors">{userPosts.length}</p>
                     <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Echoes</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-black text-cyan-400">{userProfile?.followers?.length || 0}</p>
+                  <div className="w-px h-8 bg-white/10 self-center"></div>
+                  <div className="text-center group cursor-default">
+                    <p className="text-2xl font-black text-cyan-400 group-hover:text-white transition-colors">{userProfile?.followers?.length || 0}</p>
                     <p className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">Links</p>
                   </div>
                 </div>
@@ -353,9 +374,9 @@ const Profile = () => {
 
             {/* Tabs & Content */}
             <div className="mt-12">
-              <div className="flex gap-8 px-6 mb-8 border-b border-white/5">
+              <div className="flex gap-8 px-6 mb-8 border-b border-white/5 overflow-x-auto no-scrollbar">
                 {["Echoes", "Insights", "Media"].map((tab) => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 text-[10px] font-black uppercase tracking-[0.3em] relative ${activeTab === tab ? "text-cyan-400" : "text-gray-600"}`}>
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 text-[10px] font-black uppercase tracking-[0.3em] relative whitespace-nowrap ${activeTab === tab ? "text-cyan-400" : "text-gray-600"}`}>
                     {tab}
                     {activeTab === tab && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />}
                   </button>
@@ -363,9 +384,13 @@ const Profile = () => {
               </div>
               
               <div className="grid grid-cols-1 gap-6 pb-20">
-                {userPosts.map((post) => (
-                  <PostCard key={post._id} post={post} onAction={fetchProfileData} onDelete={() => handleDeletePost(post._id)} currentUserId={currentUser?.sub} />
-                ))}
+                {userPosts.length > 0 ? (
+                  userPosts.map((post) => (
+                    <PostCard key={post._id} post={post} onAction={fetchProfileData} onDelete={() => handleDeletePost(post._id)} currentUserId={currentUser?.sub} />
+                  ))
+                ) : (
+                  <div className="text-center py-20 opacity-30 italic text-sm uppercase tracking-widest">No neural signals detected in this sector...</div>
+                )}
               </div>
             </div>
           </div>
@@ -376,7 +401,7 @@ const Profile = () => {
       <AnimatePresence>
         {isEditOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-3 bg-black/95 backdrop-blur-2xl">
-            <motion.div className="bg-[#0f172a] w-full max-w-lg rounded-[2.5rem] border border-white/10 p-8 shadow-2xl">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-[#0f172a] w-full max-w-lg rounded-[2.5rem] border border-white/10 p-8 shadow-2xl">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-lg font-black italic text-cyan-400 uppercase tracking-tighter">Edit Identity</h2>
                 <button onClick={() => setIsEditOpen(false)} className="text-gray-500 hover:text-white"><FaTimes size={20}/></button>
@@ -385,7 +410,7 @@ const Profile = () => {
                  <input type="text" className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-sm outline-none focus:border-cyan-400 transition-all" placeholder="Nickname" value={editData.nickname} onChange={(e) => setEditData({...editData, nickname: e.target.value})} />
                  <textarea className="w-full bg-white/5 border border-white/10 rounded-xl p-4 h-24 text-white text-sm outline-none focus:border-cyan-400 transition-all" placeholder="Bio" value={editData.bio} onChange={(e) => setEditData({...editData, bio: e.target.value})} />
               </div>
-              <button onClick={handleUpdateIdentity} disabled={isUpdating} className="w-full mt-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg">
+              <button onClick={handleUpdateIdentity} disabled={isUpdating} className="w-full mt-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg active:scale-95 transition-transform">
                 {isUpdating ? "Synchronizing..." : "Update Identity"}
               </button>
             </motion.div>
@@ -394,7 +419,7 @@ const Profile = () => {
 
         {isCreateOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-3 bg-black/90 backdrop-blur-xl">
-            <motion.div className="bg-[#0f172a] w-full max-w-lg rounded-[2.5rem] border border-white/10 p-8 shadow-2xl">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-[#0f172a] w-full max-w-lg rounded-[2.5rem] border border-white/10 p-8 shadow-2xl">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-lg font-black italic text-purple-400 uppercase tracking-tighter">New Echo</h2>
                 <button onClick={() => setIsCreateOpen(false)}><FaTimes size={20}/></button>
@@ -405,7 +430,7 @@ const Profile = () => {
                 <button onClick={() => handleFileSelect('photo')} className="p-4 bg-white/5 rounded-2xl border border-white/10 flex-1 hover:border-cyan-400 transition-all"><FaImage className="mx-auto text-cyan-400"/></button>
                 <button onClick={() => handleFileSelect('video')} className="p-4 bg-white/5 rounded-2xl border border-white/10 flex-1 hover:border-purple-400 transition-all"><FaFilm className="mx-auto text-purple-400"/></button>
               </div>
-              <button onClick={handleTransmit} disabled={isTransmitting} className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl">
+              <button onClick={handleTransmit} disabled={isTransmitting} className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-transform">
                 {isTransmitting ? "Transmitting..." : "Transmit Echo"}
               </button>
             </motion.div>
