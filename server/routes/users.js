@@ -1,161 +1,160 @@
 import express from 'express';
-import auth from '../middleware/auth.js';
-import User from '../models/User.js';
-import Post from '../models/Post.js';
-import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import User from '../models/User.js'; 
+import auth from '../middleware/auth.js'; 
+import upload from '../middleware/multer.js'; // আপনার মিডলওয়্যার পাথ চেক করে নিন
 
 const router = express.Router();
 
-// ১. ক্লাউডিনারি কনফিগারেশন
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'onyx_drift_profiles',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-    transformation: [{ width: 500, height: 500, crop: 'limit' }]
-  }
-});
-const upload = multer({ storage });
-
 /* ==========================================================
-    🌍 ১. GET ALL USERS (Discovery)
+    1️⃣ GET PROFILE BY ID (With Auto-Sync)
 ========================================================== */
-router.get('/all', auth, async (req, res) => {
+router.get(['/:id', '/profile/:id'], auth, async (req, res) => {
   try {
-    const myId = req.user.sub || req.user.id;
-    const users = await User.find({ auth0Id: { $ne: myId } })
-      .select('name avatar auth0Id isVerified bio followers nickname')
-      .sort({ createdAt: -1 })
-      .limit(20)
+    const targetId = decodeURIComponent(req.params.id);
+    
+    let user = await User.findOne({ auth0Id: targetId })
+      .select("-__v")
       .lean();
-    res.json(users);
-  } catch (err) { 
-    res.status(500).json({ msg: 'Neural Network Discovery Failed' }); 
+    
+    if (!user) {
+      const myId = req.user.sub || req.user.id;
+      // যদি নিজের প্রোফাইল হয় কিন্তু ডাটাবেসে না থাকে, তবে তৈরি হবে
+      if (targetId === myId) {
+        const newUser = new User({
+          auth0Id: myId,
+          name: req.user.name || "Drifter",
+          nickname: req.user.nickname || req.user.name?.split(' ')[0].toLowerCase() || "drifter",
+          avatar: req.user.picture || "",
+          email: req.user.email || ""
+        });
+        const savedUser = await newUser.save();
+        user = savedUser.toObject();
+        console.log("🆕 Neural Identity Created:", targetId);
+      } else {
+        return res.status(404).json({ msg: "Drifter not found in neural network" });
+      }
+    }
+    
+    res.json(user);
+  } catch (err) {
+    console.error("📡 Profile Fetch Error:", err);
+    res.status(500).json({ msg: "Neural link interrupted" });
   }
 });
 
 /* ==========================================================
-    🔍 ২. SEARCH USERS
+    2️⃣ UPDATE PROFILE
 ========================================================== */
-router.get('/search', auth, async (req, res) => {
+router.put("/update-profile", auth, upload.fields([
+  { name: 'avatar', maxCount: 1 },
+  { name: 'cover', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { nickname, name, bio, location, workplace } = req.body;
+    const myId = req.user.sub || req.user.id;
+
+    let updateFields = {};
+    if (name) updateFields.name = name;
+    if (nickname) updateFields.nickname = nickname;
+    if (bio) updateFields.bio = bio;
+    if (location) updateFields.location = location;
+    if (workplace) updateFields.workplace = workplace;
+
+    if (req.files) {
+      if (req.files.avatar) updateFields.avatar = req.files.avatar[0].path;
+      if (req.files.cover) updateFields.coverImg = req.files.cover[0].path;
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { auth0Id: myId }, 
+      { $set: updateFields },
+      { new: true, upsert: true, lean: true }
+    );
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ msg: 'Identity Sync Failed' });
+  }
+});
+
+/* ==========================================================
+    3️⃣ SEARCH & DISCOVERY (Search + All Users Combined)
+========================================================== */
+router.get("/search", auth, async (req, res) => {
   try {
     const { query } = req.query;
     const myId = req.user.sub || req.user.id;
     let filter = { auth0Id: { $ne: myId } };
 
     if (query && query.trim() !== "") {
-      const safeQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const searchRegex = new RegExp(safeQuery, 'i'); 
+      const searchRegex = new RegExp(query.trim(), "i");
       filter.$or = [
-        { name: { $regex: searchRegex } }, 
+        { name: { $regex: searchRegex } },
         { nickname: { $regex: searchRegex } }
       ];
     }
 
     const users = await User.find(filter)
-      .select('name avatar auth0Id isVerified nickname')
+      .select("name nickname avatar auth0Id bio isVerified")
       .limit(15)
       .lean();
+
     res.json(users);
-  } catch (err) { 
-    res.status(500).json({ msg: 'Search Protocol Failed' }); 
-  }
-});
-
-/* ==========================================================
-    👤 ৩. GET SINGLE USER PROFILE (Unified Route)
-========================================================== */
-// এই রাউটটি /api/user/:auth0Id এবং /api/user/profile/:auth0Id উভয়কেই সাপোর্ট করবে
-router.get(['/:auth0Id', '/profile/:auth0Id'], auth, async (req, res) => {
-  try {
-    const targetId = decodeURIComponent(req.params.auth0Id);
-    
-    const userProfile = await User.findOne({ auth0Id: targetId })
-      .select('-password -__v')
-      .lean();
-
-    if (!userProfile) {
-      return res.status(404).json({ msg: "Drifter not found in neural network" });
-    }
-
-    res.json(userProfile);
   } catch (err) {
-    console.error("Profile Fetch Error:", err);
-    res.status(500).json({ msg: "Neural Link Error: Connection Timeout" });
+    res.status(500).json({ msg: "Search signal lost" });
   }
 });
 
 /* ==========================================================
-    🤝 ৪. FOLLOW/UNFOLLOW SYSTEM
+    4️⃣ FOLLOW / UNFOLLOW SYSTEM
 ========================================================== */
-router.post('/follow/:targetId', auth, async (req, res) => {
+router.post("/follow/:targetId", auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
     const targetId = decodeURIComponent(req.params.targetId);
-    
-    if (myId === targetId) {
-        return res.status(400).json({ msg: "Self link protocol impossible" });
-    }
 
+    if (myId === targetId) return res.status(400).json({ msg: "Self-link forbidden" });
+
+    // টার্গেট ইউজারকে খুঁজে বের করা
     const targetUser = await User.findOne({ auth0Id: targetId });
-    if (!targetUser) return res.status(404).json({ msg: "Target node not found" });
+    if (!targetUser) return res.status(404).json({ msg: "Target drifter not found" });
 
-    const isFollowing = targetUser.followers.includes(myId);
+    // চেক করা অলরেডি ফলো করা আছে কি না
+    const isFollowing = targetUser.followers?.includes(myId);
 
     if (isFollowing) {
-      // Unfollow Logic
       await Promise.all([
         User.updateOne({ auth0Id: myId }, { $pull: { following: targetId } }),
         User.updateOne({ auth0Id: targetId }, { $pull: { followers: myId } })
       ]);
+      res.json({ followed: false, msg: "Disconnected" });
     } else {
-      // Follow Logic
       await Promise.all([
         User.updateOne({ auth0Id: myId }, { $addToSet: { following: targetId } }),
         User.updateOne({ auth0Id: targetId }, { $addToSet: { followers: myId } })
       ]);
+      res.json({ followed: true, msg: "Linked" });
     }
-    res.json({ followed: !isFollowing });
-  } catch (err) { 
-    res.status(500).json({ msg: "Neural Link sync failed" }); 
+  } catch (err) {
+    res.status(500).json({ msg: "Neural link failed" });
   }
 });
 
 /* ==========================================================
-    📝 ৫. UPDATE PROFILE (Multi-Field)
+    5️⃣ DISCOVERY (All Users)
 ========================================================== */
-router.put("/update-profile", auth, upload.fields([
-  { name: 'avatar', maxCount: 1 }, 
-  { name: 'cover', maxCount: 1 }
-]), async (req, res) => {
+router.get("/all", auth, async (req, res) => {
   try {
-    const { name, bio, location, workplace } = req.body;
     const myId = req.user.sub || req.user.id;
-    
-    let updateFields = {};
-    if (name) updateFields.name = name;
-    if (bio) updateFields.bio = bio;
-    if (location) updateFields.location = location;
-    if (workplace) updateFields.workplace = workplace;
+    const users = await User.find({ auth0Id: { $ne: myId } })
+      .select("name nickname avatar auth0Id bio isVerified")
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
 
-    // ইমেজ ফাইল থাকলে ক্লাউডিনারি পাথ সেট করুন
-    if (req.files?.avatar) updateFields.avatar = req.files.avatar[0].path;
-    if (req.files?.cover) updateFields.coverImg = req.files.cover[0].path;
-
-    const updatedUser = await User.findOneAndUpdate(
-      { auth0Id: myId },
-      { $set: updateFields },
-      { new: true, lean: true }
-    ).select('-password');
-
-    if (!updatedUser) return res.status(404).json({ msg: "Identity not found" });
-
-    res.json(updatedUser);
-  } catch (err) { 
-    console.error("Update Error:", err);
-    res.status(500).json({ msg: 'Identity Sync Failed' }); 
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ msg: "Discovery signal lost" });
   }
 });
 
