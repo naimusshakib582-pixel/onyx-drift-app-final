@@ -6,20 +6,18 @@ import upload from '../middleware/multer.js'; // আপনার মিডলও
 const router = express.Router();
 
 /* ==========================================================
-    1️⃣ GET PROFILE BY ID (With Auto-Sync)
+    1️⃣ GET PROFILE BY ID (With Auto-Sync & 404 Fix)
 ========================================================== */
-// এখানে ['/profile/:id', '/:id'] ব্যবহার করা হয়েছে যাতে ফ্রন্টএন্ডের 
-// /api/user/profile/... এবং /api/user/... উভয়ই কাজ করে।
 router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
   try {
     const targetId = decodeURIComponent(req.params.id);
+    const myId = req.user.sub || req.user.id;
     
     let user = await User.findOne({ auth0Id: targetId })
       .select("-__v")
       .lean();
     
     if (!user) {
-      const myId = req.user.sub || req.user.id;
       // যদি নিজের প্রোফাইল হয় কিন্তু ডাটাবেসে না থাকে, তবে তৈরি হবে
       if (targetId === myId) {
         const newUser = new User({
@@ -33,7 +31,15 @@ router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
         user = savedUser.toObject();
         console.log("🆕 Neural Identity Created:", targetId);
       } else {
-        return res.status(404).json({ msg: "Drifter not found in neural network" });
+        // ফিক্স: অন্য ইউজারের ডাটা না থাকলে ৪MD৪ এর বদলে একটি ডিফল্ট অবজেক্ট পাঠানো হচ্ছে
+        return res.json({
+          auth0Id: targetId,
+          name: "Unknown Drifter",
+          nickname: "drifter",
+          avatar: `https://ui-avatars.com/api/?name=Drifter&background=random`,
+          bio: "Neural profile not yet synced.",
+          isVerified: false
+        });
       }
     }
     
@@ -143,7 +149,6 @@ router.post("/follow/:targetId", auth, async (req, res) => {
 /* ==========================================================
     5️⃣ DISCOVERY (All Users)
 ========================================================== */
-// এই এন্ডপয়েন্টটি নিশ্চিত করবে যে /api/user/all কল করলে ডাটা আসে
 router.get("/all", auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
