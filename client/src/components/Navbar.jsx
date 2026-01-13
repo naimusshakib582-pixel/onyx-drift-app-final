@@ -1,52 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaSearch, FaBell, FaCheckCircle, FaSignOutAlt } from 'react-icons/fa'; 
+import { FaSearch, FaBell, FaSignOutAlt } from 'react-icons/fa'; 
 import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from 'axios';
 import webSocketService from "../services/WebSocketService"; 
 
-const Navbar = ({ user, setSearchQuery }) => {
+const Navbar = ({ setSearchQuery }) => {
   const navigate = useNavigate();
-  const { logout, getAccessTokenSilently } = useAuth0();
-  const [showNotifications, setShowNotifications] = useState(false);
+  const { user, logout, getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const [showDropdown, setShowDropdown] = useState(false);
   const [localSearch, setLocalSearch] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  
-  const [notifications, setNotifications] = useState([]);
   const [hasNewNotification, setHasNewNotification] = useState(false);
 
-  const BASE = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
-  const API_URL = `${BASE}/api`;
+  const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
+  // --- Notification Listener ---
   useEffect(() => {
-    let subscription = null;
-    if (user?.sub) {
-      subscription = webSocketService.subscribe(`/topic/notifications/${user.sub}`, (data) => {
-        setNotifications((prev) => [data, ...prev]);
+    if (isAuthenticated && user?.sub) {
+      const subscription = webSocketService.subscribe(`/topic/notifications/${user.sub}`, (data) => {
         setHasNewNotification(true);
       });
+      return () => { if (subscription) subscription.unsubscribe(); };
     }
-    return () => { if (subscription) { /* logic */ } };
-  }, [user]);
+  }, [user, isAuthenticated]);
 
+  // --- Real-time Search Logic ---
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
       if (localSearch.trim().length > 0) {
         setLoading(true);
         try {
           const token = await getAccessTokenSilently();
-          const res = await axios.get(`${API_URL}/user/search`, {
+          const res = await axios.get(`${API_URL}/api/user/search`, {
             params: { query: localSearch },
             headers: { Authorization: `Bearer ${token}` }
           });
           setSearchResults(res.data);
           setShowResults(true);
-        } catch (err) { console.error("Search error:", err); } finally { setLoading(false); }
+        } catch (err) {
+          console.error("Search error:", err);
+        } finally {
+          setLoading(false);
+        }
       } else {
-        setSearchResults([]);
         setShowResults(false);
       }
     }, 400);
@@ -54,24 +54,26 @@ const Navbar = ({ user, setSearchQuery }) => {
   }, [localSearch, getAccessTokenSilently, API_URL]);
 
   return (
-    <nav className="h-[75px] px-6 flex items-center justify-between bg-transparent w-full relative z-[200]">
+    <nav className="h-[75px] px-6 flex items-center justify-between bg-black border-b border-white/5 w-full sticky top-0 z-[200]">
       
-      {/* 1. Logo Section */}
+      {/* ১. লোগো সেকশন */}
       <div className="flex items-center gap-3 min-w-fit cursor-pointer" onClick={() => navigate('/feed')}>
         <div className="w-10 h-10 bg-gradient-to-tr from-cyan-400 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
           <span className="text-black font-black text-lg italic tracking-tighter">OX</span>
         </div>
-        <h1 className="hidden md:block text-xl font-black text-white italic tracking-tighter uppercase">ONYXDRIFT</h1>
+        <h1 className="hidden md:block text-xl font-black text-white italic tracking-tighter uppercase">
+          ONYX<span className="text-cyan-500">DRIFT</span>
+        </h1>
       </div>
 
-      {/* 2. Search Bar Section */}
-      <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2 w-full max-w-md mx-4 sm:mx-8 focus-within:border-cyan-400/50 transition-all">
+      {/* ২. সার্চ বার (একদম ক্লিন ডিজাইন) */}
+      <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2 w-full max-w-sm mx-4 focus-within:border-cyan-500/50 transition-all">
         <FaSearch className="text-gray-500 text-sm" />
         <input
           type="text"
           value={localSearch}
           placeholder="Search creators..."
-          className="bg-transparent border-none outline-none px-3 text-xs w-full text-white placeholder-gray-600"
+          className="bg-transparent border-none outline-none px-3 text-[13px] w-full text-white placeholder-gray-600"
           onChange={(e) => {
             setLocalSearch(e.target.value);
             if (setSearchQuery) setSearchQuery(e.target.value);
@@ -79,25 +81,28 @@ const Navbar = ({ user, setSearchQuery }) => {
           onFocus={() => localSearch.length > 0 && setShowResults(true)}
         />
 
+        {/* সার্চ রেজাল্ট ড্রপডাউন */}
         <AnimatePresence>
           {showResults && (
             <motion.div
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-full left-0 mt-3 w-full bg-[#0f172a]/95 border border-white/10 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[300] backdrop-blur-2xl"
+              className="absolute top-full left-0 mt-3 w-full bg-[#0A0A0A] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[300]"
             >
-              <div className="p-4 border-b border-white/5 text-[10px] font-black text-gray-500 uppercase tracking-widest flex justify-between">
-                <span>Neural Connects</span>
-                <span className="text-cyan-400 font-bold">{loading ? "Scanning..." : "Live Scan"}</span>
+              <div className="p-3 border-b border-white/5 text-[9px] font-black text-gray-500 uppercase flex justify-between">
+                <span>Search Results</span>
+                <span className="text-cyan-500">{loading ? "Scanning..." : "Syncing"}</span>
               </div>
-              <div className="max-h-[380px] overflow-y-auto no-scrollbar">
-                {searchResults.map((d) => (
-                  <div key={d._id} onClick={() => { navigate(`/profile/${d.auth0Id || d._id}`); setShowResults(false); setLocalSearch(""); }} className="flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-none group">
-                    <img src={d.avatar || d.picture} className="w-11 h-11 rounded-2xl object-cover border border-white/10" alt={d.nickname} />
-                    <div className="flex-1">
-                      <p className="text-[12px] font-black text-white uppercase italic tracking-tighter">{d.nickname || d.name}</p>
-                    </div>
+              <div className="max-h-[300px] overflow-y-auto no-scrollbar">
+                {searchResults.map((result) => (
+                  <div 
+                    key={result._id} 
+                    onClick={() => { navigate(`/profile/${result.auth0Id || result._id}`); setShowResults(false); setLocalSearch(""); }} 
+                    className="flex items-center gap-4 p-3 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-none group"
+                  >
+                    <img src={result.avatar || result.picture} className="w-9 h-9 rounded-xl object-cover border border-white/10" alt="" />
+                    <p className="text-[12px] font-bold text-white uppercase tracking-tighter">{result.nickname || result.name}</p>
                   </div>
                 ))}
               </div>
@@ -106,41 +111,51 @@ const Navbar = ({ user, setSearchQuery }) => {
         </AnimatePresence>
       </div>
 
-      {/* 3. Right Action Buttons - ক্লিন করা হয়েছে */}
+      {/* ৩. রাইট অ্যাকশন বাটনসমূহ */}
       <div className="flex items-center gap-4 min-w-fit">
         
-        {/* 🔔 Notifications Button */}
+        {/* নোটিফিকেশন বাটন */}
         <div className="relative">
-          <button 
-            onClick={() => { setShowNotifications(!showNotifications); setHasNewNotification(false); }} 
-            className="p-2 text-gray-400 hover:text-white transition-colors relative"
-          >
-            <FaBell size={18} className={showNotifications ? "text-cyan-400" : ""} />
-            {hasNewNotification && <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-[#020617]"></span>}
+          <button className="p-2 text-gray-400 hover:text-white transition-colors relative">
+            <FaBell size={18} />
+            {hasNewNotification && <span className="absolute top-2 right-2 w-2 h-2 bg-cyan-500 rounded-full border-2 border-black"></span>}
           </button>
-          
-          <AnimatePresence>
-            {showNotifications && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute right-0 mt-4 w-64 bg-[#0f172a] border border-white/10 rounded-2xl p-5 shadow-2xl z-[120]">
-                <button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })} className="w-full flex items-center justify-center gap-2 p-3 bg-rose-500/10 text-rose-500 rounded-xl text-[10px] font-black uppercase">
-                  <FaSignOutAlt /> Sign Out
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
-        {/* 👤 Profile Section - স্ক্রিনশট অনুযায়ী অতিরিক্ত বাটন রিমুভ করা হয়েছে */}
-        <div 
-          onClick={() => navigate(`/profile/${user?.sub}`)}
-          className="flex items-center gap-3 bg-white/5 p-1 pr-4 rounded-full border border-white/10 cursor-pointer hover:bg-white/10 transition-all"
-        >
-          <div className="w-8 h-8 rounded-full overflow-hidden border border-cyan-500/30">
-            <img src={user?.picture} className="w-full h-full object-cover" alt="Profile" />
-          </div>
-          <p className="hidden sm:block text-[10px] font-black text-white uppercase tracking-tighter">{user?.nickname || "Drifter"}</p>
-        </div>
+        {/* প্রোফাইল এবং ড্রপডাউন */}
+        <div className="relative">
+            <div 
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2 bg-white/5 p-1 pr-3 rounded-full border border-white/10 cursor-pointer hover:bg-white/10 transition-all"
+            >
+                <img src={user?.picture} className="w-7 h-7 rounded-full border border-cyan-500/40" alt="Avatar" />
+                <span className="hidden sm:block text-[10px] font-black text-white uppercase tracking-widest">{user?.nickname?.substring(0, 8)}</span>
+            </div>
 
+            <AnimatePresence>
+                {showDropdown && (
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }} 
+                        animate={{ opacity: 1, scale: 1 }} 
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="absolute right-0 mt-3 w-44 bg-[#0A0A0A] border border-white/10 rounded-2xl p-2 shadow-2xl overflow-hidden"
+                    >
+                        <button 
+                            onClick={() => navigate(`/profile/${user?.sub}`)}
+                            className="w-full text-left px-4 py-3 text-[10px] font-black text-gray-400 hover:text-white hover:bg-white/5 rounded-xl uppercase transition-all"
+                        >
+                            View Profile
+                        </button>
+                        <button 
+                            onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+                            className="w-full flex items-center gap-2 px-4 py-3 text-[10px] font-black text-rose-500 hover:bg-rose-500/10 rounded-xl uppercase transition-all"
+                        >
+                            <FaSignOutAlt /> Sign Out
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
       </div>
     </nav>
   );
