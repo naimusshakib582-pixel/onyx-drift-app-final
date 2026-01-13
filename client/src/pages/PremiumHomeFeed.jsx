@@ -4,13 +4,12 @@ import {
   FaPlus, FaTimes, FaMagic,
   FaCloudUploadAlt, FaImage, FaVideo, FaRegSmile, FaPaperPlane
 } from 'react-icons/fa'; 
-import { HiMenuAlt3 } from 'react-icons/hi'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
 import { useNavigate } from 'react-router-dom'; 
 import { io } from "socket.io-client"; 
 import PostCard from "../components/PostCard"; 
-import { HiOutlineSparkles } from "react-icons/hi2"; // AI আইকন
+import { HiOutlineSparkles } from "react-icons/hi2"; 
 
 const PremiumHomeFeed = ({ searchQuery }) => {
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
@@ -18,9 +17,10 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const [postText, setPostText] = useState("");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [aiLoading, setAiLoading] = useState(false); // AI লোডিং স্টেট
+  const [aiLoading, setAiLoading] = useState(false);
   
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // মেনু বাটন রিমুভ করার জন্য এই স্টেটটি আর প্রয়োজন নেই
+  // const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
 
   const [selectedPostMedia, setSelectedPostMedia] = useState(null);
   const [mediaFile, setMediaFile] = useState(null); 
@@ -28,20 +28,18 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   const postFileInputRef = useRef(null);
   const socketRef = useRef(null); 
 
-  // এপিআই ইউআরএল
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
-  // ✅ AI ক্যাপশন জেনারেটর ফাংশন
   const handleAICaption = async () => {
     if (!postText.trim()) return alert("Please type a keyword or sentence first!");
     setAiLoading(true);
     try {
       const token = await getAccessTokenSilently();
-      const { data } = await axios.post(`${API_URL}/api/communities/generate-caption`, // আপনার রাউট অনুযায়ী
+      const { data } = await axios.post(`${API_URL}/api/communities/generate-caption`, 
         { prompt: postText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setPostText(data.captions); // AI জেনারেটেড টেক্সট সেট করা
+      setPostText(data.captions);
     } catch (err) {
       console.error("AI Sync Error:", err);
       alert("AI Neural link failed. Try again.");
@@ -73,11 +71,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
       };
     }
   }, [isAuthenticated, API_URL]);
-
-  const handleMenuClick = (path) => {
-    navigate(path);
-    setIsSidebarOpen(false); 
-  };
 
   const fetchPosts = async () => {
     try {
@@ -203,43 +196,12 @@ const PremiumHomeFeed = ({ searchQuery }) => {
   return (
     <div className="w-full min-h-screen bg-transparent space-y-4 md:space-y-6 pb-24 overflow-x-hidden relative">
       
-      {/* মোবাইল হেডার */}
-      <div className="md:hidden flex justify-between items-center px-4 pt-4">
+      {/* মোবাইল হেডার - শুধু লোগো রাখা হয়েছে, মেনু বাটন রিমুভ করা হয়েছে */}
+      <div className="md:hidden flex justify-center items-center px-4 pt-4">
         <h1 className="text-xl font-black text-white italic tracking-tighter">ONYX<span className="text-cyan-400">DRIFT</span></h1>
-        <button 
-          onClick={() => setIsSidebarOpen(true)}
-          className="p-2 bg-white/5 border border-white/10 rounded-xl text-cyan-400 active:scale-90 transition-all"
-        >
-          <HiMenuAlt3 size={24} />
-        </button>
       </div>
 
-      {/* মোবাইল সাইডবার ওভারলে/ড্রয়ার - No changes here */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/80 backdrop-blur-md z-[1000] md:hidden" />
-        )}
-      </AnimatePresence>
-
-      <aside className={`fixed top-0 left-0 h-full w-[290px] bg-[#020617] border-r border-white/10 z-[1001] transform transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:hidden`}>
-        <div className="flex justify-between items-center p-6 border-b border-white/5">
-          <span className="text-cyan-400 font-black tracking-widest text-[10px]">NEURAL MENU</span>
-          <button onClick={() => setIsSidebarOpen(false)} className="text-white/50"><FaTimes size={18} /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
-          <nav className="space-y-1">
-            <div onClick={() => handleMenuClick('/')} className="flex items-center gap-4 p-4 bg-cyan-500/10 text-cyan-400 rounded-2xl border border-cyan-500/20 cursor-pointer">
-              <FaPlus size={14} /> <span className="font-bold uppercase text-[11px] tracking-widest">Feed</span>
-            </div>
-            <div onClick={() => handleMenuClick('/analytics')} className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer">
-              <FaMagic size={16} /> <span className="font-bold uppercase text-[11px] tracking-widest">Analytics</span>
-            </div>
-            <div onClick={() => handleMenuClick('/messenger')} className="flex items-center gap-4 p-4 text-gray-400 hover:bg-white/5 rounded-2xl transition-all cursor-pointer">
-              <FaPaperPlane size={16} /> <span className="font-bold uppercase text-[11px] tracking-widest">Messages</span>
-            </div>
-          </nav>
-        </div>
-      </aside>
+      {/* মোবাইল সাইডবার এবং সাইডবার বাটন কোড এখান থেকে রিমুভ করা হয়েছে */}
 
       {/* স্টোরি সেকশন */}
       <section className="px-3 md:px-4 pt-2 md:pt-4">
@@ -263,7 +225,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         </div>
       </section>
 
-      {/* পোস্ট ইনপুট বক্স - AI MAGIC ADDED HERE */}
+      {/* পোস্ট ইনপুট বক্স */}
       <section className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-5 mx-3 md:mx-4">
         <div className="flex items-start gap-3 md:gap-4 mb-4">
           <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl overflow-hidden border border-white/10 shrink-0">
@@ -277,7 +239,6 @@ const PremiumHomeFeed = ({ searchQuery }) => {
                 placeholder={`What's on your mind?`}
                 className="w-full bg-white/5 rounded-xl md:rounded-2xl border border-white/10 px-4 py-3 text-xs md:text-sm text-white placeholder-gray-500 outline-none focus:border-cyan-500/50 transition-all resize-none min-h-[50px] pr-10"
               />
-              {/* ✨ AI MAGIC BUTTON */}
               <button 
                 onClick={handleAICaption}
                 disabled={aiLoading}
@@ -337,7 +298,7 @@ const PremiumHomeFeed = ({ searchQuery }) => {
         )}
       </section>
 
-      {/* মোডাল এবং ভিউয়ার - No changes here */}
+      {/* মোডাল এবং স্টোরি ভিউয়ার */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-4">
