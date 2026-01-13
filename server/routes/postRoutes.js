@@ -15,14 +15,13 @@ router.get('/', async (req, res) => {
 });
 
 /* ==========================================================
-    ২. নির্দিষ্ট ইউজারের পোস্ট গেট করা (এটিই আপনার মিসিং ছিল)
+    ২. নির্দিষ্ট ইউজারের পোস্ট গেট করা
     এন্ডপয়েন্ট: GET /api/posts/user/:userId
 ========================================================== */
 router.get('/user/:userId', authMiddleware, async (req, res) => {
     try {
         const targetId = decodeURIComponent(req.params.userId);
         
-        // ডাটাবেসে authorId বা authorAuth0Id দিয়ে পোস্ট খোঁজা
         const posts = await Post.find({ 
             $or: [
                 { authorId: targetId },
@@ -41,7 +40,7 @@ router.get('/user/:userId', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const { text, media, mediaType, authorName, authorAvatar, authorId } = req.body;
-        const currentUserId = req.user.sub || req.user.id; // Auth0 আইডি
+        const currentUserId = req.user.sub || req.user.id; 
 
         const newPost = new Post({ 
             text, 
@@ -50,7 +49,7 @@ router.post('/', authMiddleware, async (req, res) => {
             authorName, 
             authorAvatar, 
             authorId: currentUserId,
-            authorAuth0Id: currentUserId // ফ্রন্টএন্ড লিঙ্কের জন্য এটিও সেভ করুন
+            authorAuth0Id: currentUserId 
         });
 
         const savedPost = await newPost.save();
@@ -94,6 +93,44 @@ router.put('/:id/like', authMiddleware, async (req, res) => {
         res.json(post);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+/* ==========================================================
+    নতুন অংশ: রিলস (Reels) ভিডিওর জন্য রুট
+========================================================== */
+
+// ৬. রিলস ভিডিও আপলোড করা
+router.post('/reels', authMiddleware, async (req, res) => {
+    try {
+        const { text, mediaUrl, authorName, authorAvatar } = req.body;
+        const currentUserId = req.user.sub || req.user.id;
+
+        const newReel = new Post({
+            text,
+            media: mediaUrl,
+            mediaType: 'video',
+            postType: 'reels', // রিলস হিসেবে চিহ্নিত করতে
+            authorName,
+            authorAvatar,
+            authorId: currentUserId,
+            authorAuth0Id: currentUserId
+        });
+
+        const savedReel = await newReel.save();
+        res.status(201).json(savedReel);
+    } catch (err) {
+        res.status(400).json({ message: "Reel transmission failed", error: err.message });
+    }
+});
+
+// ৭. সব রিলস গেট করা
+router.get('/reels/all', async (req, res) => {
+    try {
+        const reels = await Post.find({ postType: 'reels' }).sort({ createdAt: -1 });
+        res.json(reels);
+    } catch (err) {
+        res.status(500).json({ message: "Server Error", error: err.message });
     }
 });
 

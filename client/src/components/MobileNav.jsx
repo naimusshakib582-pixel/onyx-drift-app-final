@@ -1,12 +1,13 @@
-import React from "react";
+import React, { useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-// ছবির মতো আউটলাইন আইকনের জন্য Lucide React ব্যবহার করা হয়েছে
+// ছবির মতো আউটলাইন আইকনের জন্য Lucide React ব্যবহার করা হয়েছে
 import { Home, Play, Plus, MessageSquare, Users } from "lucide-react"; 
 
 const MobileNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const fileInputRef = useRef(null); // ভিডিও ফাইলের জন্য রেফারেন্স
 
   const navItems = [
     { icon: <Home size={22} />, path: "/feed", id: "home" },
@@ -16,7 +17,21 @@ const MobileNav = () => {
     { icon: <Users size={22} />, path: "/following", id: "following" },
   ];
 
- const isActive = (path) => location.pathname === path;
+  const isActive = (path) => location.pathname === path;
+
+  // প্লাস বাটনে ক্লিক করলে ফাইল ইনপুট ওপেন হবে
+  const handlePlusClick = () => {
+    fileInputRef.current.click();
+  };
+
+  // ভিডিও ফাইল সিলেক্ট করার পর লজিক
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('video/')) {
+      // ভিডিওটি নিয়ে এডিটর পেজে পাঠিয়ে দিবে
+      navigate('/reels-editor', { state: { videoFile: file } });
+    }
+  };
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-[999] bg-[#000000] border-t border-white/[0.03] pt-2 pb-6 px-6">
@@ -24,14 +39,24 @@ const MobileNav = () => {
         {navItems.map((item, idx) => (
           <button
             key={idx}
-            onClick={() => navigate(item.path)}
+            onClick={() => item.isMain ? handlePlusClick() : navigate(item.path)}
             className="flex-1 flex items-center justify-center outline-none"
           >
             {item.isMain ? (
-              /* ছবির মতো ডার্ক স্কয়ার প্লাস বাটন */
-              <div className="w-12 h-10 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/40 active:scale-95 transition-all">
-                <Plus size={22} strokeWidth={2.5} />
-              </div>
+              <>
+                {/* হিডেন ফাইল ইনপুট */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept="video/*" 
+                  className="hidden" 
+                />
+                {/* ছবির মতো ডার্ক স্কয়ার প্লাস বাটন */}
+                <div className="w-12 h-10 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/40 active:scale-95 transition-all">
+                  <Plus size={22} strokeWidth={2.5} />
+                </div>
+              </>
             ) : (
               /* হালকা সাদা আইকন যা একটিভ হলে উজ্জ্বল হবে */
               <div 

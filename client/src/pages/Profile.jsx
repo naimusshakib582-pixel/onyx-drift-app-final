@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   FaEdit, FaShieldAlt, FaRocket, FaCamera, FaImage, 
   FaFilm, FaPlayCircle, FaTimes, FaPlus, FaCheckCircle, 
-  FaUserPlus, FaEnvelope, FaSearch, FaMagic, FaAward
+  FaUserPlus, FaEnvelope, FaSearch, FaMagic, FaAward,
+  FaThLarge, FaPlay // গ্রিড এবং ভিডিও আইকনের জন্য
 } from "react-icons/fa";
 import { BRAND_NAME } from "../utils/constants";
 import PostCard from "../components/PostCard";
@@ -81,8 +82,9 @@ const Profile = () => {
   
   const [userProfile, setUserProfile] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
+  const [userReels, setUserReels] = useState([]); // রিলস এর জন্য নতুন স্টেট
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("Echoes");
+  const [activeTab, setActiveTab] = useState("Echoes"); // Default: Echoes
   
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestedUsers, setSuggestedUsers] = useState([]);
@@ -125,8 +127,12 @@ const Profile = () => {
       ]);
 
       setUserProfile(profileRes.data);
-      // 🔥 Fix: Ensure it's always an array to prevent .slice or .map error
-      setUserPosts(Array.isArray(postsRes.data) ? postsRes.data : []);
+      const allPosts = Array.isArray(postsRes.data) ? postsRes.data : [];
+      
+      // পোস্ট এবং রিলস আলাদা করা
+      setUserPosts(allPosts.filter(p => p.postType !== 'reels'));
+      setUserReels(allPosts.filter(p => p.postType === 'reels' || p.mediaType === 'video'));
+      
       setSuggestedUsers(Array.isArray(usersRes.data) ? usersRes.data.slice(0, 5) : []);
 
     } catch (err) {
@@ -187,7 +193,7 @@ const Profile = () => {
         } 
       });
       
-      setUserPosts([res.data, ...userPosts]); 
+      fetchProfileData(); // রিফ্রেশ ডেটা
       setIsCreateOpen(false);
       setContent("");
       setFile(null);
@@ -313,21 +319,61 @@ const Profile = () => {
             {/* Tabs & Content */}
             <div className="mt-12">
               <div className="flex gap-8 mb-8 border-b border-white/5">
-                {["Echoes", "Insights"].map((tab) => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-4 text-[10px] font-black uppercase tracking-widest relative ${activeTab === tab ? "text-cyan-400" : "text-gray-600"}`}>
-                    {tab}
-                    {activeTab === tab && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />}
+                {[
+                  { name: "Echoes", icon: <FaThLarge size={14} /> },
+                  { name: "Reels", icon: <FaPlay size={14} /> },
+                  { name: "Insights", icon: <FaAward size={14} /> }
+                ].map((tab) => (
+                  <button 
+                    key={tab.name} 
+                    onClick={() => setActiveTab(tab.name)} 
+                    className={`pb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest relative ${activeTab === tab.name ? "text-cyan-400" : "text-gray-600"}`}
+                  >
+                    {tab.icon} {tab.name}
+                    {activeTab === tab.name && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />}
                   </button>
                 ))}
               </div>
               
-              <div className="space-y-6">
-                {userPosts.length > 0 ? (
-                  userPosts.map((post) => (
-                    <PostCard key={post._id} post={post} onAction={fetchProfileData} />
-                  ))
-                ) : (
-                  <div className="text-center py-20 opacity-20 italic uppercase tracking-[0.2em]">Zero Echoes Found</div>
+              <div className="min-h-[400px]">
+                {activeTab === "Echoes" && (
+                   <div className="space-y-6">
+                     {userPosts.length > 0 ? (
+                       userPosts.map((post) => (
+                         <PostCard key={post._id} post={post} onAction={fetchProfileData} />
+                       ))
+                     ) : (
+                       <div className="text-center py-20 opacity-20 italic uppercase tracking-[0.2em]">Zero Echoes Found</div>
+                     )}
+                   </div>
+                )}
+
+                {activeTab === "Reels" && (
+                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
+                      {userReels.length > 0 ? (
+                        userReels.map((reel) => (
+                          <div key={reel._id} className="relative aspect-[9/16] bg-white/5 rounded-3xl overflow-hidden group cursor-pointer border border-white/5">
+                             <video 
+                                src={reel.media || reel.mediaUrl} 
+                                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                                muted 
+                                onMouseOver={(e) => e.target.play()}
+                                onMouseOut={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                             />
+                             <div className="absolute bottom-4 left-4 flex items-center gap-1 text-white/70 text-[10px] font-black uppercase tracking-tighter">
+                                <FaPlayCircle size={14} className="text-cyan-400" />
+                                {reel.views || 0}
+                             </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full text-center py-20 opacity-20 italic uppercase tracking-[0.2em]">Zero Signals Captured</div>
+                      )}
+                   </div>
+                )}
+
+                {activeTab === "Insights" && (
+                  <div className="text-center py-20 opacity-20 italic uppercase tracking-[0.2em]">Node Insights Restricted</div>
                 )}
               </div>
             </div>
@@ -357,7 +403,7 @@ const Profile = () => {
                 value={editData.bio} 
                 onChange={(e) => setEditData({...editData, bio: e.target.value})} 
               />
-              <button onClick={handleUpdateIdentity} disabled={isUpdating} className="w-full mt-6 py-4 bg-cyan-500 rounded-xl font-black uppercase text-[10px] tracking-widest">
+              <button onClick={handleUpdateIdentity} disabled={isUpdating} className="w-full mt-6 py-4 bg-cyan-500 rounded-xl font-black uppercase text-[10px] tracking-widest text-black">
                 {isUpdating ? "Syncing..." : "Update Node"}
               </button>
             </motion.div>
@@ -379,8 +425,8 @@ const Profile = () => {
               />
               <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => setFile(e.target.files[0])} />
               <div className="flex gap-4 mb-6">
-                <button onClick={() => handleFileSelect('photo')} className={`p-4 rounded-xl border ${file ? 'border-cyan-500' : 'border-white/10'} bg-white/5 flex-1`}><FaImage className="mx-auto"/></button>
-                <button onClick={() => handleFileSelect('video')} className="p-4 rounded-xl border border-white/10 bg-white/5 flex-1"><FaFilm className="mx-auto"/></button>
+                <button onClick={() => handleFileSelect('photo')} className={`p-4 rounded-xl border ${file && postType === 'image' ? 'border-cyan-500' : 'border-white/10'} bg-white/5 flex-1`}><FaImage className="mx-auto"/></button>
+                <button onClick={() => handleFileSelect('video')} className={`p-4 rounded-xl border ${file && postType === 'video' ? 'border-purple-500' : 'border-white/10'} bg-white/5 flex-1`}><FaFilm className="mx-auto"/></button>
               </div>
               <button onClick={handleTransmit} disabled={isTransmitting} className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest">
                 {isTransmitting ? "Transmitting..." : "Send Echo"}

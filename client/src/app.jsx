@@ -16,6 +16,8 @@ import Explorer from "./pages/Explorer";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import FollowingPage from "./pages/FollowingPage";
+import ReelsEditor from "./pages/ReelsEditor"; // আপনার নতুন এডিটর
+import ReelsFeed from "./pages/ReelsFeed";     // আপনার নতুন রিলস ফিড
 import Call from "./pages/Call";
 import ViralFeed from "./pages/ViralFeed"; 
 import JoinPage from "./pages/JoinPage"; 
@@ -92,7 +94,7 @@ export default function App() {
     </div>
   );
 
-  const isFullWidthPage = ["/messenger", "/settings", "/", "/join"].includes(location.pathname) || 
+  const isFullWidthPage = ["/messenger", "/settings", "/", "/join", "/reels", "/reels-editor"].includes(location.pathname) || 
                           location.pathname.startsWith("/messenger") || 
                           location.pathname.startsWith("/call/");
 
@@ -102,7 +104,7 @@ export default function App() {
       <Toaster />
       <CustomCursor />
 
-      {/* ১. Navbar: এটি এখন sticky নয়, স্ক্রলের সাথে ওপরে উঠে যাবে */}
+      {/* ১. Navbar */}
       {isAuthenticated && (
         <header className="w-full">
           <Navbar 
@@ -114,18 +116,18 @@ export default function App() {
         </header>
       )}
       
-      {/* ২. মেইন লেআউট স্ট্রাকচার: pt (padding-top) রিমুভ করা হয়েছে যাতে গ্যাপ না থাকে */}
+      {/* ২. মেইন লেআউট স্ট্রাকচার */}
       <div className="flex justify-center w-full transition-all duration-500">
         <div className={`flex w-full ${isFullWidthPage ? "max-w-full" : "max-w-[1440px] px-0 lg:px-6"} gap-6`}>
           
-          {/* লেফট সাইডবার: এটি শুধুমাত্র ডেস্কটপে ফিক্সড থাকবে */}
+          {/* লেফট সাইডবার */}
           {isAuthenticated && !isFullWidthPage && (
             <aside className="hidden lg:block w-[280px] sticky top-4 h-[calc(100vh-20px)]">
               <Sidebar />
             </aside>
           )}
           
-          {/* ফিড কন্টেন্ট এরিয়া */}
+          {/* কন্টেন্ট এরিয়া */}
           <main className="flex-1 flex justify-center pb-24 lg:pb-10">
             <div className={`${isFullWidthPage ? "w-full" : "w-full lg:max-w-[650px] max-w-full"}`}>
               <AnimatePresence mode="wait">
@@ -148,7 +150,11 @@ export default function App() {
                     } 
                   />
 
-                  <Route path="/reels" element={<ProtectedRoute component={ViralFeed} />} />
+                  {/* রিলস এবং ভিডিও এডিটর রাউটস */}
+                  <Route path="/reels" element={<ProtectedRoute component={ReelsFeed} />} />
+                  <Route path="/reels-editor" element={<ProtectedRoute component={ReelsEditor} />} />
+                  
+                  {/* অন্যান্য রাউটস */}
                   <Route path="/viral" element={<ProtectedRoute component={ViralFeed} />} />
                   <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
                   <Route path="/messages" element={<ProtectedRoute component={Messenger} />} />
@@ -164,16 +170,16 @@ export default function App() {
             </div>
           </main>
 
-          {/* রাইট সাইডবার */}
+          {/* রাইট সাইডবার (ডেস্কটপ) */}
           {isAuthenticated && !isFullWidthPage && (
             <aside className="hidden xl:block w-[320px] sticky top-4 h-[calc(100vh-20px)]">
-               {/* ট্রেন্ডিং সেকশন */}
+               {/* এখানে আপনার ট্রেন্ডিং কম্পোনেন্ট বসাতে পারেন */}
             </aside>
           )}
         </div>
       </div>
 
-      {/* ৩. মোবাইল নেভিগেশন (ফুটার): এটি নিচে ফিক্সড থাকবে */}
+      {/* ৩. মোবাইল নেভিগেশন (ফুটার) */}
       {isAuthenticated && <MobileNav userAuth0Id={user?.sub} />}
     </div>
   );
