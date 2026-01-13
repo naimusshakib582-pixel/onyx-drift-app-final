@@ -9,8 +9,6 @@ import { BRAND_NAME } from "./utils/constants";
 // Components & Pages
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
-import Home from "./pages/Home";
-import Landing from "./pages/Landing"; 
 import Messenger from "./pages/Messenger";
 import PremiumHomeFeed from "./pages/PremiumHomeFeed";
 import Analytics from "./pages/Analytics";
@@ -21,6 +19,7 @@ import FollowingPage from "./pages/FollowingPage";
 import Call from "./pages/Call";
 import ViralFeed from "./pages/ViralFeed"; 
 import JoinPage from "./pages/JoinPage"; 
+import Landing from "./pages/Landing"; 
 import CustomCursor from "./components/CustomCursor";
 import MobileNav from "./components/MobileNav";
 
@@ -60,7 +59,7 @@ export default function App() {
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`bg-[#0f172a] border-2 border-cyan-500/50 p-4 rounded-2xl shadow-[0_0_20px_rgba(6,182,212,0.3)] flex items-center gap-4 backdrop-blur-xl`}
+            className="bg-[#0f172a] border-2 border-cyan-500/50 p-4 rounded-2xl shadow-[0_0_20px_rgba(6,182,212,0.3)] flex items-center gap-4 backdrop-blur-xl"
           >
             <div className="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-black font-black uppercase">
               {data.senderName?.[0] || 'N'}
@@ -97,38 +96,41 @@ export default function App() {
       <Toaster />
       <CustomCursor />
 
+      {/* Navbar Section */}
       {isAuthenticated && (
-        <div className="fixed top-0 w-full z-[100] backdrop-blur-xl border-b border-white/5 bg-[#020617]/80">
+        <div className="fixed top-0 w-full z-[100]">
           <Navbar user={user} socket={socket} setSearchQuery={setSearchQuery} />
         </div>
       )}
       
-      <div className={`flex justify-center w-full ${isAuthenticated ? "pt-[100px]" : "pt-0"}`}>
+      {/* Main Layout Container */}
+      <div className={`flex justify-center w-full ${isAuthenticated ? "pt-[75px]" : "pt-0"}`}>
         <div className="flex w-full max-w-[1440px] px-4 gap-6">
           
+          {/* Sidebar - Desktop Only */}
           {isAuthenticated && !hideSidebar && (
-            <aside className="hidden lg:block w-[280px] sticky top-[100px] h-[calc(100vh-120px)]">
-              <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-4 h-full">
+            <aside className="hidden lg:block w-[280px] sticky top-[95px] h-[calc(100vh-115px)]">
+              <div className="h-full">
                 <Sidebar />
               </div>
             </aside>
           )}
           
-          <main className="flex-1 flex justify-center pb-24 lg:pb-0"> {/* Mobile Nav এর জন্য নিচে জায়গা রাখা হয়েছে */}
+          {/* Main Content Area */}
+          <main className="flex-1 flex justify-center pb-24 lg:pb-0">
             <div className="w-full">
               <AnimatePresence mode="wait">
                 <Routes location={location} key={location.pathname}>
                   <Route path="/" element={isAuthenticated ? <Navigate to="/feed" /> : <Landing />} />
                   <Route path="/join" element={<JoinPage />} /> 
                   
-                  {/* সচল করা রাউটসমূহ */}
                   <Route path="/feed" element={<ProtectedRoute component={() => <PremiumHomeFeed searchQuery={searchQuery} />} />} />
-                  <Route path="/reels" element={<ProtectedRoute component={ViralFeed} />} /> {/* Reels বাটন এখন কাজ করবে */}
+                  <Route path="/reels" element={<ProtectedRoute component={ViralFeed} />} />
                   <Route path="/viral" element={<ProtectedRoute component={ViralFeed} />} />
                   <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
-                  <Route path="/messages" element={<ProtectedRoute component={Messenger} />} /> {/* Messenger বাটন ফিক্স */}
+                  <Route path="/messages" element={<ProtectedRoute component={Messenger} />} />
                   <Route path="/messenger" element={<ProtectedRoute component={Messenger} />} />
-                  <Route path="/create" element={<ProtectedRoute component={() => <PremiumHomeFeed />} />} /> {/* Create ফিক্স */}
+                  <Route path="/create" element={<ProtectedRoute component={() => <PremiumHomeFeed />} />} />
                   <Route path="/analytics" element={<ProtectedRoute component={Analytics} />} />
                   <Route path="/explorer" element={<ProtectedRoute component={Explorer} />} />
                   <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
@@ -143,7 +145,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* userAuth0Id পাস করা হয়েছে যাতে Profile বাটন কাজ করে */}
+      {/* Mobile Bottom Navigation */}
       {isAuthenticated && <MobileNav userAuth0Id={user?.sub} />}
 
     </div>
