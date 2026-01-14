@@ -1,28 +1,107 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Share2, Music, UserPlus, Send, X } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Music, UserPlus, Send, X, ArrowLeft, Copy, Download, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from 'axios';
+
+// --- হেল্পার কম্পোনেন্ট: শেয়ার মেনু (Share Sheet) ---
+const ShareSheet = ({ reel, onClose }) => {
+  const handleCopyLink = () => {
+    const link = `${window.location.origin}/reels/${reel._id}`;
+    navigator.clipboard.writeText(link);
+    alert("Link copied to clipboard!");
+    onClose();
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(reel.media);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Reel-${reel._id}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Download failed.");
+    }
+  };
+
+  const shareToMessenger = () => {
+    const url = `${window.location.origin}/reels/${reel._id}`;
+    window.open(`fb-messenger://share/?link=${encodeURIComponent(url)}`, '_blank');
+  };
+
+  return (
+    <motion.div 
+      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+      className="fixed bottom-0 left-0 right-0 bg-zinc-900/98 backdrop-blur-2xl p-6 rounded-t-[2rem] z-[2100] flex flex-col gap-6"
+    >
+      <div className="flex justify-between items-center border-b border-white/5 pb-4">
+        <h3 className="text-white font-bold text-sm">Share Reel</h3>
+        <X size={20} onClick={onClose} className="text-white/40 cursor-pointer" />
+      </div>
+      
+      <div className="flex justify-around items-center py-4">
+        <button onClick={shareToMessenger} className="flex flex-col items-center gap-2">
+          <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white">
+            <MessageSquare size={24} />
+          </div>
+          <span className="text-[10px] text-white/70">Messenger</span>
+        </button>
+        
+        <button onClick={handleCopyLink} className="flex flex-col items-center gap-2">
+          <div className="w-14 h-14 bg-zinc-700 rounded-full flex items-center justify-center text-white">
+            <Copy size={24} />
+          </div>
+          <span className="text-[10px] text-white/70">Copy Link</span>
+        </button>
+
+        <button onClick={handleDownload} className="flex flex-col items-center gap-2">
+          <div className="w-14 h-14 bg-zinc-700 rounded-full flex items-center justify-center text-white">
+            <Download size={24} />
+          </div>
+          <span className="text-[10px] text-white/70">Download</span>
+        </button>
+      </div>
+    </motion.div>
+  );
+};
 
 // --- হেল্পার কম্পোনেন্ট: কমেন্ট সেকশন ---
 const CommentSheet = ({ reel, onClose, API_URL }) => {
   const [comments, setComments] = useState(reel.comments || []);
   const [newComment, setNewComment] = useState("");
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, user } = useAuth0();
 
   const handleSendComment = async () => {
     if (!newComment.trim()) return;
+
+    const temporaryComment = {
+      text: newComment,
+      userName: user?.nickname || user?.name || "User",
+      userAvatar: user?.picture,
+      createdAt: new Date().toISOString()
+    };
+    
+    setComments(prev => [...prev, temporaryComment]);
+    const commentToSend = newComment;
+    setNewComment("");
+
     try {
       const token = await getAccessTokenSilently();
       const response = await axios.post(`${API_URL}/api/posts/${reel._id}/comment`, 
-        { text: newComment },
+        { text: commentToSend },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setComments(response.data.comments);
-      setNewComment("");
     } catch (err) {
       console.error("Comment failed", err);
+      setComments(reel.comments);
+      alert("Comment sync failed.");
     }
   };
 
@@ -64,6 +143,7 @@ const CommentSheet = ({ reel, onClose, API_URL }) => {
 const ReelsFeed = () => {
   const [reels, setReels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
   useEffect(() => {
@@ -81,8 +161,15 @@ const ReelsFeed = () => {
   }, [API_URL]);
 
   return (
-    // fixed inset-0 ব্যবহারের ফলে এটি পুরো স্ক্রিন জুড়ে থাকবে এবং অন্য কোনো বার দেখা যাবে না
     <div className="fixed inset-0 bg-black z-[1000] overflow-y-scroll snap-y snap-mandatory hide-scrollbar">
+      
+      <button 
+        onClick={() => navigate(-1)} 
+        className="fixed top-6 left-4 z-[1100] p-2 bg-black/20 backdrop-blur-md rounded-full border border-white/10 text-white active:scale-75 transition-transform"
+      >
+        <ArrowLeft size={24} />
+      </button>
+
       {loading ? (
         <div className="h-full flex flex-col items-center justify-center gap-4 bg-black">
           <div className="w-12 h-12 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin"></div>
@@ -95,7 +182,7 @@ const ReelsFeed = () => {
   );
 };
 
-// --- রিল আইটেম কম্পোনেন্ট (TikTok Full Screen) ---
+// --- রিল আইটেম কম্পোনেন্ট ---
 const ReelItem = ({ reel, API_URL }) => {
   const videoRef = useRef(null);
   const navigate = useNavigate();
@@ -103,6 +190,7 @@ const ReelItem = ({ reel, API_URL }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(reel.likes?.length || 0);
   const [isCommentOpen, setIsCommentOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
 
   useEffect(() => {
@@ -136,7 +224,6 @@ const ReelItem = ({ reel, API_URL }) => {
   return (
     <div className="h-[100dvh] w-full snap-start relative bg-black flex items-center justify-center overflow-hidden">
       
-      {/* ১. ভিডিও লেয়ার: object-cover ব্যবহার করা হয়েছে যাতে ফুল স্ক্রিন থাকে */}
       <video
         ref={videoRef} src={reel.media} loop playsInline
         className="absolute inset-0 w-full h-full object-cover"
@@ -144,7 +231,6 @@ const ReelItem = ({ reel, API_URL }) => {
         onClick={() => videoRef.current?.paused ? videoRef.current.play() : videoRef.current.pause()}
       />
 
-      {/* ২. হার্ট এনিমেশন */}
       <AnimatePresence>
         {showHeart && (
           <motion.div initial={{ scale: 0 }} animate={{ scale: 2 }} exit={{ opacity: 0 }} className="absolute z-[1010] pointer-events-none">
@@ -153,12 +239,10 @@ const ReelItem = ({ reel, API_URL }) => {
         )}
       </AnimatePresence>
 
-      {/* ৩. UI Overlay (Transparent) */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/70 z-[1005] pointer-events-none">
         <div className="absolute inset-0 flex flex-col justify-end p-5 pb-10 pointer-events-none">
           <div className="flex w-full items-end justify-between pointer-events-auto">
             
-            {/* প্রোফাইল এবং কন্টেন্ট */}
             <div className="flex-1 text-white pr-12 pb-2">
               <div className="flex items-center gap-3 mb-4">
                 <div className="relative">
@@ -178,11 +262,10 @@ const ReelItem = ({ reel, API_URL }) => {
               </div>
             </div>
 
-            {/* সাইড একশন বার */}
             <div className="flex flex-col gap-6 items-center mb-2">
               <SideBtn icon={<Heart fill={isLiked ? "#ff0050" : "none"} className={isLiked ? "text-[#ff0050]" : "text-white"} />} label={likesCount} onClick={handleLike} />
               <SideBtn icon={<MessageCircle fill="white" className="text-white" />} label={reel.comments?.length || 0} onClick={() => setIsCommentOpen(true)} />
-              <SideBtn icon={<Share2 fill="white" className="text-white" />} label="Share" />
+              <SideBtn icon={<Share2 fill="white" className="text-white" />} label="Share" onClick={() => setIsShareOpen(true)} />
               <div className="w-10 h-10 rounded-full border-2 border-zinc-700 p-2 bg-zinc-900 animate-spin-slow mt-2 shadow-2xl">
                 <img src={reel.authorAvatar} className="w-full h-full rounded-full object-cover" />
               </div>
@@ -191,9 +274,9 @@ const ReelItem = ({ reel, API_URL }) => {
         </div>
       </div>
 
-      {/* কমেন্ট শীট */}
       <AnimatePresence>
         {isCommentOpen && <CommentSheet reel={reel} API_URL={API_URL} onClose={() => setIsCommentOpen(false)} />}
+        {isShareOpen && <ShareSheet reel={reel} onClose={() => setIsShareOpen(false)} />}
       </AnimatePresence>
 
       <style jsx>{`
