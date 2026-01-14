@@ -7,10 +7,10 @@ import Redis from "ioredis";
 import { v2 as cloudinary } from 'cloudinary';
 import https from 'https';
 
-// ১. কনফিগারেশন লোড (সবার আগে)
+// ১. কনফিগারেশন লোড
 dotenv.config();
 
-// ২. ডাটাবেস ও ক্লাউডিনারি কানেকশন (রাউট ইম্পোর্টের আগে হওয়া নিরাপদ)
+// ২. ডাটাবেস ও ক্লাউডিনারি কানেকশন
 import connectDB from "./config/db.js"; 
 connectDB();
 
@@ -20,17 +20,16 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৩. রাউট ইম্পোর্ট
+// ৩. রাউট ইম্পোর্ট (পাথ নিশ্চিত করুন)
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
 import userRoutes from './routes/users.js'; 
 import messageRoutes from "./routes/messages.js";
-import Message from "./models/Message.js"; 
 
 const app = express();
 const server = http.createServer(app);
 
-// ৪. CORS কনফিগারেশন
+// ৪. CORS কনফিগারেশন (Render-এর জন্য ডোমেইন অ্যাড করা হয়েছে)
 const allowedOrigins = [
     "http://localhost:5173", 
     "https://onyx-drift-app-final.onrender.com",
@@ -40,7 +39,7 @@ const allowedOrigins = [
 
 const corsOptions = {
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Signal Blocked: CORS Security Policy'));
@@ -52,86 +51,64 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// বডি পার্সার লিমিট বাড়ানো হয়েছে (ভিডিও/ইমেজ আপলোডের জন্য)
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // ৫. সকেট আইও কনফিগারেশন
 const io = new Server(server, {
     cors: corsOptions,
-    transports: ['polling', 'websocket'],
-    pingTimeout: 60000,
-    pingInterval: 25000
+    transports: ['polling', 'websocket']
 });
 
 // ৬. Redis Setup
 const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: null,
-    enableReadyCheck: false,
-    retryStrategy: (times) => Math.min(times * 50, 2000),
+    enableReadyCheck: false
 }) : null;
 
-if(redis) {
-    redis.on("connect", () => console.log("✅ Neural Cache Online"));
-    redis.on("error", (err) => console.error("❌ Redis Connection Error:", err.message));
-}
-
-// ৭. এপিআই রাউট মাউন্টিং
+// ৭. এপিআই রাউট মাউন্টিং (ভেরি ইম্পর্ট্যান্ট)
 app.use("/api/user", userRoutes); 
 app.use("/api/profile", profileRoutes); 
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
 
-// ৮. Keep-Alive Mechanism (Render-এর স্লিপ মোড এড়ানোর জন্য)
+// ৮. রুট এন্ডপয়েন্ট চেক (সার্ভার রানিং কি না তা দেখার জন্য)
+app.get("/", (req, res) => {
+    res.send("🚀 OnyxDrift Neural Core is Online!");
+});
+
+// ৯. Keep-Alive Mechanism
 setInterval(() => {
     https.get('https://onyx-drift-app-final.onrender.com', (res) => {
-        // Heartbeat pulse stable
-    }).on('error', (err) => {
-        console.log('Keep-alive ping failed');
-    });
+        // Ping success
+    }).on('error', (err) => console.log('Keep-alive ping failure'));
 }, 840000); 
 
-// ৯. উন্নত গ্লোবাল এরর হ্যান্ডলার (৫০০ এরর ডায়াগনসিসের জন্য)
+// ১০. উন্নত গ্লোবাল এরর হ্যান্ডলার
 app.use((err, req, res, next) => {
-    // এটি আপনার Render লগে বিস্তারিত দেখাবে
-    console.error("🔥 ACTUAL_SYSTEM_ERROR:", err); 
-    
-    if (err.message === 'Signal Blocked: CORS Security Policy') {
-        return res.status(403).json({ error: "Access Denied: Neural link rejected" });
-    }
-
-    res.status(500).json({ 
+    console.error("🔥 SYSTEM_ERROR:", err.stack);
+    res.status(err.status || 500).json({ 
         error: "Internal Neural Breakdown", 
-        message: err.message,
-        // প্রোডাকশনে স্ট্যাক ট্রেস হাইড রাখা নিরাপদ
-        details: process.env.NODE_ENV === 'development' ? err.stack : "Check server logs for details"
+        message: err.message 
     });
 });
 
 /* ==========================================================
-    📡 REAL-TIME ENGINE (Socket.io Logic)
+    📡 REAL-TIME ENGINE
 ========================================================== */
 io.on("connection", (socket) => {
-    
     socket.on("addNewUser", async (userId) => {
         if (redis && userId) {
-            try {
-                await redis.hset("online_users", userId, socket.id);
-                const allUsers = await redis.hgetall("online_users");
-                io.emit("getOnlineUsers", Object.keys(allUsers).map(id => ({ userId: id })));
-            } catch (err) {
-                console.error("Socket AddUser Error:", err.message);
-            }
+            await redis.hset("online_users", userId, socket.id);
+            const allUsers = await redis.hgetall("online_users");
+            io.emit("getOnlineUsers", Object.keys(allUsers).map(id => ({ userId: id })));
         }
     });
 
     socket.on("sendMessage", async (data) => {
         const { receiverId } = data;
         const socketId = await redis?.hget("online_users", receiverId);
-        if (socketId) {
-            io.to(socketId).emit("getMessage", data);
-        }
+        if (socketId) io.to(socketId).emit("getMessage", data);
     });
 
     socket.on("disconnect", async () => {
@@ -150,4 +127,4 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 OnyxDrift Core Active on Port: ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Core Active on Port: ${PORT}`));

@@ -23,40 +23,47 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "onyx_drift_posts",
-    resource_type: "auto", // অটোমেটিক ভিডিও বা ইমেজ ডিটেক্ট করবে
+    resource_type: "auto", 
     allowed_formats: ["jpg", "png", "jpeg", "mp4", "mov", "webm"],
   },
 });
 
 const upload = multer({ 
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 } // ১০০ এমবি লিমিট
+  limits: { fileSize: 100 * 1024 * 1024 } 
 });
 
 /* ==========================================================
-    🚀 1. CREATE POST / REEL (POST /api/posts)
+    🌍 1. GET ALL POSTS (GET /api/posts)
+    এটি আপনার মেইন ফিডের জন্য দরকারি
+========================================================== */
+router.get("/", async (req, res) => {
+  try {
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .lean();
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ msg: "Neural Fetch Failure", error: err.message });
+  }
+});
+
+/* ==========================================================
+    🚀 2. CREATE POST / REEL (POST /api/posts)
 ========================================================== */
 router.post("/", auth, upload.single("media"), async (req, res) => {
   try {
-    // ১. ফাইল চেক
     if (!req.file) {
       return res.status(400).json({ msg: "No media file detected. Signal lost." });
     }
 
-    // ২. ইউজার আইডেন্টিটি চেক (auth middleware থেকে আসা)
     const currentUserId = req.user.sub || req.user.id;
-    if (!currentUserId) {
-      return res.status(401).json({ msg: "User identification failed" });
-    }
-
-    // ৩. ইউজারের নাম ও প্রোফাইল ডাটা ফেচ করা
     const userProfile = await User.findOne({ auth0Id: currentUserId }).lean();
 
-    // ৪. ফাইল টাইপ ডিটেকশন (image/video/reel)
     const isVideo = req.file.mimetype.includes("video");
     let detectedType = isVideo ? "video" : "image";
     
-    // যদি ফ্রন্টএন্ড থেকে স্পেসিফিকভাবে 'reel' পাঠানো হয়
     if (req.body.isReel === "true" && isVideo) {
       detectedType = "reel";
     }
@@ -67,7 +74,7 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
       authorName: userProfile?.name || "Drifter",
       authorAvatar: userProfile?.avatar || "",
       text: req.body.text || "",
-      media: req.file.path, // Cloudinary URL            
+      media: req.file.path, 
       mediaType: detectedType,         
       likes: [],
       comments: [],
@@ -79,19 +86,15 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
 
   } catch (err) {
     console.error("🔥 POST_CREATION_CRASH:", err);
-    res.status(500).json({ 
-      msg: "Internal Neural Breakdown", 
-      error: err.message 
-    });
+    res.status(500).json({ msg: "Internal Neural Breakdown", error: err.message });
   }
 });
 
 /* ==========================================================
-    🔥 2. REELS ENGINE (GET /api/posts/reels/all)
+    🔥 3. REELS ENGINE (GET /api/posts/reels/all)
 ========================================================== */
 router.get("/reels/all", async (req, res) => {
   try {
-    // ভিডিও এবং রিল উভয়ই এই ক্যাটাগরিতে পড়বে
     const reels = await Post.find({ 
       mediaType: { $in: ["video", "reel"] } 
     })
@@ -105,7 +108,7 @@ router.get("/reels/all", async (req, res) => {
 });
 
 /* ==========================================================
-    📡 3. THE VIRAL ENGINE (GET /api/posts/viral-feed)
+    📡 4. THE VIRAL ENGINE (GET /api/posts/viral-feed)
 ========================================================== */
 router.get("/viral-feed", async (req, res) => {
   try {
@@ -113,18 +116,13 @@ router.get("/viral-feed", async (req, res) => {
     const now = new Date();
 
     const viralPosts = posts.map((post) => {
-      // এনগেজমেন্ট স্কোর ক্যালকুলেশন
       let engagementScore = (post.likes?.length || 0) * 1.5 + (post.comments?.length || 0) * 4;
-
-      // টাইম গ্র্যাভিটি (পুরানো পোস্টের র‍্যাঙ্ক কমে যাবে)
       const postAgeInHours = (now - new Date(post.createdAt)) / (1000 * 60 * 60);
       const gravity = 1.8;
       const finalScore = engagementScore / Math.pow(postAgeInHours + 2, gravity);
-
       return { ...post, viralRank: finalScore };
     });
 
-    // র‍্যাঙ্ক অনুযায়ী সাজানো
     viralPosts.sort((a, b) => b.viralRank - a.viralRank);
     res.json(viralPosts.slice(0, 20));
   } catch (err) {
@@ -133,7 +131,7 @@ router.get("/viral-feed", async (req, res) => {
 });
 
 /* ==========================================================
-    👤 4. USER SPECIFIC POSTS (GET /api/posts/user/:userId)
+    👤 5. USER SPECIFIC POSTS (GET /api/posts/user/:userId)
 ========================================================== */
 router.get("/user/:userId", async (req, res) => {
   try {
@@ -148,7 +146,7 @@ router.get("/user/:userId", async (req, res) => {
 });
 
 /* ==========================================================
-    ❤️ 5. LIKE / UNLIKE (PUT /api/posts/:id/like)
+    ❤️ 6. LIKE / UNLIKE (PUT /api/posts/:id/like)
 ========================================================== */
 router.put("/:id/like", auth, async (req, res) => {
   try {
@@ -157,9 +155,7 @@ router.put("/:id/like", auth, async (req, res) => {
     if (!post) return res.status(404).json({ msg: "Post not found" });
 
     const isLiked = post.likes.includes(userId);
-    const update = isLiked 
-      ? { $pull: { likes: userId } } 
-      : { $addToSet: { likes: userId } };
+    const update = isLiked ? { $pull: { likes: userId } } : { $addToSet: { likes: userId } };
 
     const updatedPost = await Post.findByIdAndUpdate(req.params.id, update, { new: true });
     res.json(updatedPost);
@@ -169,7 +165,7 @@ router.put("/:id/like", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    🗑️ 6. DELETE POST (DELETE /api/posts/:id)
+    🗑️ 7. DELETE POST (DELETE /api/posts/:id)
 ========================================================== */
 router.delete("/:id", auth, async (req, res) => {
   try {
@@ -178,7 +174,7 @@ router.delete("/:id", auth, async (req, res) => {
 
     const userId = req.user.sub || req.user.id;
     if (post.authorAuth0Id !== userId && post.author !== userId)
-      return res.status(401).json({ msg: "Access Denied: Not your data" });
+      return res.status(401).json({ msg: "Access Denied" });
 
     await post.deleteOne();
     res.json({ msg: "Post terminated", postId: req.params.id });
