@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth0 } from "@auth0/auth0-react"; // ১. Auth0 ইম্পোর্ট করা হয়েছে
 import axios from 'axios';
 import { 
   Scissors, Music, Type, Sparkles, 
@@ -8,6 +9,7 @@ import {
 } from 'lucide-react';
 
 const ReelsEditor = () => {
+  const { getAccessTokenSilently } = useAuth0(); // ২. টোকেন পাওয়ার মেথড
   const location = useLocation();
   const navigate = useNavigate();
   const videoFile = location.state?.videoFile;
@@ -21,7 +23,6 @@ const ReelsEditor = () => {
   const [hookScore, setHookScore] = useState(0);
   const [caption, setCaption] = useState("");
 
-  // API URL Configuration
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
   useEffect(() => {
@@ -35,40 +36,56 @@ const ReelsEditor = () => {
     }
   }, [videoFile, navigate]);
 
-  // ১. AI Auto Edit Logic (Simulated)
   const handleAutoEdit = () => {
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
-      setHookScore(prev => Math.min(prev + 15, 99)); // AI improves score
+      setHookScore(prev => Math.min(prev + 15, 99));
     }, 2000);
   };
 
-  // ২. Final Upload Function
+  // ৩. আপডেট করা ফাইনাল পোস্ট ফাংশন
   const handleFinalPost = async () => {
     if (!videoFile) return;
 
-    const formData = new FormData();
-    formData.append("media", videoFile);
-    formData.append("text", caption || "Neural Pulse - Onyx Drift");
-    formData.append("isReel", "true"); // ব্যাকএন্ডে mediaType="reel" নিশ্চিত করতে
-
     try {
       setIsUploading(true);
+
+      // ৪. Auth0 থেকে ফ্রেশ টোকেন নেওয়া
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: 'https://onyx-drift-api.com', // আপনার ড্যাশবোর্ডের অডিয়েন্সের সাথে এটি মিলতে হবে
+        },
+      });
+
+      const formData = new FormData();
+      formData.append("media", videoFile);
+      formData.append("text", caption || "Neural Pulse - Onyx Drift");
+      formData.append("isReel", "true"); 
+
+      // ৫. হেডারে Authorization টোকেন পাঠানো
       const response = await axios.post(`${API_URL}/api/posts`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: { 
+          "Content-Type": "multipart/form-data",
+          "Authorization": `Bearer ${token}` // এই লাইনটিই ৪০০১ এরর সমাধান করবে
+        },
         onUploadProgress: (progressEvent) => {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(percent);
         }
       });
 
-      if (response.status === 201) {
+      if (response.status === 201 || response.status === 200) {
         navigate('/reels');
       }
     } catch (err) {
-      console.error("Upload Error:", err);
-      alert("Neural Link Failed: Check connection");
+      console.error("Neural Sync Error:", err.response?.data || err.message);
+      // ৪০০১ এরর আসলে ইউজারকে লগআউট করতে বলা ভালো
+      if (err.response?.status === 401) {
+        alert("Identity Expired: Please logout and login again.");
+      } else {
+        alert("Neural Link Failed: Signal Lost");
+      }
     } finally {
       setIsUploading(false);
     }
@@ -85,7 +102,7 @@ const ReelsEditor = () => {
             className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-10"
           >
             <div className="w-20 h-20 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-6 shadow-[0_0_20px_rgba(6,182,212,0.3)]"></div>
-            <h2 className="text-xl font-black tracking-tighter mb-2 italic">TRANSMITTING SIGNAL...</h2>
+            <h2 className="text-xl font-black tracking-tighter mb-2 italic uppercase">Transmitting Signal...</h2>
             <div className="w-full max-w-xs bg-white/10 h-1 rounded-full overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }}
