@@ -1,32 +1,35 @@
 import { auth } from 'express-oauth2-jwt-bearer';
 
 /**
- * Auth0 JWT Validation Configuration
- * এটি আপনার কাস্টম এপিআই আইডেন্টিফায়ার ব্যবহার করে টোকেন ভেরিফাই করবে.
+ * 🔐 Auth0 JWT Validation Configuration
  */
 const checkJwt = auth({
-  audience: 'https://onyx-drift-api.com', // আপনার স্ক্রিনশট অনুযায়ী সঠিক Identifier
-  issuerBaseURL: 'https://dev-6d0nxccsaycctfl1.us.auth0.com/', // আপনার Auth0 Domain
+  audience: 'https://onyx-drift-api.com', 
+  issuerBaseURL: 'https://dev-6d0nxccsaycctfl1.us.auth0.com/', 
   tokenSigningAlg: 'RS256'
 });
 
 /**
- * Custom Auth Middleware
- * টোকেন ভেরিফাই করার পর 'sub' আইডিকে req.user.id-তে সেট করে.
+ * 🚀 Strict Auth Middleware
+ * এটি নিশ্চিত করে যে ইউজার ভ্যালিড টোকেন ছাড়া কোনো এপিআই এক্সেস করতে পারবে না।
  */
 const authMiddleware = (req, res, next) => {
   checkJwt(req, res, (err) => {
     if (err) {
       console.error("❌ Auth0 Middleware Error:", err.message);
+      // টোকেন না থাকলে বা ইনভ্যালিড হলে এখানেই রিকোয়েস্ট আটকে দিবে
       return res.status(401).json({ 
-        msg: 'Unauthorized: Access Denied', 
+        msg: 'Unauthorized: Neural Signal Lost', 
         error: err.message 
       });
     }
     
+    // Auth0 থেকে প্রাপ্ত 'sub' (Subject ID) কে req.user.id হিসেবে সেট করা হচ্ছে
     if (req.auth && req.auth.payload) {
       req.user = {
-        id: req.auth.payload.sub // এটি আপনার MongoDB-তে ইউজার ট্র্যাক করতে সাহায্য করবে
+        id: req.auth.payload.sub,
+        sub: req.auth.payload.sub, // ডাবল প্রোটেকশন
+        isGuest: false
       };
       next();
     } else {
