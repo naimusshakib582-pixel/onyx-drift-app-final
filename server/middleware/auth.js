@@ -5,7 +5,7 @@ import { auth } from 'express-oauth2-jwt-bearer';
  */
 const checkJwt = auth({
   // 🔥 পরিবর্তন: ফ্রন্টএন্ডের main.jsx এর সাথে মিল রেখে এটি পরিবর্তন করা হলো
-  audience: 'https://onyx-drift-app-final.onrender.com', 
+  audience: https://onyx-drift-api.com'', 
   issuerBaseURL: 'https://dev-6d0nxccsaycctfl1.us.auth0.com/', 
   tokenSigningAlg: 'RS256'
 });
