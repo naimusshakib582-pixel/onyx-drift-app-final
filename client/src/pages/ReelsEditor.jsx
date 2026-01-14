@@ -1,137 +1,196 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth0 } from "@auth0/auth0-react";
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
-import { ChevronLeft, Send, Hash } from 'lucide-react';
+import { 
+  Scissors, Music, Type, Sparkles, 
+  ChevronLeft, BarChart2, Wand2, Send, X 
+} from 'lucide-react';
 
 const ReelsEditor = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth0();
-  const [videoSrc, setVideoSrc] = useState(null);
-  const [caption, setCaption] = useState("");
+  const videoFile = location.state?.videoFile;
+  const videoRef = useRef(null);
+  
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [activeTab, setActiveTab] = useState('edit'); 
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [hookScore, setHookScore] = useState(0);
+  const [caption, setCaption] = useState("");
 
+  // API URL Configuration
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
   useEffect(() => {
-    // MobileNav থেকে পাঠানো ভিডিও ফাইল চেক করা
-    if (location.state?.videoFile) {
-      const url = URL.createObjectURL(location.state.videoFile);
-      setVideoSrc(url);
-      return () => URL.revokeObjectURL(url); // মেমোরি ক্লিনআপ
+    if (videoFile) {
+      const url = URL.createObjectURL(videoFile);
+      setVideoUrl(url);
+      setHookScore(Math.floor(Math.random() * 40) + 60);
+      return () => URL.revokeObjectURL(url);
     } else {
-      navigate('/feed'); // ভিডিও না থাকলে ফিডে পাঠিয়ে দিবে
+      navigate('/reels');
     }
-  }, [location.state, navigate]);
+  }, [videoFile, navigate]);
 
-  // মেইন ট্রান্সমিট লজিক (Backend Integration)
-  const handleTransmit = async () => {
-    if (!location.state?.videoFile) return toast.error("No signal detected.");
-    
-    setIsUploading(true);
+  // ১. AI Auto Edit Logic (Simulated)
+  const handleAutoEdit = () => {
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setHookScore(prev => Math.min(prev + 15, 99)); // AI improves score
+    }, 2000);
+  };
+
+  // ২. Final Upload Function
+  const handleFinalPost = async () => {
+    if (!videoFile) return;
+
     const formData = new FormData();
-    
-    // ভিডিও ফাইল এবং ইউজার ডেটা যোগ করা
-    formData.append("file", location.state.videoFile);
-    formData.append("content", caption);
-    formData.append("type", "video"); // ব্যাকএন্ডে এটি 'video' হিসেবে চিহ্নিত হবে
-    formData.append("authorName", user?.name || "Neural Drifter");
-    formData.append("authorAvatar", user?.picture || "");
+    formData.append("media", videoFile);
+    formData.append("text", caption || "Neural Pulse - Onyx Drift");
+    formData.append("isReel", "true"); // ব্যাকএন্ডে mediaType="reel" নিশ্চিত করতে
 
     try {
+      setIsUploading(true);
       const response = await axios.post(`${API_URL}/api/posts`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percent);
         }
       });
 
       if (response.status === 201) {
-        toast.success("Signal Transmitted to the Cloud!");
         navigate('/reels');
       }
     } catch (err) {
-      console.error("Neural Upload Error:", err);
-      toast.error("Transmission failed. Retry connection.");
+      console.error("Upload Error:", err);
+      alert("Neural Link Failed: Check connection");
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-[2000] flex flex-col overflow-hidden">
-      {/* ১. ফুল স্ক্রিন ভিডিও ব্যাকগ্রাউন্ড (Cinema Mode) */}
-      <video 
-        src={videoSrc} 
-        className="absolute inset-0 w-full h-full object-cover"
-        autoPlay 
-        loop 
-        muted 
-        playsInline
-      />
-
-      {/* ২. ইউআই লেয়ার (Invisible UI) */}
-      <div className="relative z-10 h-full flex flex-col justify-between bg-gradient-to-b from-black/60 via-transparent to-black/80 p-6">
-        
-        {/* টপ বার */}
-        <div className="flex justify-between items-center">
-          <button 
-            onClick={() => navigate(-1)} 
-            className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-all"
+    <div className="h-screen w-full bg-black text-white flex flex-col overflow-hidden font-sans">
+      
+      {/* --- Upload Overlay --- */}
+      <AnimatePresence>
+        {isUploading && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-10"
           >
-            <ChevronLeft size={24} />
-          </button>
-          <div className="flex flex-col items-center">
-            <h2 className="text-cyan-500 text-[10px] font-black tracking-[0.5em] uppercase">Neural Editor</h2>
-            <div className="h-[1px] w-8 bg-cyan-500/50 mt-1 animate-pulse"></div>
-          </div>
-          <div className="w-10"></div>
+            <div className="w-20 h-20 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-6 shadow-[0_0_20px_rgba(6,182,212,0.3)]"></div>
+            <h2 className="text-xl font-black tracking-tighter mb-2 italic">TRANSMITTING SIGNAL...</h2>
+            <div className="w-full max-w-xs bg-white/10 h-1 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }}
+                className="h-full bg-cyan-500 shadow-[0_0_15px_#00f7ff]"
+              />
+            </div>
+            <p className="mt-4 text-cyan-400 font-mono text-xs tracking-widest">{uploadProgress}% SYNCED</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- Header --- */}
+      <div className="p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-50">
+        <button onClick={() => navigate(-1)} className="p-2 bg-white/5 rounded-full backdrop-blur-md border border-white/10">
+          <ChevronLeft size={24} />
+        </button>
+        
+        <div className="flex items-center gap-3 bg-cyan-500/10 px-4 py-1.5 rounded-full border border-cyan-500/20">
+          <BarChart2 size={16} className="text-cyan-400" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Hook: {hookScore}%</span>
         </div>
 
-        {/* বটম সেকশন (ক্যাপশন ও কন্ট্রোল) */}
-        <div className="space-y-6 mb-10">
-          <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-4 border border-white/10 shadow-2xl">
-            <textarea 
-              placeholder="Inject a caption into the feed..." 
-              className="w-full bg-transparent border-none outline-none text-white text-md placeholder-white/30 resize-none min-h-[80px]"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-            />
-            
-            <div className="flex gap-3 mt-2">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 rounded-full border border-cyan-500/20 text-[9px] font-bold text-cyan-400 uppercase tracking-widest">
-                <Hash size={12} /> WorldBest
-              </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 rounded-full border border-purple-500/20 text-[9px] font-bold text-purple-400 uppercase tracking-widest">
-                <Hash size={12} /> Drift
-              </button>
-            </div>
-          </div>
+        <button 
+          onClick={handleFinalPost}
+          className="px-6 py-2 bg-cyan-500 rounded-full text-black font-black text-xs uppercase tracking-tighter active:scale-95 transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+        >
+          Post
+        </button>
+      </div>
 
-          {/* ট্রান্সমিট বাটন */}
-          <button 
-            disabled={isUploading}
-            onClick={handleTransmit}
-            className={`w-full h-14 rounded-2xl flex items-center justify-center gap-3 font-black uppercase tracking-[0.2em] text-xs transition-all active:scale-95 shadow-2xl 
-              ${isUploading ? 'bg-gray-800 text-gray-500' : 'bg-cyan-500 hover:bg-cyan-400 text-black shadow-cyan-500/20'}`}
-          >
-            {isUploading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-                <span>Transmitting...</span>
-              </>
-            ) : (
-              <>
-                <Send size={18} /> Transmit to World
-              </>
+      {/* --- Caption Area --- */}
+      <div className="px-6 py-2 bg-gradient-to-b from-black/40 to-transparent">
+        <textarea 
+          placeholder="Write a neural caption..." 
+          className="w-full bg-transparent border-none outline-none text-sm font-medium placeholder:text-white/20 resize-none h-12 scrollbar-hide"
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+        />
+      </div>
+
+      {/* --- Main Canvas --- */}
+      <div className="flex-1 relative flex items-center justify-center px-4 py-2">
+        <div className="w-full max-w-[350px] aspect-[9/16] bg-zinc-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5 relative">
+          {videoUrl && (
+            <video 
+              ref={videoRef}
+              src={videoUrl} 
+              className="w-full h-full object-cover"
+              autoPlay loop muted playsInline
+            />
+          )}
+          
+          <AnimatePresence>
+            {isProcessing && (
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center z-20"
+              >
+                <Wand2 size={48} className="text-cyan-400 animate-bounce mb-4" />
+                <p className="text-[10px] font-black tracking-[0.4em] uppercase text-cyan-400">Neural Enhancing...</p>
+              </motion.div>
             )}
-          </button>
+          </AnimatePresence>
         </div>
       </div>
+
+      {/* --- Smart Timeline --- */}
+      <div className="px-8 py-4">
+        <div className="h-14 w-full bg-white/[0.03] rounded-2xl border border-white/5 relative overflow-hidden flex items-center group">
+           <div className="absolute left-1/2 w-0.5 h-full bg-cyan-500 z-10 shadow-[0_0_15px_#00f7ff]"></div>
+           <div className="flex gap-1 opacity-20 px-4 items-center w-full justify-center">
+             {[...Array(30)].map((_, i) => (
+               <div key={i} className="w-1 bg-white rounded-full" style={{ height: `${Math.random() * 30 + 10}px` }}></div>
+             ))}
+           </div>
+        </div>
+      </div>
+
+      {/* --- Floating Controls --- */}
+      <div className="pb-10 pt-2 px-6">
+        <div className="bg-zinc-900/90 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-2 flex justify-around items-center shadow-2xl">
+          <EditorTab icon={<Wand2 />} label="AI Edit" active={activeTab === 'ai'} onClick={handleAutoEdit} isSpecial />
+          <EditorTab icon={<Scissors />} label="Trim" active={activeTab === 'edit'} onClick={() => setActiveTab('edit')} />
+          <EditorTab icon={<Music />} label="Beats" active={activeTab === 'music'} onClick={() => setActiveTab('music')} />
+          <EditorTab icon={<Type />} label="Text" active={activeTab === 'text'} onClick={() => setActiveTab('text')} />
+          <EditorTab icon={<Sparkles />} label="FX" active={activeTab === 'fx'} onClick={() => setActiveTab('fx')} />
+        </div>
+      </div>
+
     </div>
   );
 };
+
+const EditorTab = ({ icon, label, active, onClick, isSpecial }) => (
+  <button 
+    onClick={onClick}
+    className={`flex flex-col items-center gap-1.5 px-4 py-2 rounded-2xl transition-all duration-300 ${
+      active ? 'text-cyan-400 scale-110' : 'text-white/30 hover:text-white/60'
+    } ${isSpecial ? 'bg-cyan-500/10 rounded-2xl border border-cyan-500/20' : ''}`}
+  >
+    {React.cloneElement(icon, { size: 20, strokeWidth: active ? 2.5 : 2 })}
+    <span className={`text-[8px] font-black uppercase tracking-widest ${active ? 'opacity-100' : 'opacity-50'}`}>
+      {label}
+    </span>
+  </button>
+);
 
 export default ReelsEditor;

@@ -7,76 +7,97 @@ import { Home, Play, Plus, MessageSquare, Users } from "lucide-react";
 const MobileNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const fileInputRef = useRef(null); // ভিডিও ফাইলের জন্য রেফারেন্স
+  const fileInputRef = useRef(null);
+
+  // ১. মেসেঞ্জার বা চ্যাট পেজে থাকলে ন্যাভিগেশন বারটি লুকানোর লজিক
+  const hidePaths = ["/messages", "/chat", "/reels-editor"];
+  const shouldHide = hidePaths.some(path => location.pathname.startsWith(path));
+
+  if (shouldHide) return null;
 
   const navItems = [
-    { icon: <Home size={22} />, path: "/feed", id: "home" },
-    { icon: <Play size={22} />, path: "/reels", id: "reels" },
+    { icon: <Home size={22} />, path: "/feed" },
+    { icon: <Play size={22} />, path: "/reels" },
     { icon: <Plus size={26} />, path: "/create", isMain: true },
-    { icon: <MessageSquare size={22} />, path: "/messages", id: "messages" },
-    { icon: <Users size={22} />, path: "/following", id: "following" },
+    { icon: <MessageSquare size={22} />, path: "/messages" },
+    { icon: <Users size={22} />, path: "/following" },
   ];
 
   const isActive = (path) => location.pathname === path;
 
-  // প্লাস বাটনে ক্লিক করলে ফাইল ইনপুট ওপেন হবে
   const handlePlusClick = () => {
     fileInputRef.current.click();
   };
 
-  // ভিডিও ফাইল সিলেক্ট করার পর লজিক
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.type.startsWith('video/')) {
-      // ভিডিওটি নিয়ে এডিটর পেজে পাঠিয়ে দিবে
-      navigate('/reels-editor', { state: { videoFile: file } });
+    if (file) {
+      const fileType = file.type.startsWith('video/') ? 'video' : 'image';
+      
+      // ফাইলটি নিয়ে সরাসরি এডিটর পেজে পাঠানো
+      navigate('/reels-editor', { 
+        state: { 
+          videoFile: file,
+          type: fileType 
+        } 
+      });
     }
   };
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-[999] bg-[#000000] border-t border-white/[0.03] pt-2 pb-6 px-6">
+    <motion.div 
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="fixed bottom-0 left-0 right-0 z-[999] bg-black/95 backdrop-blur-xl border-t border-white/[0.05] pt-2 pb-6 px-6"
+    >
       <div className="flex items-center justify-between max-w-md mx-auto h-12">
         {navItems.map((item, idx) => (
           <button
             key={idx}
             onClick={() => item.isMain ? handlePlusClick() : navigate(item.path)}
-            className="flex-1 flex items-center justify-center outline-none"
+            className="flex-1 flex items-center justify-center outline-none relative"
           >
             {item.isMain ? (
-              <>
-                {/* হিডেন ফাইল ইনপুট */}
+              <div className="relative">
                 <input 
                   type="file" 
                   ref={fileInputRef} 
                   onChange={handleFileChange} 
-                  accept="video/*" 
+                  accept="video/*,image/*" 
                   className="hidden" 
                 />
-                {/* ছবির মতো ডার্ক স্কয়ার প্লাস বাটন */}
-                <div className="w-12 h-10 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white/40 active:scale-95 transition-all">
+                <motion.div 
+                  whileTap={{ scale: 0.9 }}
+                  className="w-12 h-10 rounded-xl bg-white/[0.08] border border-white/[0.1] flex items-center justify-center text-white active:bg-cyan-500 active:text-black transition-all shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                >
                   <Plus size={22} strokeWidth={2.5} />
-                </div>
-              </>
+                </motion.div>
+              </div>
             ) : (
-              /* হালকা সাদা আইকন যা একটিভ হলে উজ্জ্বল হবে */
               <div 
-                className={`transition-all duration-300 ${
+                className={`transition-all duration-300 flex flex-col items-center gap-1 ${
                   isActive(item.path) 
-                    ? 'text-white scale-110' 
+                    ? 'text-cyan-400 scale-110' 
                     : 'text-white/20 hover:text-white/40'
                 }`}
               >
-                {/* আইকনটি একটিভ থাকলে Fill হবে */}
                 {React.cloneElement(item.icon, { 
                     fill: isActive(item.path) ? "currentColor" : "none",
                     strokeWidth: isActive(item.path) ? 2.5 : 2
                 })}
+                {/* অ্যাক্টিভ ডট ইন্ডিকেটর */}
+                {isActive(item.path) && (
+                  <motion.div 
+                    layoutId="navDot"
+                    className="w-1 h-1 bg-cyan-400 rounded-full shadow-[0_0_8px_#22d3ee]"
+                  />
+                )}
               </div>
             )}
           </button>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

@@ -14,10 +14,10 @@ import PremiumHomeFeed from "./pages/PremiumHomeFeed";
 import Analytics from "./pages/Analytics";
 import Explorer from "./pages/Explorer";
 import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
+import Settings from "./pages/Settings"; // আপডেট করা সেটিংস পেজ
 import FollowingPage from "./pages/FollowingPage";
-import ReelsEditor from "./pages/ReelsEditor"; // আপনার নতুন এডিটর
-import ReelsFeed from "./pages/ReelsFeed";     // আপনার নতুন রিলস ফিড
+import ReelsEditor from "./pages/ReelsEditor"; 
+import ReelsFeed from "./pages/ReelsFeed";     
 import Call from "./pages/Call";
 import ViralFeed from "./pages/ViralFeed"; 
 import JoinPage from "./pages/JoinPage"; 
@@ -41,8 +41,6 @@ export default function App() {
   const location = useLocation();
   const socket = useRef(null); 
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // মডাল স্টেট: Navbar এবং HomeFeed এর মধ্যে কাজ করবে
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
 
   useEffect(() => {
@@ -94,9 +92,19 @@ export default function App() {
     </div>
   );
 
-  const isFullWidthPage = ["/messenger", "/settings", "/", "/join", "/reels", "/reels-editor"].includes(location.pathname) || 
-                          location.pathname.startsWith("/messenger") || 
-                          location.pathname.startsWith("/call/");
+  // ফুল উইডথ পেজের কন্ডিশন (যাতে সেটিংস বা মেসেঞ্জারে সাইডবার না আসে)
+  const isFullWidthPage = [
+    "/messenger", 
+    "/messages", 
+    "/settings", 
+    "/", 
+    "/join", 
+    "/reels", 
+    "/reels-editor"
+  ].includes(location.pathname) || 
+  location.pathname.startsWith("/messenger") || 
+  location.pathname.startsWith("/profile/edit") ||
+  location.pathname.startsWith("/call/");
 
   return (
     <div className="min-h-screen bg-[#020617] text-gray-200 font-sans relative">
@@ -104,8 +112,8 @@ export default function App() {
       <Toaster />
       <CustomCursor />
 
-      {/* ১. Navbar */}
-      {isAuthenticated && (
+      {/* ১. Navbar (Landing এবং Join পেজ ছাড়া সব জায়গায় থাকবে) */}
+      {isAuthenticated && location.pathname !== "/" && location.pathname !== "/join" && (
         <header className="w-full">
           <Navbar 
             user={user} 
@@ -120,14 +128,14 @@ export default function App() {
       <div className="flex justify-center w-full transition-all duration-500">
         <div className={`flex w-full ${isFullWidthPage ? "max-w-full" : "max-w-[1440px] px-0 lg:px-6"} gap-6`}>
           
-          {/* লেফট সাইডবার */}
+          {/* লেফট সাইডবার (ডেস্কটপ) */}
           {isAuthenticated && !isFullWidthPage && (
             <aside className="hidden lg:block w-[280px] sticky top-4 h-[calc(100vh-20px)]">
               <Sidebar />
             </aside>
           )}
           
-          {/* কন্টেন্ট এরিয়া */}
+          {/* কন্টেন্ট এরিয়া */}
           <main className="flex-1 flex justify-center pb-24 lg:pb-10">
             <div className={`${isFullWidthPage ? "w-full" : "w-full lg:max-w-[650px] max-w-full"}`}>
               <AnimatePresence mode="wait">
@@ -150,20 +158,26 @@ export default function App() {
                     } 
                   />
 
-                  {/* রিলস এবং ভিডিও এডিটর রাউটস */}
+                  {/* রিলস এবং ভিডিও এডিটর */}
                   <Route path="/reels" element={<ProtectedRoute component={ReelsFeed} />} />
                   <Route path="/reels-editor" element={<ProtectedRoute component={ReelsEditor} />} />
                   
-                  {/* অন্যান্য রাউটস */}
-                  <Route path="/viral" element={<ProtectedRoute component={ViralFeed} />} />
-                  <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
+                  {/* মেসেঞ্জার */}
                   <Route path="/messages" element={<ProtectedRoute component={Messenger} />} />
                   <Route path="/messenger" element={<ProtectedRoute component={Messenger} />} />
+                  
+                  {/* সেটিংস রাউট */}
+                  <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
+                  
+                  {/* অন্যান্য প্রোফাইল ও এনালাইটিক্স */}
+                  <Route path="/viral" element={<ProtectedRoute component={ViralFeed} />} />
+                  <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
                   <Route path="/analytics" element={<ProtectedRoute component={Analytics} />} />
                   <Route path="/explorer" element={<ProtectedRoute component={Explorer} />} />
-                  <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
                   <Route path="/following" element={<ProtectedRoute component={FollowingPage} />} />
                   <Route path="/call/:roomId" element={<ProtectedRoute component={Call} />} />
+                  
+                  {/* ওয়াইল্ডকার্ড রাউট */}
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </AnimatePresence>
@@ -173,7 +187,7 @@ export default function App() {
           {/* রাইট সাইডবার (ডেস্কটপ) */}
           {isAuthenticated && !isFullWidthPage && (
             <aside className="hidden xl:block w-[320px] sticky top-4 h-[calc(100vh-20px)]">
-               {/* এখানে আপনার ট্রেন্ডিং কম্পোনেন্ট বসাতে পারেন */}
+               {/* এখানে আপনার ট্রেন্ডিং বা সাজেস্টেড ইউজার থাকবে */}
             </aside>
           )}
         </div>
