@@ -128,3 +128,12 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+.reels-actions {
+  z-index: 999 !important; /* ভিডিওর ওপরে বাটন রাখার জন্য */
+  position: absolute;
+  right: 15px;
+  bottom: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}

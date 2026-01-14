@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Share2, Music, UserPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // নেভিগেশনের জন্য
 import axios from 'axios';
 
 const ReelsFeed = () => {
@@ -15,7 +16,6 @@ const ReelsFeed = () => {
   useEffect(() => {
     const fetchReels = async () => {
       try {
-        // আমরা এখন আপনার তৈরি করা নতুন এন্ডপয়েন্ট ব্যবহার করছি
         const response = await axios.get(`${API_URL}/api/posts/reels/all`); 
         setReels(response.data);
       } catch (err) {
@@ -44,7 +44,7 @@ const ReelsFeed = () => {
         </div>
       ) : (
         reels.map((reel) => (
-          <ReelItem key={reel._id} reel={reel} />
+          <ReelItem key={reel._id} reel={reel} API_URL={API_URL} />
         ))
       )}
     </div>
@@ -52,44 +52,45 @@ const ReelsFeed = () => {
 };
 
 // প্রতিটি একক ভিডিও আইটেম
-const ReelItem = ({ reel }) => {
+const ReelItem = ({ reel, API_URL }) => {
   const videoRef = useRef(null);
+  const navigate = useNavigate(); // হুক কল
   const [isLiked, setIsLiked] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
 
-const handleEngagement = async () => {
-  try {
-    // ভিডিওটি ৫ সেকেন্ডের বেশি দেখলে আমরা ব্যাকএন্ডে হিট পাঠাবো
-    await axios.post(`${API_URL}/api/posts/${reel._id}/pulse`);
-  } catch (err) {
-    console.log("Pulse failed");
-  }
-};
+  const handleEngagement = async () => {
+    try {
+      await axios.post(`${API_URL}/api/posts/${reel._id}/pulse`);
+    } catch (err) {
+      console.log("Pulse failed");
+    }
+  };
 
-// Intersection Observer-এ এই ফাংশনটি কল করুন
-useEffect(() => {
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          videoRef.current?.play();
-          // Engagement tracking শুরু
-          setTimeout(() => {
-             if(entry.isIntersecting) handleEngagement();
-          }, 5000); 
-        }
+  // শেয়ার ফাংশনালিটি
+  const handleShare = (postId) => {
+    const shareUrl = `${window.location.origin}/post/${postId}`;
+    if (navigator.share) {
+      navigator.share({
+        title: 'Onyx Drift Reel',
+        url: shareUrl
       });
-    },
-    { threshold: 0.8 }
-  );
-}, []);
-  // অটো-প্লে এবং পজ লজিক (স্মুথ পারফরম্যান্সের জন্য)
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      alert("Neural Signal Copied to Clipboard!");
+    }
+  };
+
+  // অটো-প্লে এবং পজ লজিক
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             videoRef.current?.play().catch(() => {});
+            // ৫ সেকেন্ড দেখলে এনগেজমেন্ট পাঠানো
+            setTimeout(() => {
+              if(entry.isIntersecting) handleEngagement();
+            }, 5000);
           } else {
             videoRef.current?.pause();
             if (videoRef.current) videoRef.current.currentTime = 0;
@@ -109,12 +110,16 @@ useEffect(() => {
     setTimeout(() => setShowHeart(false), 800);
   };
 
+  // অ্যাভাটার এরর হ্যান্ডলিং (via.placeholder এর বদলে ui-avatars)
+  const avatarUrl = reel.authorAvatar && !reel.authorAvatar.includes("placeholder") 
+    ? reel.authorAvatar 
+    : `https://ui-avatars.com/api/?name=${reel.authorName || 'D'}&background=random&color=fff`;
+
   return (
     <div 
       className="h-screen w-full snap-start relative flex items-center justify-center bg-black overflow-hidden"
       onDoubleClick={handleDoubleTap}
     >
-      {/* ১. হার্ট এনিমেশন */}
       <AnimatePresence>
         {showHeart && (
           <motion.div
@@ -128,34 +133,31 @@ useEffect(() => {
         )}
       </AnimatePresence>
 
-      {/* ২. সিনেমাটিক ভিডিও ব্যাকগ্রাউন্ড */}
       <video
         ref={videoRef}
-        src={reel.media || reel.mediaUrl} // ডাটাবেজের ফিল্ড অনুযায়ী
-        className="w-full h-full object-cover"
+        src={reel.media || reel.mediaUrl}
+        className="w-full h-full object-cover cursor-pointer"
         loop
         playsInline
-        muted={false}
+        onClick={() => videoRef.current?.paused ? videoRef.current.play() : videoRef.current.pause()}
       />
 
-      {/* ৩. ইউআই লেয়ার */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/80 flex flex-col justify-end p-5 pb-24">
+      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90 flex flex-col justify-end p-5 pb-28">
         <div className="flex justify-between items-end w-full">
           
-          {/* ইনফো সেকশন */}
           <div className="flex-1 pr-12 text-white space-y-4">
             <div className="flex items-center gap-3">
-              <div className="relative group">
+              <div className="relative group cursor-pointer" onClick={() => navigate(`/profile/${reel.authorAuth0Id || reel.authorId}`)}>
                 <img 
-                  src={reel.authorAvatar || "https://via.placeholder.com/150"} 
-                  className="w-11 h-11 rounded-full border-2 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]" 
+                  src={avatarUrl} 
+                  className="w-11 h-11 rounded-full border-2 border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.3)] object-cover" 
                   alt="author" 
                 />
-                <button className="absolute -bottom-1 -right-1 bg-cyan-500 rounded-full p-0.5 text-black border-2 border-black">
+                <div className="absolute -bottom-1 -right-1 bg-cyan-500 rounded-full p-0.5 text-black border-2 border-black">
                   <UserPlus size={10} strokeWidth={4} />
-                </button>
+                </div>
               </div>
-              <div>
+              <div className="cursor-pointer" onClick={() => navigate(`/profile/${reel.authorAuth0Id || reel.authorId}`)}>
                 <h4 className="font-black text-sm tracking-tighter">@{reel.authorName || 'Drifter'}</h4>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
@@ -164,23 +166,24 @@ useEffect(() => {
               </div>
             </div>
 
-            <p className="text-sm leading-relaxed line-clamp-2 opacity-90 font-medium">
+            <p className="text-sm leading-relaxed line-clamp-2 opacity-90 font-medium max-w-[80%]">
               {reel.text || reel.content}
             </p>
 
             <div className="flex items-center gap-2 py-1 px-3 bg-white/5 backdrop-blur-md rounded-full w-fit border border-white/10">
               <Music size={12} className="animate-spin-slow text-cyan-400" />
-              <marquee className="text-[9px] font-bold uppercase tracking-widest w-32">
-                {reel.authorName} • Original Neural Audio Track
-              </marquee>
+              <div className="overflow-hidden w-32 relative">
+                 <p className="text-[9px] font-bold uppercase tracking-widest whitespace-nowrap animate-marquee">
+                    {reel.authorName} • Original Neural Audio Track
+                 </p>
+              </div>
             </div>
           </div>
 
-          {/* অ্যাকশন বার */}
-          <div className="flex flex-col gap-6 items-center">
+          <div className="flex flex-col gap-6 items-center z-[999]">
             <div className="flex flex-col items-center gap-1">
               <button 
-                onClick={() => setIsLiked(!isLiked)} 
+                onClick={(e) => { e.stopPropagation(); setIsLiked(!isLiked); }} 
                 className="w-12 h-12 rounded-full bg-white/5 backdrop-blur-md flex items-center justify-center border border-white/10 active:scale-75 transition-all"
               >
                 <Heart 
@@ -189,26 +192,31 @@ useEffect(() => {
                   className={isLiked ? "text-cyan-400" : "text-white opacity-80"} 
                 />
               </button>
-              <span className="text-[10px] font-black">{reel.likes?.length || 0}</span>
+              <span className="text-[10px] font-black text-white">{reel.likes?.length || 0}</span>
             </div>
 
             <div className="flex flex-col items-center gap-1">
               <button className="w-12 h-12 rounded-full bg-white/5 backdrop-blur-md flex items-center justify-center border border-white/10">
                 <MessageCircle size={26} className="text-white opacity-80" />
               </button>
-              <span className="text-[10px] font-black">0</span>
+              <span className="text-[10px] font-black text-white">0</span>
             </div>
 
             <div className="flex flex-col items-center gap-1">
-              <button className="w-12 h-12 rounded-full bg-white/5 backdrop-blur-md flex items-center justify-center border border-white/10">
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleShare(reel._id); }}
+                className="w-12 h-12 rounded-full bg-white/5 backdrop-blur-md flex items-center justify-center border border-white/10"
+              >
                 <Share2 size={26} className="text-white opacity-80" />
               </button>
-              <span className="text-[8px] font-black uppercase tracking-tighter">Signal</span>
+              <span className="text-[8px] font-black uppercase tracking-tighter text-white">Signal</span>
             </div>
 
-            {/* মিউজিক ডিস্ক এনিমেশন */}
-            <div className="w-10 h-10 rounded-full border-2 border-cyan-500/30 p-1 animate-spin-slow mt-2 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-              <img src={reel.authorAvatar} className="w-full h-full rounded-full object-cover" alt="disc" />
+            <div 
+              className="w-10 h-10 rounded-full border-2 border-cyan-500/30 p-1 animate-spin-slow mt-2 shadow-[0_0_15px_rgba(6,182,212,0.2)] cursor-pointer"
+              onClick={() => navigate(`/profile/${reel.authorAuth0Id || reel.authorId}`)}
+            >
+              <img src={avatarUrl} className="w-full h-full rounded-full object-cover" alt="disc" />
             </div>
           </div>
         </div>
