@@ -7,33 +7,30 @@ import Redis from "ioredis";
 import { v2 as cloudinary } from 'cloudinary';
 import https from 'https';
 
-// ১. এনভায়রনমেন্ট ভেরিয়েবল লোড (সবার আগে)
+// ১. কনফিগারেশন লোড (সবার আগে)
 dotenv.config();
 
-// ২. ডাটাবেস ও ক্লাউডিনারি কনফিগারেশন
+// ২. ডাটাবেস ও ক্লাউডিনারি কানেকশন (রাউট ইম্পোর্টের আগে হওয়া নিরাপদ)
 import connectDB from "./config/db.js"; 
-
-// ডাটাবেস কানেকশন
 connectDB();
 
-// ক্লাউডিনারি সেটিংস
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
   api_key: process.env.CLOUDINARY_API_KEY, 
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৩. রাউট ইম্পোর্ট (কনফিগারের পরে ইম্পোর্ট করা নিরাপদ)
+// ৩. রাউট ইম্পোর্ট
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
 import userRoutes from './routes/users.js'; 
 import messageRoutes from "./routes/messages.js";
-import Message from "./models/Message.js"; // সকেটের জন্য প্রয়োজন
+import Message from "./models/Message.js"; 
 
 const app = express();
 const server = http.createServer(app);
 
-// ৪. CORS কনফিগারেশন (Strict Policy)
+// ৪. CORS কনফিগারেশন
 const allowedOrigins = [
     "http://localhost:5173", 
     "https://onyx-drift-app-final.onrender.com",
@@ -55,6 +52,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// বডি পার্সার লিমিট বাড়ানো হয়েছে (ভিডিও/ইমেজ আপলোডের জন্য)
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
@@ -75,7 +74,7 @@ const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, {
 
 if(redis) {
     redis.on("connect", () => console.log("✅ Neural Cache Online"));
-    redis.on("error", (err) => console.log("❌ Redis Connection Lost"));
+    redis.on("error", (err) => console.error("❌ Redis Connection Error:", err.message));
 }
 
 // ৭. এপিআই রাউট মাউন্টিং
@@ -84,18 +83,19 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
 
-// ৮. Keep-Alive Mechanism (Render-এর স্লিপ মোড এড়ানোর জন্য)
+// ৮. Keep-Alive Mechanism (Render-এর স্লিপ মোড এড়ানোর জন্য)
 setInterval(() => {
     https.get('https://onyx-drift-app-final.onrender.com', (res) => {
-        // Pulse recorded
+        // Heartbeat pulse stable
     }).on('error', (err) => {
-        console.log('Keep-alive signal weak');
+        console.log('Keep-alive ping failed');
     });
 }, 840000); 
 
 // ৯. উন্নত গ্লোবাল এরর হ্যান্ডলার (৫০০ এরর ডায়াগনসিসের জন্য)
 app.use((err, req, res, next) => {
-    console.error("🔥 ACTUAL_SYSTEM_ERROR:", err); // এটি রেন্ডার লগে বিস্তারিত দেখাবে
+    // এটি আপনার Render লগে বিস্তারিত দেখাবে
+    console.error("🔥 ACTUAL_SYSTEM_ERROR:", err); 
     
     if (err.message === 'Signal Blocked: CORS Security Policy') {
         return res.status(403).json({ error: "Access Denied: Neural link rejected" });
@@ -104,7 +104,8 @@ app.use((err, req, res, next) => {
     res.status(500).json({ 
         error: "Internal Neural Breakdown", 
         message: err.message,
-        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        // প্রোডাকশনে স্ট্যাক ট্রেস হাইড রাখা নিরাপদ
+        details: process.env.NODE_ENV === 'development' ? err.stack : "Check server logs for details"
     });
 });
 
@@ -115,9 +116,13 @@ io.on("connection", (socket) => {
     
     socket.on("addNewUser", async (userId) => {
         if (redis && userId) {
-            await redis.hset("online_users", userId, socket.id);
-            const allUsers = await redis.hgetall("online_users");
-            io.emit("getOnlineUsers", Object.keys(allUsers).map(id => ({ userId: id })));
+            try {
+                await redis.hset("online_users", userId, socket.id);
+                const allUsers = await redis.hgetall("online_users");
+                io.emit("getOnlineUsers", Object.keys(allUsers).map(id => ({ userId: id })));
+            } catch (err) {
+                console.error("Socket AddUser Error:", err.message);
+            }
         }
     });
 
