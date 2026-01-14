@@ -5,7 +5,7 @@ import {
   Repeat, Layers, BarChart3, DownloadCloud, Play, Pause, 
   RotateCcw, Plus, X, Cpu, CheckCircle2, Languages, Target, 
   Music, LayoutTemplate, Mic2, Maximize2, ShoppingBag, Flame,
-  Volume2, Waveform, Mic, Sparkle, AlignCenter, Palette,
+  Volume2, AudioLines, Mic, Sparkle, AlignCenter, Palette,
   Users, UserCircle2, LineChart, FastForward, Zap, ShieldCheck
 } from 'lucide-react';
 
@@ -17,7 +17,7 @@ const ReelsEditor = () => {
   const [showSubMenu, setShowSubMenu] = useState(null); 
   const [remixLayout, setRemixLayout] = useState('single');
 
-  // ১২+৩ (Secret) পয়েন্টের সমন্বয়
+  // ১৫টি প্রো এডিটিং টুলস
   const editTools = [
     { id: 'clip', icon: <Scissors size={20} />, label: 'Clip', color: 'bg-blue-500' },
     { id: 'ai', icon: <Wand2 size={20} />, label: 'AI Magic', color: 'bg-purple-600' },
@@ -48,7 +48,7 @@ const ReelsEditor = () => {
   return (
     <div className="fixed inset-0 bg-black flex flex-col overflow-hidden text-white font-sans">
       
-      {/* --- TOP BAR: Hook Analytics & Export (Point 11 & 12) --- */}
+      {/* --- TOP BAR: Analytics & Export --- */}
       <div className="p-4 flex justify-between items-center bg-gradient-to-b from-black to-transparent z-50">
         <div className="flex gap-2">
           <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl p-2 rounded-2xl border border-white/10 shadow-lg">
@@ -65,12 +65,11 @@ const ReelsEditor = () => {
         </button>
       </div>
 
-      {/* --- VIDEO PREVIEW AREA (Point 1, 4, 9, 13) --- */}
+      {/* --- VIDEO PREVIEW AREA --- */}
       <div className="flex-1 relative flex items-center justify-center p-4">
         <div className={`w-full max-w-[310px] aspect-[9/16] bg-zinc-900 rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden relative flex ${remixLayout === 'split' ? 'flex-row' : ''}`}>
            
            <div className={`relative transition-all duration-700 w-full flex flex-col items-center justify-center bg-zinc-800`}>
-              {/* Point 4: Text Engine Preview */}
               <motion.div 
                 animate={{ scale: [1, 1.05, 1] }} 
                 transition={{ repeat: Infinity, duration: 1 }}
@@ -80,7 +79,6 @@ const ReelsEditor = () => {
               </motion.div>
            </div>
 
-           {/* Remix & Layer Overlays */}
            {remixLayout !== 'single' && (
              <motion.div initial={{ x: 100 }} animate={{ x: 0 }} className={remixLayout === 'split' ? 'w-1/2 bg-zinc-700/50 border-l border-white/10 flex items-center justify-center' : 'absolute bottom-24 right-4 w-24 aspect-[9/16] bg-zinc-800 rounded-3xl border-2 border-cyan-500 z-20 flex items-center justify-center'}>
                 <p className="text-[8px] font-black opacity-30">LAYER 2</p>
@@ -93,16 +91,24 @@ const ReelsEditor = () => {
         </div>
       </div>
 
-      {/* --- PRO TIMELINE (Point 8) --- */}
+      {/* --- PRO TIMELINE --- */}
       <div className="bg-zinc-950 border-t border-white/10 p-4">
         <div className="flex justify-between items-center mb-3">
            <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">00:12:04 / 00:30:00</span>
            <Plus size={18} className="text-cyan-400 cursor-pointer" />
         </div>
         <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
-          <div className="h-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center px-2"><Type size={10} className="text-yellow-500 mr-2"/> <div className="h-1.5 w-24 bg-yellow-500/30 rounded"/></div>
-          <div className="h-10 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center px-1"><div className="w-full h-full bg-blue-500/40 rounded flex border-r border-black/20" /></div>
-          <div className="h-6 bg-pink-500/10 border border-pink-500/20 rounded-lg flex items-center px-2"><Waveform size={10} className="text-pink-500 mr-2"/> <div className="h-1 flex-1 bg-pink-500/20 rounded"/></div>
+          <div className="h-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center px-2">
+            <Type size={10} className="text-yellow-500 mr-2"/> 
+            <div className="h-1.5 w-24 bg-yellow-500/30 rounded"/>
+          </div>
+          <div className="h-10 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center px-1">
+            <div className="w-full h-full bg-blue-500/40 rounded flex border-r border-black/20" />
+          </div>
+          <div className="h-6 bg-pink-500/10 border border-pink-500/20 rounded-lg flex items-center px-2">
+            <AudioLines size={10} className="text-pink-500 mr-2"/> 
+            <div className="h-1 flex-1 bg-pink-500/20 rounded"/>
+          </div>
         </div>
       </div>
 
@@ -122,7 +128,7 @@ const ReelsEditor = () => {
         </div>
       </div>
 
-      {/* --- ALL-IN-ONE ENGINE OVERLAY --- */}
+      {/* --- OVERLAY MENU --- */}
       <AnimatePresence>
         {showSubMenu && (
           <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="fixed inset-0 z-[200] flex flex-col justify-end">
@@ -136,27 +142,24 @@ const ReelsEditor = () => {
                 <button onClick={() => setShowSubMenu(null)} className="p-3 bg-white/5 rounded-full"><X size={20}/></button>
               </div>
 
-              {/* Dynamic Sub-menu Content for All 15 Points */}
               <div className="grid grid-cols-2 gap-4">
                 {showSubMenu === 'effects' && ['Motion Blur', 'Neon Glow', 'Glitch FX', 'Light Leaks'].map(t => <button key={t} className="p-5 bg-white/5 border border-white/5 rounded-3xl text-[10px] font-black uppercase text-cyan-400">{t}</button>)}
                 {showSubMenu === 'color' && ['Cinema LUT', 'Film Grade', 'Neon Pop', 'Vlog Soft'].map(t => <button key={t} className="p-5 bg-white/5 border border-white/5 rounded-3xl text-[10px] font-black uppercase text-orange-400">{t}</button>)}
                 {showSubMenu === 'avatar' && ['Head Swap', 'AI Dubbing', 'Studio BG', 'Privacy Face'].map(t => <button key={t} className="p-5 bg-white/5 border border-white/5 rounded-3xl text-[10px] font-black uppercase text-rose-400">{t}</button>)}
                 {showSubMenu === 'analytics' && ['Heatmap', 'Viral Score', 'A/B Test', 'Trends'].map(t => <button key={t} className="p-5 bg-white/5 border border-white/5 rounded-3xl text-[10px] font-black uppercase text-emerald-400">{t}</button>)}
                 {showSubMenu === 'collab' && ['Shared Asset', 'Live Sync', 'Invite', 'Permissions'].map(t => <button key={t} className="p-5 bg-white/5 border border-white/5 rounded-3xl text-[10px] font-black uppercase text-indigo-400">{t}</button>)}
-                
-                {/* Previous Tools Reuse */}
                 {showSubMenu === 'ai' && ['Auto Edit', 'Beat Sync', 'Magic Cut', '1-Tap Pro'].map(t => <button key={t} className="p-5 bg-white/5 border border-white/5 rounded-3xl text-[10px] font-black uppercase text-purple-400">{t}</button>)}
                 {showSubMenu === 'text' && ['Auto Subs', 'Anim Styles', 'Keywords', 'Templates'].map(t => <button key={t} className="p-5 bg-white/5 border border-white/5 rounded-3xl text-[10px] font-black uppercase text-yellow-500">{t}</button>)}
                 {showSubMenu === 'sound' && ['Studio Mic', 'Noise Off', 'Beat Iso', 'Reverb'].map(t => <button key={t} className="p-5 bg-white/5 border border-white/5 rounded-3xl text-[10px] font-black uppercase text-pink-500">{t}</button>)}
               </div>
 
-              <button onClick={() => setShowSubMenu(null)} className="w-full mt-10 bg-white text-black py-5 rounded-2xl font-black uppercase tracking-[0.3em] active:scale-95 transition-transform">Apply Configuration</button>
+              <button onClick={() => setShowSubMenu(null)} className="w-full mt-10 bg-white text-black py-5 rounded-2xl font-black uppercase tracking-[0.3em] active:scale-95 transition-transform">Apply Changes</button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* --- EXPORT LOADING OVERLAY --- */}
+      {/* --- EXPORT LOADING --- */}
       <AnimatePresence>
         {isExporting && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black z-[1000] flex flex-col items-center justify-center p-10">
@@ -166,14 +169,6 @@ const ReelsEditor = () => {
                 <h1 className="text-6xl font-black italic">{exportProgress}%</h1>
                 <p className="text-[10px] font-black text-cyan-400 tracking-[0.5em] uppercase mt-2">Baking Greatness</p>
               </div>
-            </div>
-            <div className="mt-16 w-full max-w-xs space-y-4">
-               {['Neural Syncing', 'Film Grading', 'AI Subtitles', 'Safety Check'].map((step, i) => (
-                 <div key={i} className={`flex justify-between items-center transition-opacity duration-500 ${exportProgress > (i+1)*24 ? 'opacity-100' : 'opacity-20'}`}>
-                   <span className="text-[10px] font-black uppercase tracking-widest">{step}</span>
-                   <CheckCircle2 size={16} className="text-cyan-400" />
-                 </div>
-               ))}
             </div>
           </motion.div>
         )}
