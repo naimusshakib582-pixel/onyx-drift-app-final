@@ -62,36 +62,42 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const handlePostSubmit = async () => {
     if (!postText.trim() && !mediaFile) return;
     setIsSubmitting(true);
+    
     try {
+      // ১. Auth0 থেকে টোকেন নেওয়া
       const token = await getAccessTokenSilently();
-      const formData = new FormData();
       
-      // ব্যাকএন্ড অনুযায়ী ফিল্ডগুলো সাজানো হলো
+      // ২. FormData তৈরি
+      const formData = new FormData();
       formData.append("text", postText);
       
-      // গুরুত্বপূর্ণ: ব্যাকএন্ডে 'media' নামে ফাইলটি রিসিভ করা হয়
+      // ব্যাকএন্ডে upload.single("media") আছে, তাই নাম "media" হতে হবে
       if (mediaFile) {
         formData.append("media", mediaFile); 
       }
       
-      // মডেলে যা যা আছে তা পাঠানো হচ্ছে
       formData.append("isReel", "false"); 
 
-      await axios.post(`${API_URL}/api/posts`, formData, {
+      // ৩. রিকোয়েস্ট পাঠানো
+      const response = await axios.post(`${API_URL}/api/posts`, formData, {
         headers: { 
           Authorization: `Bearer ${token}`, 
           "Content-Type": "multipart/form-data" 
         }
       });
 
-      // Reset State
-      setPostText(""); 
-      setMediaFile(null); 
-      setMediaPreview(null);
-      setIsPostModalOpen(false); // ক্লোজ মডাল
-      fetchPosts(); // রিফ্রেশ ফিড
+      if (response.status === 201 || response.status === 200) {
+        // Reset State
+        setPostText(""); 
+        setMediaFile(null); 
+        setMediaPreview(null);
+        setIsPostModalOpen(false); 
+        fetchPosts(); 
+      }
     } catch (err) { 
-      console.error("Post Error Details:", err.response?.data || err.message); 
+      // ৪০০ বা ৪০১ এরর হলে এখানে বিস্তারিত দেখাবে
+      console.error("Transmission Failed:", err.response?.data || err.message);
+      alert(err.response?.data?.msg || "Neural Uplink Interrupted (401/500)");
     } finally { 
       setIsSubmitting(false); 
     }
@@ -145,7 +151,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       <AnimatePresence>
         {isPostModalOpen && (
           <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-            {/* Backdrop */}
             <motion.div 
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
@@ -154,7 +159,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               className="absolute inset-0 bg-black/80 backdrop-blur-xl"
             />
             
-            {/* Modal Content */}
             <motion.div 
               initial={{ scale: 0.95, y: 20, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
@@ -223,7 +227,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
           </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 };
