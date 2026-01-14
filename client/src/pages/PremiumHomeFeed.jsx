@@ -65,11 +65,17 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
     try {
       const token = await getAccessTokenSilently();
       const formData = new FormData();
+      
+      // ব্যাকএন্ড অনুযায়ী ফিল্ডগুলো সাজানো হলো
       formData.append("text", postText);
-      if (mediaFile) formData.append("media", mediaFile);
-      formData.append("authorName", user?.nickname || user?.name || "Drifter");
-      formData.append("authorAvatar", user?.picture || "");
-      formData.append("auth0Id", user?.sub || "");
+      
+      // গুরুত্বপূর্ণ: ব্যাকএন্ডে 'media' নামে ফাইলটি রিসিভ করা হয়
+      if (mediaFile) {
+        formData.append("media", mediaFile); 
+      }
+      
+      // মডেলে যা যা আছে তা পাঠানো হচ্ছে
+      formData.append("isReel", "false"); 
 
       await axios.post(`${API_URL}/api/posts`, formData, {
         headers: { 
@@ -85,7 +91,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       setIsPostModalOpen(false); // ক্লোজ মডাল
       fetchPosts(); // রিফ্রেশ ফিড
     } catch (err) { 
-      console.error("Post Error:", err); 
+      console.error("Post Error Details:", err.response?.data || err.message); 
     } finally { 
       setIsSubmitting(false); 
     }

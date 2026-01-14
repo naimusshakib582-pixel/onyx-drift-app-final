@@ -35,7 +35,6 @@ const upload = multer({
 
 /* ==========================================================
     🌍 1. GET ALL POSTS (GET /api/posts)
-    এটি আপনার মেইন ফিডের জন্য দরকারি
 ========================================================== */
 router.get("/", async (req, res) => {
   try {
@@ -54,22 +53,32 @@ router.get("/", async (req, res) => {
 ========================================================== */
 router.post("/", auth, upload.single("media"), async (req, res) => {
   try {
+    // ১. ফাইল চেক
     if (!req.file) {
       return res.status(400).json({ msg: "No media file detected. Signal lost." });
     }
 
-    const currentUserId = req.user.sub || req.user.id;
+    // ২. ইউজার আইডি নিশ্চিত করা (Auth মিডলওয়্যার থেকে)
+    const currentUserId = req.user?.sub || req.user?.id;
+    if (!currentUserId) {
+      return res.status(401).json({ msg: "Unauthorized: Neural Identity Missing" });
+    }
+
+    // ৩. ইউজার প্রোফাইল ডাটাবেস থেকে খোঁজা
     const userProfile = await User.findOne({ auth0Id: currentUserId }).lean();
 
-    const isVideo = req.file.mimetype.includes("video");
+    // ৪. মিডিয়া টাইপ ডিটেকশন
+    const isVideo = req.file.mimetype ? req.file.mimetype.includes("video") : false;
     let detectedType = isVideo ? "video" : "image";
     
+    // রিলস চেক
     if (req.body.isReel === "true" && isVideo) {
       detectedType = "reel";
     }
 
+    // ৫. ডাটা অবজেক্ট তৈরি
     const postData = {
-      author: currentUserId,           
+      author: currentUserId, // যদি Post মডেলে author: String থাকে তবে কাজ করবে            
       authorAuth0Id: currentUserId,    
       authorName: userProfile?.name || "Drifter",
       authorAvatar: userProfile?.avatar || "",
@@ -81,12 +90,18 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
       views: 0
     };
 
+    // ৬. ডাটাবেসে সেভ
     const post = await Post.create(postData);
     res.status(201).json(post);
 
   } catch (err) {
     console.error("🔥 POST_CREATION_CRASH:", err);
-    res.status(500).json({ msg: "Internal Neural Breakdown", error: err.message });
+    // ৫০০ এররের আসল কারণ যাতে আপনি কনসোলে দেখতে পারেন
+    res.status(500).json({ 
+      msg: "Internal Neural Breakdown", 
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 });
 
