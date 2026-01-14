@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+// প্রয়োজনীয় সব আইকন নিশ্চিত করা হয়েছে
 import { 
   Scissors, Wand2, Type, Music4, Sparkles, Repeat, BarChart3, 
   Play, Pause, Plus, X, Sparkle, AudioLines, Palette, Users, 
-  LineChart, FastForward, Info, LayoutTemplate, MoreHorizontal
+  LineChart, FastForward, Info, LayoutTemplate, MoreHorizontal,
+  RotateCcw 
 } from 'lucide-react';
 
 const ReelsEditor = () => {
@@ -17,7 +19,7 @@ const ReelsEditor = () => {
   
   const totalDuration = 30.00; // ৩০ সেকেন্ডের প্রফেশনাল রিল টাইমলাইন
 
-  // --- PLAYHEAD LOGIC (The Heart of the Editor) ---
+  // --- PLAYHEAD LOGIC ---
   useEffect(() => {
     let interval;
     if (isPlaying) {
@@ -140,14 +142,17 @@ const ReelsEditor = () => {
               <span className="text-zinc-600 text-[10px] font-bold">/ 00:30:00</span>
            </div>
            <div className="flex gap-4">
-              <Plus size={18} className="text-cyan-400 cursor-pointer" />
-              <RotateCcw size={18} className="text-zinc-500 cursor-pointer" onClick={() => setCurrentTime(0)} />
+              <Plus size={18} className="text-cyan-400 cursor-pointer hover:scale-110 transition-transform" />
+              <RotateCcw 
+                size={18} 
+                className="text-zinc-500 cursor-pointer hover:text-white transition-colors" 
+                onClick={() => setCurrentTime(0)} 
+              />
            </div>
         </div>
 
         {/* Timeline Tracks Area */}
-        <div className="relative h-24 bg-black rounded-xl border border-white/5 overflow-hidden">
-          
+        <div className="relative h-24 bg-black rounded-xl border border-white/5 overflow-hidden shadow-inner">
           {/* Vertical Playhead (Red Line) */}
           <div 
             className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-50 shadow-[0_0_10px_rgba(239,68,68,0.8)] pointer-events-none"
@@ -162,11 +167,10 @@ const ReelsEditor = () => {
 
           {/* Track 2: Audio Waveform */}
           <div className="absolute top-12 left-0 w-full h-8 flex items-center px-4 gap-[2px]">
-             {[...Array(40)].map((_, i) => (
+             {[...Array(50)].map((_, i) => (
                <div key={i} className="flex-1 bg-pink-500/30 rounded-full" style={{ height: `${Math.random() * 80 + 20}%` }} />
              ))}
-             {/* Beat Markers */}
-             <div className="absolute left-[30%] w-1.5 h-1.5 bg-white rounded-full" />
+             <div className="absolute left-[30%] w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_5px_white]" />
              <div className="absolute left-[60%] w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_10px_white]" />
           </div>
         </div>
@@ -190,23 +194,25 @@ const ReelsEditor = () => {
                 <h3 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2">
                    <Sparkle className="text-cyan-400" size={20} /> {showSubMenu} Studio
                 </h3>
-                <button onClick={() => setShowSubMenu(null)} className="p-2 bg-white/5 rounded-full"><X size={20}/></button>
+                <button onClick={() => setShowSubMenu(null)} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                  <X size={20}/>
+                </button>
               </div>
 
               {showSubMenu === 'ai' ? (
                 <div className="space-y-4">
                   <div className="p-5 bg-purple-600/10 border border-purple-500/30 rounded-[2rem] flex items-center justify-between">
                      <div>
-                        <h4 className="text-[12px] font-black uppercase">Auto-Sync to Beats</h4>
-                        <p className="text-[8px] text-zinc-500 mt-1">AI analyzing waveform patterns...</p>
+                        <h4 className="text-[12px] font-black uppercase tracking-tight">Auto-Sync to Beats</h4>
+                        <p className="text-[8px] text-zinc-500 mt-1 uppercase">AI scanning harmonics...</p>
                      </div>
                      <div className="flex gap-1">
                         {[1,2,3,4].map(i => <div key={i} className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />)}
                      </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    {['Neural Slow-Mo', 'AI Upscale', 'Smart Cut', 'Sky Swap'].map(t => (
-                      <button key={t} className="p-4 bg-white/5 border border-white/5 rounded-2xl text-[9px] font-black uppercase hover:bg-white/10">{t}</button>
+                    {['Neural Slow-Mo', 'AI Upscale', 'Smart Cut', 'Voice Isolate'].map(t => (
+                      <button key={t} className="p-4 bg-white/5 border border-white/5 rounded-2xl text-[9px] font-black uppercase hover:border-purple-500/50 transition-all">{t}</button>
                     ))}
                   </div>
                 </div>
@@ -222,7 +228,7 @@ const ReelsEditor = () => {
 
               <button 
                 onClick={() => setShowSubMenu(null)} 
-                className="w-full mt-10 bg-white text-black py-5 rounded-2xl font-black uppercase tracking-[0.3em] shadow-2xl active:scale-95 transition-all"
+                className="w-full mt-10 bg-white text-black py-5 rounded-2xl font-black uppercase tracking-[0.3em] shadow-[0_10px_30px_rgba(255,255,255,0.1)] active:scale-[0.98] transition-all"
               >
                 Render Changes
               </button>
@@ -231,7 +237,7 @@ const ReelsEditor = () => {
         )}
       </AnimatePresence>
 
-      {/* --- EXPORT LOADING (High-End) --- */}
+      {/* --- EXPORT LOADING SCREEN --- */}
       <AnimatePresence>
         {isExporting && (
           <motion.div 
@@ -245,7 +251,7 @@ const ReelsEditor = () => {
               />
               <div className="text-center">
                 <h1 className="text-6xl font-black italic tracking-tighter">{exportProgress}%</h1>
-                <p className="text-[10px] font-black text-cyan-400 tracking-[0.5em] uppercase mt-2">Baking Excellence</p>
+                <p className="text-[10px] font-black text-cyan-400 tracking-[0.5em] uppercase mt-2">Encoding 4K Master</p>
               </div>
             </div>
           </motion.div>
