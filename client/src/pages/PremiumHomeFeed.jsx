@@ -96,18 +96,24 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
 
   // --- Like Logic Fixed ---
   const handleLike = async (e, postId) => {
-    e.stopPropagation(); // Prevents clicking other elements
+    e.stopPropagation(); 
     if (!isAuthenticated) return alert("Please login to like");
     try {
       const token = await getAccessTokenSilently();
       const response = await axios.post(`${API_URL}/api/posts/${postId}/like`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Update the specific post in the state
       setPosts(posts.map(p => p._id === postId ? response.data : p));
     } catch (err) { 
       console.error("Like Error:", err.response?.data || err.message);
     }
+  };
+
+  // --- Comment Logic Fix ---
+  const handleCommentClick = (e, postId) => {
+    e.stopPropagation();
+    // এখানে আপনার কমেন্ট বক্স ওপেন করার কোড বসবে
+    alert("Opening comments for post ID: " + postId);
   };
 
   const handleShare = (e, post) => {
@@ -152,13 +158,11 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   return (
     <div className="w-full min-h-screen bg-[#02040a] text-white pt-2 pb-32 overflow-x-hidden font-sans">
       
-      {/* --- HEADER (Cleaned as per red marks) --- */}
       <div className="max-w-[550px] mx-auto px-4 flex justify-between items-center py-6 sticky top-0 bg-[#02040a]/80 backdrop-blur-md z-[100]">
           <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
               <h2 className="text-xs font-black uppercase tracking-[0.3em] text-gray-100">Onyx Drift</h2>
           </div>
-          {/* Settings icon removed from here */}
       </div>
 
       <section className="max-w-[550px] mx-auto px-4">
@@ -176,7 +180,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               return (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={post._id} className="flex gap-3 py-6 border-b border-white/5 relative">
                   
-                  {/* Avatar & Profile Menu */}
                   <div className="relative flex-shrink-0">
                     <img 
                       onClick={(e) => { e.stopPropagation(); setActiveProfileMenuId(activeProfileMenuId === post._id ? null : post._id); }}
@@ -235,9 +238,9 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                       </div>
                     )}
 
-                    {/* --- Action Buttons (Like & Comment Fixed) --- */}
+                    {/* --- Action Buttons --- */}
                     <div className="flex justify-between mt-4 max-w-[420px] text-gray-500">
-                      <button className="flex items-center gap-2 hover:text-cyan-400 group transition-colors">
+                      <button onClick={(e) => handleCommentClick(e, post._id)} className="flex items-center gap-2 hover:text-cyan-400 group transition-colors">
                         <div className="p-2 group-hover:bg-cyan-500/10 rounded-full"><FaComment size={16}/></div>
                         <span className="text-xs font-medium">{post.comments?.length || 0}</span>
                       </button>

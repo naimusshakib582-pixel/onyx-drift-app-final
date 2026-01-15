@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 const router = express.Router();
+
 /* ==========================================================
     💬 8. ADD COMMENT (POST /api/posts/:id/comment)
 ========================================================== */
@@ -23,8 +24,8 @@ router.post("/:id/comment", auth, async (req, res) => {
     const comment = {
       text,
       userId: currentUserId,
-      userName: userProfile?.name || "Drifter",
-      userAvatar: userProfile?.avatar || "",
+      userName: userProfile?.name || req.user?.name || "Drifter",
+      userAvatar: userProfile?.avatar || req.user?.picture || "",
       createdAt: new Date()
     };
 
@@ -100,7 +101,6 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
     const isVideo = req.file.mimetype ? req.file.mimetype.includes("video") : false;
     let detectedType = isVideo ? "video" : "image";
     
-    // --- STORY & REEL DETECTION ---
     if (req.body.isStory === "true") {
       detectedType = "story";
     } else if (req.body.isReel === "true" && isVideo) {
@@ -110,12 +110,12 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
     const postData = {
       author: currentUserId, 
       authorAuth0Id: currentUserId,    
-      authorName: userProfile?.name || "Drifter",
-      authorAvatar: userProfile?.avatar || "",
+      authorName: userProfile?.name || req.user?.name || "Drifter",
+      authorAvatar: userProfile?.avatar || req.user?.picture || "",
       text: req.body.text || "",
       media: req.file.path, 
       mediaType: detectedType,
-      filter: req.body.filter || "none", // ফিল্টার সেভ করার জন্য
+      filter: req.body.filter || "none",
       likes: [],
       comments: [],
       views: 0
@@ -155,8 +155,6 @@ router.get("/reels/all", async (req, res) => {
 ========================================================== */
 router.get("/stories/all", async (req, res) => {
   try {
-    // গত ২৪ ঘণ্টার স্টোরি দেখানোর জন্য (অপশনাল)
-    // const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const stories = await Post.find({ mediaType: "story" })
       .sort({ createdAt: -1 })
       .limit(50)
@@ -206,9 +204,9 @@ router.get("/user/:userId", async (req, res) => {
 });
 
 /* ==========================================================
-    ❤️ 6. LIKE / UNLIKE (PUT /api/posts/:id/like)
+    ❤️ 6. LIKE / UNLIKE (CHANGED TO POST FOR FRONTEND SYNC)
 ========================================================== */
-router.put("/:id/like", auth, async (req, res) => {
+router.post("/:id/like", auth, async (req, res) => {
   try {
     const userId = req.user.sub || req.user.id;
     const post = await Post.findById(req.params.id);
