@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; // <--- শুধু এই ইম্পোর্টটি যোগ করা হয়েছে
+import { useNavigate } from "react-router-dom"; 
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   HiOutlinePhone, HiOutlineVideoCamera, HiOutlinePaperAirplane, 
@@ -11,7 +11,7 @@ import {
 
 const Messenger = ({ socket }) => { 
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
-  const navigate = useNavigate(); // <--- নেভিগেশন হুক যোগ করা হয়েছে
+  const navigate = useNavigate();
   
   const [conversations, setConversations] = useState([]);
   const [currentChat, setCurrentChat] = useState(null);
@@ -57,10 +57,23 @@ const Messenger = ({ socket }) => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 📞 কল করার ফাংশন (কোনো চ্যাট ওপেন থাকলে তার ID নিয়ে কল পেজে যাবে)
+  /* ==========================================================
+      📞 CALL LOGIC (Newly Added)
+  ========================================================== */
   const handleCall = () => {
-    if (currentChat) {
-      navigate(`/call/${currentChat._id}`);
+    if (currentChat && socket?.current) {
+      const receiverId = currentChat.members.find(m => m !== user.sub);
+      const roomId = `room_${currentChat._id}_${Date.now()}`;
+
+      // সকেটের মাধ্যমে কল রিকোয়েস্ট পাঠানো
+      socket.current.emit("sendCallRequest", {
+        senderName: user.name || "Neural User",
+        receiverId: receiverId,
+        roomId: roomId
+      });
+
+      // কল পেজে নেভিগেট করা
+      navigate(`/call/${roomId}`);
     }
   };
 
@@ -173,7 +186,9 @@ const Messenger = ({ socket }) => {
 
   const handleSend = async () => {
     if (!newMessage.trim() || !currentChat) return;
+
     const receiverId = currentChat.members.find(m => m !== user.sub);
+    
     if (socket?.current) {
       socket.current.emit("sendMessage", {
         senderId: user.sub,
@@ -181,8 +196,10 @@ const Messenger = ({ socket }) => {
         text: newMessage
       });
     }
+
     setMessages([...messages, { senderId: user.sub, text: newMessage }]);
     setNewMessage("");
+
     try {
       const token = await getAccessTokenSilently();
       await axios.post(`${API_URL}/api/messages`, {
@@ -335,10 +352,8 @@ const Messenger = ({ socket }) => {
                 <h3 className="text-sm font-black uppercase tracking-widest text-cyan-500">Terminal_{currentChat._id.slice(-4)}</h3>
               </div>
               <div className="flex gap-4">
-                {/* 📞 অডিও কল বাটন */}
-                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all active:scale-90"><HiOutlinePhone size={22} /></button>
-                {/* 🎥 ভিডিও কল বাটন */}
-                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all active:scale-90"><HiOutlineVideoCamera size={22} /></button>
+                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-90 transition-all"><HiOutlinePhone size={22} /></button>
+                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-90 transition-all"><HiOutlineVideoCamera size={22} /></button>
               </div>
             </header>
 

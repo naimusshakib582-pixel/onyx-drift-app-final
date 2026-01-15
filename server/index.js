@@ -20,13 +20,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৩. রাউট ইম্পোর্ট (নিশ্চিত করুন reels.js ফাইলটি আপনার routes ফোল্ডারে আছে)
+// ৩. রাউট ইম্পোর্ট
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
 import userRoutes from './routes/users.js'; 
 import messageRoutes from "./routes/messages.js";
 import storyRoute from "./routes/stories.js";
-import reelRoutes from "./routes/reels.js"; // <--- রিল রাউট ইম্পোর্ট
+import reelRoutes from "./routes/reels.js"; 
 
 const app = express();
 const server = http.createServer(app);
@@ -74,7 +74,7 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
 app.use("/api/stories", storyRoute);
-app.use("/api/reels", reelRoutes); // <--- রিল রাউট মাউন্ট (Fixes 404 for /api/reels/upload)
+app.use("/api/reels", reelRoutes); 
 
 // ৮. রুট এন্ডপয়েন্ট চেক
 app.get("/", (req, res) => {
@@ -101,6 +101,7 @@ app.use((err, req, res, next) => {
     📡 REAL-TIME ENGINE (Socket.io)
 ========================================================== */
 io.on("connection", (socket) => {
+    // ইউজার অনলাইন হলে রেজিস্টার করা
     socket.on("addNewUser", async (userId) => {
         if (redis && userId) {
             await redis.hset("online_users", userId, socket.id);
@@ -109,12 +110,28 @@ io.on("connection", (socket) => {
         }
     });
 
+    // টেক্সট মেসেজ হ্যান্ডলার
     socket.on("sendMessage", async (data) => {
         const { receiverId } = data;
         const socketId = await redis?.hget("online_users", receiverId);
         if (socketId) io.to(socketId).emit("getMessage", data);
     });
 
+    // ভিডিও কল রিকোয়েস্ট হ্যান্ডলার (এটি কল পৌঁছানোর জন্য জরুরি)
+    socket.on("sendCallRequest", async (data) => {
+        const { receiverId, senderName, roomId } = data;
+        const socketId = await redis?.hget("online_users", receiverId);
+        
+        if (socketId) {
+            // রিসিভার অনলাইন থাকলে তাকে কল নোটিফিকেশন পাঠানো
+            io.to(socketId).emit("incomingCall", {
+                senderName,
+                roomId
+            });
+        }
+    });
+
+    // ডিসকানেক্ট হ্যান্ডলার
     socket.on("disconnect", async () => {
         if (redis) {
             const all = await redis.hgetall("online_users");
