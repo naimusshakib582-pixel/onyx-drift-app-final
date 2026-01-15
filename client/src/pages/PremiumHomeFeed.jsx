@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FaTimes, FaImage, FaHeart, FaComment, 
   FaShareAlt, FaDownload, FaEllipsisH, FaCheckCircle,
-  FaVolumeMute, FaVolumeUp, FaCog, FaTrashAlt
+  FaVolumeMute, FaVolumeUp, FaTrashAlt, FaUser, FaCog, FaSignOutAlt
 } from 'react-icons/fa'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
@@ -55,7 +55,7 @@ const AutoPlayVideo = ({ src }) => {
 };
 
 const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen }) => {
-  const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const { user, logout, getAccessTokenSilently, isAuthenticated } = useAuth0();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -63,7 +63,10 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
+  
+  // States for Dropdowns
   const [activePostMenuId, setActivePostMenuId] = useState(null);
+  const [activeProfileMenuId, setActiveProfileMenuId] = useState(null);
 
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
   const postMediaRef = useRef(null);
@@ -75,7 +78,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       setPosts(response.data);
       setError(null);
     } catch (err) { 
-      console.error("Fetch Error:", err);
       setError("Syncing with Neural Network...");
       setTimeout(fetchPosts, 5000);
     } finally { 
@@ -83,17 +85,18 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
     }
   };
 
-  useEffect(() => { 
-    fetchPosts(); 
-  }, []);
+  useEffect(() => { fetchPosts(); }, []);
 
+  // Close menus on click outside
   useEffect(() => {
-    const closeMenu = () => setActivePostMenuId(null);
-    window.addEventListener('click', closeMenu);
-    return () => window.removeEventListener('click', closeMenu);
+    const closeAllMenus = () => {
+      setActivePostMenuId(null);
+      setActiveProfileMenuId(null);
+    };
+    window.addEventListener('click', closeAllMenus);
+    return () => window.removeEventListener('click', closeAllMenus);
   }, []);
 
-  // --- Like Functionality ---
   const handleLike = async (postId) => {
     if (!isAuthenticated) return alert("Please login to like");
     try {
@@ -102,22 +105,15 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         headers: { Authorization: `Bearer ${token}` }
       });
       setPosts(posts.map(p => p._id === postId ? response.data : p));
-    } catch (err) {
-      console.error("Like error", err);
-    }
+    } catch (err) { console.error("Like error", err); }
   };
 
-  // --- Share Functionality ---
   const handleShare = (post) => {
     if (navigator.share) {
-      navigator.share({
-        title: 'Onyx Feed',
-        text: post.text,
-        url: window.location.href,
-      }).catch(console.error);
+      navigator.share({ title: 'Onyx Drift', text: post.text, url: window.location.href }).catch(console.error);
     } else {
-      alert("Link copied to clipboard!");
       navigator.clipboard.writeText(window.location.href);
+      alert("Link copied!");
     }
   };
 
@@ -131,57 +127,41 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       if (mediaFile) formData.append("media", mediaFile);
       
       await axios.post(`${API_URL}/api/posts`, formData, {
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          "Content-Type": "multipart/form-data" 
-        }
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" }
       });
 
       setPostText(""); setMediaFile(null); setMediaPreview(null);
       setIsPostModalOpen(false); fetchPosts();
-    } catch (err) {
-      alert("Transmission failed.");
-    } finally { setIsSubmitting(false); }
+    } catch (err) { alert("Transmission failed."); } finally { setIsSubmitting(false); }
   };
 
   const handleDeletePost = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this post?")) return;
+    if (!window.confirm("Delete this broadcast?")) return;
     try {
       const token = await getAccessTokenSilently();
       await axios.delete(`${API_URL}/api/posts/${postId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPosts(posts.filter(p => p._id !== postId));
-    } catch (err) {
-      alert("Failed to delete post.");
-    }
+    } catch (err) { alert("Deletion failed."); }
   };
 
   return (
     <div className="w-full min-h-screen bg-[#02040a] text-white pt-2 pb-32 overflow-x-hidden font-sans">
       
-      {/* --- Top Settings Header --- */}
-      <div className="max-w-[550px] mx-auto px-4 flex justify-between items-center py-4 sticky top-0 bg-[#02040a]/80 backdrop-blur-md z-[100]">
+      {/* --- Simple Centered Header --- */}
+      <div className="max-w-[550px] mx-auto px-4 flex justify-center items-center py-6 sticky top-0 bg-[#02040a]/80 backdrop-blur-md z-[100]">
           <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-cyan-500 rounded-full animate-pulse" />
-              <h2 className="text-sm font-black uppercase tracking-widest text-gray-400">Onyx Feed</h2>
+              <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+              <h2 className="text-xs font-black uppercase tracking-[0.3em] text-gray-500">Neural Feed</h2>
           </div>
-          <button className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-gray-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-all">
-              <FaCog size={20} />
-          </button>
       </div>
 
       <section className="max-w-[550px] mx-auto px-4">
-        {error && (
-          <div className="p-3 mb-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg text-cyan-400 text-[10px] uppercase tracking-[0.2em] text-center animate-pulse">
-            {error}
-          </div>
-        )}
+        {error && <div className="p-3 mb-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg text-cyan-400 text-[10px] uppercase text-center animate-pulse">{error}</div>}
 
         {loading && posts.length === 0 ? (
-          <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
-          </div>
+          <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div></div>
         ) : (
           <div className="flex flex-col">
             {posts.map((post) => {
@@ -190,42 +170,53 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               const isLiked = post.likes?.includes(user?.sub);
               
               return (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }} 
-                  animate={{ opacity: 1, y: 0 }}
-                  key={post._id} 
-                  className="flex gap-3 py-6 border-b border-white/5 hover:bg-white/[0.01] transition-all relative"
-                >
-                  <div className="flex-shrink-0">
-                    <img src={post.authorAvatar || post.authorPicture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorName}`} className="w-11 h-11 rounded-full border border-white/10 object-cover bg-gray-900 shadow-lg" alt="avatar" />
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={post._id} className="flex gap-3 py-6 border-b border-white/5 relative">
+                  
+                  {/* --- Profile Click Area --- */}
+                  <div className="relative flex-shrink-0">
+                    <img 
+                      onClick={(e) => { e.stopPropagation(); setActiveProfileMenuId(activeProfileMenuId === post._id ? null : post._id); }}
+                      src={post.authorAvatar || post.authorPicture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorName}`} 
+                      className="w-11 h-11 rounded-full border border-white/10 object-cover bg-gray-900 cursor-pointer hover:border-cyan-500/50 transition-all" 
+                      alt="avatar" 
+                    />
+
+                    {/* Profile Dropdown Menu */}
+                    <AnimatePresence>
+                      {activeProfileMenuId === post._id && (
+                        <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute left-0 mt-2 w-48 bg-[#0d1117] border border-white/10 rounded-2xl shadow-2xl z-[150] p-2 backdrop-blur-xl">
+                          <button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors">
+                            <FaUser size={14} className="text-cyan-500" /> Profile
+                          </button>
+                          <button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors">
+                            <FaCog size={14} className="text-gray-500" /> Settings
+                          </button>
+                          <div className="my-1 border-t border-white/5" />
+                          <button onClick={() => logout()} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-rose-500 hover:bg-rose-500/5 rounded-xl transition-colors">
+                            <FaSignOutAlt size={14} /> Log Out
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 overflow-hidden">
-                        <span className="text-[15px] font-bold text-gray-100 truncate hover:text-cyan-400 cursor-pointer">{post.authorName || 'Onyx User'}</span>
+                      <div onClick={(e) => { e.stopPropagation(); setActiveProfileMenuId(activeProfileMenuId === post._id ? null : post._id); }} className="flex items-center gap-1.5 overflow-hidden cursor-pointer group">
+                        <span className="text-[15px] font-bold text-gray-100 truncate group-hover:text-cyan-400 transition-colors">{post.authorName || 'Drifter'}</span>
                         <FaCheckCircle className="text-cyan-500 text-[11px] flex-shrink-0" />
                         <span className="text-gray-600 text-[13px]">· {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Now'}</span>
                       </div>
                       
+                      {/* Post Options Menu */}
                       <div className="relative">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setActivePostMenuId(activePostMenuId === post._id ? null : post._id); }}
-                          className="p-2 text-gray-600 hover:text-rose-500 transition-colors rounded-full hover:bg-white/5"
-                        >
+                        <button onClick={(e) => { e.stopPropagation(); setActivePostMenuId(activePostMenuId === post._id ? null : post._id); }} className="p-2 text-gray-600 hover:text-rose-500 rounded-full hover:bg-white/5 transition-colors">
                           <FaEllipsisH size={14} />
                         </button>
-                        
                         <AnimatePresence>
                           {activePostMenuId === post._id && (
-                            <motion.div 
-                              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                              className="absolute right-0 mt-2 w-40 bg-[#0d1117] border border-white/10 rounded-xl shadow-2xl z-50 p-1.5 backdrop-blur-xl"
-                            >
-                              <button 
-                                onClick={() => handleDeletePost(post._id)}
-                                className="w-full text-left px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-500/10 rounded-lg flex items-center gap-3 transition-colors"
-                              >
+                            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="absolute right-0 mt-2 w-40 bg-[#0d1117] border border-white/10 rounded-xl shadow-2xl z-50 p-1.5 backdrop-blur-xl">
+                              <button onClick={() => handleDeletePost(post._id)} className="w-full text-left px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-500/10 rounded-lg flex items-center gap-3 transition-colors">
                                 <FaTrashAlt size={12} /> Delete Post
                               </button>
                             </motion.div>
@@ -242,27 +233,18 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                       </div>
                     )}
 
+                    {/* --- Action Buttons --- */}
                     <div className="flex justify-between mt-4 max-w-[420px] text-gray-500">
-                      <button className="flex items-center gap-2 hover:text-cyan-400 transition-colors group">
-                        <div className="p-2 group-hover:bg-cyan-500/10 rounded-full"><FaComment size={16}/></div>
+                      <button className="flex items-center gap-2 hover:text-cyan-400 group">
+                        <div className="p-2 group-hover:bg-cyan-500/10 rounded-full transition-colors"><FaComment size={16}/></div>
                         <span className="text-xs font-medium">{post.comments?.length || 0}</span>
                       </button>
-                      <button 
-                        onClick={() => handleLike(post._id)}
-                        className={`flex items-center gap-2 transition-colors group ${isLiked ? 'text-pink-500' : 'hover:text-pink-500'}`}
-                      >
-                        <div className={`p-2 rounded-full ${isLiked ? 'bg-pink-500/10' : 'group-hover:bg-pink-500/10'}`}>
-                          <FaHeart size={16}/>
-                        </div>
+                      <button onClick={() => handleLike(post._id)} className={`flex items-center gap-2 transition-colors group ${isLiked ? 'text-pink-500' : 'hover:text-pink-500'}`}>
+                        <div className={`p-2 rounded-full ${isLiked ? 'bg-pink-500/10' : 'group-hover:bg-pink-500/10'}`}><FaHeart size={16}/></div>
                         <span className="text-xs font-medium">{post.likes?.length || 0}</span>
                       </button>
-                      <button className="p-2 hover:text-green-500 hover:bg-green-500/10 rounded-full transition-all"><FaDownload size={15}/></button>
-                      <button 
-                        onClick={() => handleShare(post)}
-                        className="p-2 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full transition-all"
-                      >
-                        <FaShareAlt size={15}/>
-                      </button>
+                      <button className="p-2 hover:text-green-500 hover:bg-green-500/10 rounded-full transition-colors"><FaDownload size={15}/></button>
+                      <button onClick={() => handleShare(post)} className="p-2 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full transition-colors"><FaShareAlt size={15}/></button>
                     </div>
                   </div>
                 </motion.div>
@@ -272,6 +254,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         )}
       </section>
 
+      {/* --- Transmit Signal Modal --- */}
       <AnimatePresence>
         {isPostModalOpen && (
           <div className="fixed inset-0 z-[2000] flex items-start sm:items-center justify-center pt-4">
@@ -280,7 +263,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               <div className="p-5">
                 <div className="flex justify-between items-center mb-4">
                   <button onClick={() => setIsPostModalOpen(false)} className="text-gray-400 hover:text-white p-2"><FaTimes size={18}/></button>
-                  <button disabled={isSubmitting || (!postText.trim() && !mediaFile)} onClick={handlePostSubmit} className="bg-cyan-500 text-white px-6 py-1.5 rounded-full text-[14px] font-bold disabled:opacity-40 hover:bg-cyan-400">
+                  <button disabled={isSubmitting || (!postText.trim() && !mediaFile)} onClick={handlePostSubmit} className="bg-cyan-500 text-white px-6 py-1.5 rounded-full text-[14px] font-bold disabled:opacity-40 hover:bg-cyan-400 transition-all">
                     {isSubmitting ? "Syncing..." : "Transmit"}
                   </button>
                 </div>
@@ -289,7 +272,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                   <textarea autoFocus value={postText} onChange={(e) => setPostText(e.target.value)} placeholder="Broadcast your signal..." className="w-full bg-transparent text-[19px] text-gray-100 placeholder-gray-600 outline-none resize-none min-h-[150px]" />
                 </div>
                 <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                   <button onClick={() => postMediaRef.current.click()} className="text-cyan-500 hover:bg-cyan-500/10 p-2.5 rounded-full"><FaImage size={22} /></button>
+                   <button onClick={() => postMediaRef.current.click()} className="text-cyan-500 hover:bg-cyan-500/10 p-2.5 rounded-full transition-colors"><FaImage size={22} /></button>
                    <input type="file" ref={postMediaRef} onChange={(e) => {
                       const file = e.target.files[0];
                       if(file) {
