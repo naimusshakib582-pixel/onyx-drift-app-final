@@ -20,16 +20,17 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৩. রাউট ইম্পোর্ট (পাথ নিশ্চিত করুন)
+// ৩. রাউট ইম্পোর্ট (ES Module এ অবশ্যই শেষে .js দিবেন)
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
 import userRoutes from './routes/users.js'; 
 import messageRoutes from "./routes/messages.js";
+import storyRoute from "./routes/stories.js"; // এখানে পরিবর্তন করা হয়েছে
 
 const app = express();
 const server = http.createServer(app);
 
-// ৪. CORS কনফিগারেশন (Render-এর জন্য ডোমেইন অ্যাড করা হয়েছে)
+// ৪. CORS কনফিগারেশন
 const allowedOrigins = [
     "http://localhost:5173", 
     "https://onyx-drift-app-final.onrender.com",
@@ -37,7 +38,6 @@ const allowedOrigins = [
     "https://onyx-drift.com"
 ];
 
-const storyRoute = require("./routes/stories");
 const corsOptions = {
     origin: function (origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -67,14 +67,14 @@ const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, {
     enableReadyCheck: false
 }) : null;
 
-// ৭. এপিআই রাউট মাউন্টিং (ভেরি ইম্পর্ট্যান্ট)
+// ৭. এপিআই রাউট মাউন্টিং
 app.use("/api/user", userRoutes); 
 app.use("/api/profile", profileRoutes); 
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
-app.use("/api/stories", storyRoute);
+app.use("/api/stories", storyRoute); // ১২ ঘণ্টার অটো ডিলিট রাউট
 
-// ৮. রুট এন্ডপয়েন্ট চেক (সার্ভার রানিং কি না তা দেখার জন্য)
+// ৮. রুট এন্ডপয়েন্ট চেক
 app.get("/", (req, res) => {
     res.send("🚀 OnyxDrift Neural Core is Online!");
 });
@@ -96,7 +96,7 @@ app.use((err, req, res, next) => {
 });
 
 /* ==========================================================
-    📡 REAL-TIME ENGINE
+    📡 REAL-TIME ENGINE (Socket.io)
 ========================================================== */
 io.on("connection", (socket) => {
     socket.on("addNewUser", async (userId) => {
