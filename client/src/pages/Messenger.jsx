@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
-import { io } from "socket.io-client";
+// import { io } from "socket.io-client"; // App.js থেকে আসছে তাই এখানে দরকার নেই
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   HiOutlinePhone, HiOutlineVideoCamera, HiOutlinePaperAirplane, 
@@ -9,7 +9,7 @@ import {
   HiOutlineMusicalNote, HiLanguage, HiCheck, HiOutlineMagnifyingGlass
 } from "react-icons/hi2";
 
-const Messenger = () => {
+const Messenger = ({ socket }) => { // <--- এখানে প্রপস হিসেবে socket গ্রহণ করা হয়েছে
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
   
   const [conversations, setConversations] = useState([]);
@@ -28,17 +28,35 @@ const Messenger = () => {
     filter: "none", text: "", musicName: "", musicUrl: ""
   });
 
-  const socket = useRef();
   const scrollRef = useRef();
   const audioRef = useRef(new Audio());
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
-  const viralSongs = [
-    { name: "After Dark x Sweater Weather", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
-    { name: "Cyberdrift 2077", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
-    { name: "Nightcall - Kavinsky", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
-    { name: "Metamorphosis", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
-  ];
+  /* ==========================================================
+      📡 REAL-TIME SOCKET LOGIC (Fixed)
+  ========================================================== */
+  useEffect(() => {
+    // ইনকামিং মেসেজ শোনার জন্য
+    if (socket?.current) {
+      socket.current.on("getMessage", (data) => {
+        // যদি ওই ইউজারের সাথে চ্যাট ওপেন থাকে তবেই মেসেজ লিস্টে পুশ হবে
+        if (currentChat?.members.includes(data.senderId)) {
+          setMessages((prev) => [...prev, {
+            senderId: data.senderId,
+            text: data.text,
+            createdAt: Date.now()
+          }]);
+        }
+      });
+    }
+    return () => {
+      if (socket?.current) socket.current.off("getMessage");
+    };
+  }, [socket, currentChat]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   /* ==========================================================
       🔍 SEARCH & CHAT LOGIC
@@ -148,14 +166,35 @@ const Messenger = () => {
   };
 
   const handleSend = async () => {
-    if (!newMessage.trim()) return;
-    socket.current.emit("sendMessage", {
-      senderId: user.sub,
-      receiverId: currentChat.members.find(m => m !== user.sub),
-      text: newMessage
-    });
+    if (!newMessage.trim() || !currentChat) return;
+
+    const receiverId = currentChat.members.find(m => m !== user.sub);
+    
+    // 📡 সকেট এর মাধ্যমে রিয়েল-টাইম পাঠানো (Fixed with .current)
+    if (socket?.current) {
+      socket.current.emit("sendMessage", {
+        senderId: user.sub,
+        receiverId: receiverId,
+        text: newMessage
+      });
+    }
+
+    // লোকাল স্টেট আপডেট
     setMessages([...messages, { senderId: user.sub, text: newMessage }]);
     setNewMessage("");
+
+    // ডাটাবেসে সেভ করার জন্য API কল (ঐচ্ছিক কিন্তু রিকমেন্ডেড)
+    try {
+      const token = await getAccessTokenSilently();
+      await axios.post(`${API_URL}/api/messages`, {
+        conversationId: currentChat._id,
+        text: newMessage
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error("Failed to save message to DB", err);
+    }
   };
 
   return (
@@ -218,7 +257,6 @@ const Messenger = () => {
         <div className="p-8 pb-4">
           <h2 className="text-2xl font-black tracking-tighter italic bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent mb-8">ONYX_NODES</h2>
           
-          {/* 🔍 GLOBAL SEARCH BAR */}
           <div className="relative mb-8 group">
             <HiOutlineMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-cyan-500 transition-colors" size={18} />
             <input 
@@ -229,7 +267,6 @@ const Messenger = () => {
               className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-[10px] font-bold tracking-widest uppercase outline-none focus:border-cyan-500/50 transition-all"
             />
             
-            {/* সার্চ রেজাল্ট ড্রপডাউন (ID সহ) */}
             <AnimatePresence>
               {searchResults.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-white/10 rounded-2xl z-[100] shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto">
@@ -240,7 +277,6 @@ const Messenger = () => {
                       </div>
                       <div className="flex flex-col flex-1 truncate">
                         <span className="text-[11px] font-black text-white/80 group-hover:text-cyan-400 uppercase">{u.name}</span>
-                        {/* আইডি দেখানো হচ্ছে */}
                         <span className="text-[7px] text-white/20 font-mono tracking-tighter truncate italic">ID: {u.auth0Id || u._id}</span>
                       </div>
                       <div className="text-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity">

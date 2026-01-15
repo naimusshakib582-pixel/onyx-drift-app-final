@@ -92,7 +92,6 @@ export default function App() {
     </div>
   );
 
-  // ফুল উইডথ পেজের কন্ডিশন (যাতে সেটিংস বা মেসেঞ্জারে সাইডবার না আসে)
   const isFullWidthPage = [
     "/messenger", 
     "/messages", 
@@ -112,7 +111,6 @@ export default function App() {
       <Toaster />
       <CustomCursor />
 
-      {/* ১. Navbar (Landing এবং Join পেজ ছাড়া সব জায়গায় থাকবে) */}
       {isAuthenticated && location.pathname !== "/" && location.pathname !== "/join" && (
         <header className="w-full">
           <Navbar 
@@ -124,18 +122,15 @@ export default function App() {
         </header>
       )}
       
-      {/* ২. মেইন লেআউট স্ট্রাকচার */}
       <div className="flex justify-center w-full transition-all duration-500">
         <div className={`flex w-full ${isFullWidthPage ? "max-w-full" : "max-w-[1440px] px-0 lg:px-6"} gap-6`}>
           
-          {/* লেফট সাইডবার (ডেস্কটপ) */}
           {isAuthenticated && !isFullWidthPage && (
             <aside className="hidden lg:block w-[280px] sticky top-4 h-[calc(100vh-20px)]">
               <Sidebar />
             </aside>
           )}
           
-          {/* কন্টেন্ট এরিয়া */}
           <main className="flex-1 flex justify-center pb-24 lg:pb-10">
             <div className={`${isFullWidthPage ? "w-full" : "w-full lg:max-w-[650px] max-w-full"}`}>
               <AnimatePresence mode="wait">
@@ -158,18 +153,21 @@ export default function App() {
                     } 
                   />
 
-                  {/* রিলস এবং ভিডিও এডিটর */}
                   <Route path="/reels" element={<ProtectedRoute component={ReelsFeed} />} />
                   <Route path="/reels-editor" element={<ProtectedRoute component={ReelsEditor} />} />
                   
-                  {/* মেসেঞ্জার */}
-                  <Route path="/messages" element={<ProtectedRoute component={Messenger} />} />
-                  <Route path="/messenger" element={<ProtectedRoute component={Messenger} />} />
+                  {/* মেসেঞ্জার রাউটে সকেট পাস করা হয়েছে */}
+                  <Route 
+                    path="/messages" 
+                    element={<ProtectedRoute component={() => <Messenger socket={socket} />} />} 
+                  />
+                  <Route 
+                    path="/messenger" 
+                    element={<ProtectedRoute component={() => <Messenger socket={socket} />} />} 
+                  />
                   
-                  {/* সেটিংস রাউট */}
                   <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
                   
-                  {/* অন্যান্য প্রোফাইল ও এনালাইটিক্স */}
                   <Route path="/viral" element={<ProtectedRoute component={ViralFeed} />} />
                   <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
                   <Route path="/analytics" element={<ProtectedRoute component={Analytics} />} />
@@ -177,23 +175,19 @@ export default function App() {
                   <Route path="/following" element={<ProtectedRoute component={FollowingPage} />} />
                   <Route path="/call/:roomId" element={<ProtectedRoute component={Call} />} />
                   
-                  {/* ওয়াইল্ডকার্ড রাউট */}
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </AnimatePresence>
             </div>
           </main>
 
-          {/* রাইট সাইডবার (ডেস্কটপ) */}
           {isAuthenticated && !isFullWidthPage && (
             <aside className="hidden xl:block w-[320px] sticky top-4 h-[calc(100vh-20px)]">
-               {/* এখানে আপনার ট্রেন্ডিং বা সাজেস্টেড ইউজার থাকবে */}
             </aside>
           )}
         </div>
       </div>
 
-      {/* ৩. মোবাইল নেভিগেশন (ফুটার) */}
       {isAuthenticated && <MobileNav userAuth0Id={user?.sub} />}
     </div>
   );
