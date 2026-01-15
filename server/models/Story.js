@@ -1,9 +1,7 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const StorySchema = new mongoose.Schema({
   userId: { type: String, required: true },
-  username: { type: String },
-  userImage: { type: String },
   mediaUrl: { type: String, required: true },
   text: { type: String },
   musicName: { type: String },
@@ -12,8 +10,9 @@ const StorySchema = new mongoose.Schema({
   createdAt: { 
     type: Date, 
     default: Date.now, 
-    index: { expires: '12h' } // এটি ১২ ঘণ্টা পর অটোমেটিক ডিলিট করে দেবে
+    index: { expires: '12h' } 
   }
 });
 
-module.exports = mongoose.model("Story", StorySchema);
+// module.exports এর বদলে এটি ব্যবহার করুন
+export default mongoose.model("Story", StorySchema);

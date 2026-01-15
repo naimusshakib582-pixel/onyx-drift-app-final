@@ -1,10 +1,11 @@
-const router = require("express").Router();
-const Story = require("../models/Story");
+import express from "express";
+const router = express.Router();
+import Story from "../models/Story.js"; // .js দিতে ভুলবেন না
 
-// স্টোরি সেভ করা
+// স্টোরি পোস্ট করা
 router.post("/", async (req, res) => {
+  const newStory = new Story(req.body);
   try {
-    const newStory = new Story(req.body);
     const savedStory = await newStory.save();
     res.status(200).json(savedStory);
   } catch (err) {
@@ -12,7 +13,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// সব একটিভ স্টোরি দেখা
+// সব স্টোরি গেট করা
 router.get("/", async (req, res) => {
   try {
     const stories = await Story.find().sort({ createdAt: -1 });
@@ -22,4 +23,5 @@ router.get("/", async (req, res) => {
   }
 });
 
-module.exports = router;
+// module.exports এর বদলে এটি ব্যবহার করুন
+export default router;
