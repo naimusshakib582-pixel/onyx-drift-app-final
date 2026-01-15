@@ -173,4 +173,24 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
+/* ==========================================================
+    ✅ NEW FIX: GET POSTS BY USER ID (প্রোফাইল পেজের এরর দূর করার জন্য)
+========================================================== */
+router.get("/user/:userId", async (req, res) => {
+  try {
+    const targetUserId = decodeURIComponent(req.params.userId);
+    const userPosts = await Post.find({
+      $or: [
+        { authorAuth0Id: targetUserId },
+        { author: targetUserId }
+      ]
+    }).sort({ createdAt: -1 });
+
+    res.json(userPosts || []);
+  } catch (err) {
+    console.error("📡 Profile Post Fetch Error:", err);
+    res.status(500).json({ msg: "Neural signal lost while fetching posts" });
+  }
+});
+
 export default router;
