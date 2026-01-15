@@ -37,6 +37,7 @@ const allowedOrigins = [
     "https://onyx-drift.com"
 ];
 
+const storyRoute = require("./routes/stories");
 const corsOptions = {
     origin: function (origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -71,6 +72,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/profile", profileRoutes); 
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
+app.use("/api/stories", storyRoute);
 
 // ৮. রুট এন্ডপয়েন্ট চেক (সার্ভার রানিং কি না তা দেখার জন্য)
 app.get("/", (req, res) => {
