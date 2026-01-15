@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fa'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
+import { useNavigate } from 'react-router-dom'; // প্রোফাইল নেভিগেশনের জন্য যোগ করা হয়েছে
 
 // --- Video Component with Sound Toggle ---
 const AutoPlayVideo = ({ src }) => {
@@ -57,6 +58,7 @@ const AutoPlayVideo = ({ src }) => {
 
 const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen }) => {
   const { user, logout, getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const navigate = useNavigate(); // রিডাইরেক্ট করার জন্য
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -110,6 +112,22 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       setPosts(posts.map(p => p._id === postId ? response.data : p));
     } catch (err) { 
       console.error("Like Error:", err.response?.data || err.message);
+    }
+  };
+
+  // --- Follow Logic ---
+  const handleFollowUser = async (e, targetAuth0Id) => {
+    e.stopPropagation();
+    if (!isAuthenticated) return alert("Please login to follow");
+    try {
+      const token = await getAccessTokenSilently();
+      await axios.post(`${API_URL}/api/user/follow/${encodeURIComponent(targetAuth0Id)}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert("Neural link established!");
+      setActiveProfileMenuId(null);
+    } catch (err) {
+      alert("Failed to connect.");
     }
   };
 
@@ -195,6 +213,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               const mediaSrc = post.media || post.mediaUrl;
               const isVideo = mediaSrc?.match(/\.(mp4|webm|mov)$/i) || post.mediaType === 'video';
               const isLiked = post.likes?.includes(user?.sub);
+              const authorId = post.authorAuth0Id || post.userId; // ইউজারের ইউনিক আইডি
               
               return (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={post._id} className="flex gap-3 py-6 border-b border-white/5 relative">
@@ -214,14 +233,30 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                              <p className="text-xs font-bold text-cyan-500 truncate">{post.authorName}</p>
                              <p className="text-[10px] text-gray-500 truncate">@{post.authorName?.toLowerCase().replace(/\s/g, '')}</p>
                           </div>
-                          <button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold">
+                          
+                          {/* Follow Button */}
+                          <button 
+                            onClick={(e) => handleFollowUser(e, authorId)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold"
+                          >
                             <FaUserPlus size={14} className="text-cyan-500" /> Follow
                           </button>
-                          <button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold">
+
+                          {/* Message Button */}
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); navigate('/messages'); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold"
+                          >
                             <FaEnvelope size={14} className="text-gray-400" /> Message
                           </button>
+
                           <div className="my-1 border-t border-white/5" />
-                          <button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold">
+
+                          {/* Profile View Button */}
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); navigate(`/profile/${authorId}`); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold"
+                          >
                             <FaUser size={14} /> View Profile
                           </button>
                         </motion.div>
@@ -261,7 +296,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                       </div>
                     )}
 
-                    {/* --- Action Buttons --- */}
                     <div className="flex justify-between mt-4 max-w-[420px] text-gray-500">
                       <button onClick={(e) => handleCommentClick(e, post)} className="flex items-center gap-2 hover:text-cyan-400 group transition-colors">
                         <div className="p-2 group-hover:bg-cyan-500/10 rounded-full"><FaComment size={16}/></div>

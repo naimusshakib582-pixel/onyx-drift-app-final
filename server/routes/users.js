@@ -2,6 +2,7 @@ import express from 'express';
 import User from '../models/User.js'; 
 import auth from '../middleware/auth.js'; 
 import upload from '../middleware/multer.js'; // আপনার মিডলওয়্যার পাথ চেক করে নিন
+import Post from '../models/Post.js'; // পোস্ট খোঁজার জন্য এই ইমপোর্টটি প্রয়োজন
 
 const router = express.Router();
 
@@ -99,7 +100,7 @@ router.get("/search", auth, async (req, res) => {
       filter.$or = [
         { name: { $regex: searchRegex } },
         { nickname: { $regex: searchRegex } },
-        { auth0Id: { $regex: searchRegex } } // এই লাইনটি মেসেঞ্জার ও আইডি সার্চের জন্য যোগ করা হয়েছে
+        { auth0Id: { $regex: searchRegex } } // এই লাইনটি মেসেঞ্জার ও আইডি সার্চের জন্য যোগ করা হয়েছে
       ];
     }
 
@@ -162,6 +163,28 @@ router.get("/all", auth, async (req, res) => {
     res.json(users);
   } catch (err) {
     res.status(500).json({ msg: "Discovery signal lost" });
+  }
+});
+
+/* ==========================================================
+    6️⃣ FIXED: GET POSTS BY USER ID (প্রোফাইল পেজের জন্য)
+========================================================== */
+router.get("/posts/user/:userId", auth, async (req, res) => {
+  try {
+    const targetUserId = decodeURIComponent(req.params.userId);
+    
+    // আপনার Post মডেলে authorAuth0Id অথবা userId ফিল্ডটি চেক করে নিন
+    const posts = await Post.find({
+      $or: [
+        { authorAuth0Id: targetUserId },
+        { userId: targetUserId }
+      ]
+    }).sort({ createdAt: -1 });
+
+    res.json(posts);
+  } catch (err) {
+    console.error("📡 User Posts Fetch Error:", err);
+    res.status(500).json({ msg: "Error fetching user signals" });
   }
 });
 
