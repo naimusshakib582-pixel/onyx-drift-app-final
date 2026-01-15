@@ -1,9 +1,41 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaTimes, FaImage, FaHeart, FaComment, FaShareAlt, FaDownload, FaEllipsisH } from 'react-icons/fa'; 
+import { FaTimes, FaImage, FaHeart, FaComment, FaShareAlt, FaDownload, FaEllipsisH, FaCheckCircle } from 'react-icons/fa'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
 import { io } from "socket.io-client"; 
+
+// --- ভিডিওর জন্য অটো-প্লে কম্পোনেন্ট ---
+const AutoPlayVideo = ({ src }) => {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          videoRef.current.play().catch(() => {});
+        } else {
+          videoRef.current.pause();
+        }
+      },
+      { threshold: 0.6 } // ভিডিওটি ৬০% স্ক্রিনে আসলে প্লে হবে
+    );
+
+    if (videoRef.current) observer.observe(videoRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <video 
+      ref={videoRef}
+      src={src} 
+      muted 
+      loop 
+      playsInline
+      className="w-full h-auto max-h-[550px] object-contain"
+    />
+  );
+};
 
 const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen }) => {
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
@@ -20,7 +52,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const postMediaRef = useRef(null);
   const socketRef = useRef(null);
 
-  // --- Socket.io Connection ---
   useEffect(() => {
     if (isAuthenticated) {
       socketRef.current = io(API_URL, { transports: ["polling", "websocket"] });
@@ -31,7 +62,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
     }
   }, [isAuthenticated, API_URL]);
 
-  // --- Fetch Posts ---
   const fetchPosts = async () => {
     try {
       setLoading(true);
@@ -48,7 +78,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
     fetchPosts(); 
   }, []);
 
-  // --- Filtering Logic ---
   const filteredPosts = posts.filter((post) => {
     const term = searchQuery.toLowerCase();
     return (
@@ -57,7 +86,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
     );
   });
 
-  // --- Submit Post ---
   const handlePostSubmit = async () => {
     if (!postText.trim() && !mediaFile) return;
     setIsSubmitting(true);
@@ -66,9 +94,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       const token = await getAccessTokenSilently();
       const formData = new FormData();
       formData.append("text", postText);
-      if (mediaFile) {
-        formData.append("media", mediaFile); 
-      }
+      if (mediaFile) formData.append("media", mediaFile); 
       formData.append("isReel", "false"); 
 
       const response = await axios.post(`${API_URL}/api/posts`, formData, {
@@ -79,20 +105,16 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       });
 
       if (response.status === 201 || response.status === 200) {
-        setPostText(""); 
-        setMediaFile(null); 
-        setMediaPreview(null);
-        setIsPostModalOpen(false); 
-        fetchPosts(); 
+        setPostText(""); setMediaFile(null); setMediaPreview(null);
+        setIsPostModalOpen(false); fetchPosts(); 
       }
     } catch (err) { 
-      console.error("Transmission Failed:", err.response?.data || err.message);
+      console.error("Transmission Failed:", err);
     } finally { 
       setIsSubmitting(false); 
     }
   };
 
-  // --- Media Handle ---
   const handleMediaSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -104,179 +126,130 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#02040a] text-white pt-2 pb-24">
+    <div className="w-full min-h-screen bg-[#02040a] text-white pt-2 pb-24 font-sans">
       
-      {/* ১. ফিড হেডার (আগের মতোই রাখা হয়েছে) */}
-      <section className="flex flex-col px-4 max-w-[550px] mx-auto">
-        <div className="flex items-center gap-4 mb-6 opacity-40">
-          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.4em]">
-            Neural Feed
-          </h3>
+      {/* ১. ফিড হেডার (আপনার রিকোয়েস্ট অনুযায়ী অপরিবর্তিত) */}
+      <section className="flex flex-col px-4 max-w-[600px] mx-auto">
+        <div className="flex items-center gap-4 mb-4 opacity-40 mt-2">
+          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.4em]">Neural Feed</h3>
           <div className="h-[1px] flex-1 bg-gradient-to-r from-white/20 to-transparent"></div>
         </div>
 
         {/* ২. টুইটার স্টাইল পোস্ট লিস্ট */}
         {loading ? (
-          <div className="flex flex-col items-center py-20 gap-4">
+          <div className="flex justify-center py-20">
             <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-[9px] font-bold text-cyan-500/50 uppercase tracking-[0.2em]">Syncing Neural Data...</p>
           </div>
-        ) : filteredPosts.length > 0 ? (
+        ) : (
           <div className="flex flex-col">
             {filteredPosts.map(post => (
               <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 key={post._id} 
-                className="border-b border-white/10 pb-4 mb-4"
+                className="flex gap-3 px-3 py-4 border-b border-white/10 hover:bg-white/[0.02] transition-colors"
               >
-                {/* টুইটার স্টাইল লেআউট: বামে এভাটার, ডানে কন্টেন্ট */}
-                <div className="flex gap-3 px-2">
+                {/* প্রোফাইল পিকচার */}
+                <div className="flex-shrink-0">
                   <img 
                     src={post.authorPicture || "https://via.placeholder.com/40"} 
-                    className="w-11 h-11 rounded-full object-cover border border-white/5" 
+                    className="w-12 h-12 rounded-full object-cover border border-white/5" 
                     alt="User" 
                   />
-                  
-                  <div className="flex-1">
-                    {/* ইউজার নেম ও টাইমলাইন */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[14px] font-bold text-gray-100 hover:underline cursor-pointer">{post.authorName}</span>
-                        <span className="text-[13px] text-gray-500">· {new Date(post.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <FaEllipsisH className="text-gray-600 text-sm" />
+                </div>
+
+                {/* কন্টেন্ট এরিয়া */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 overflow-hidden">
+                      <span className="text-[15px] font-bold text-gray-100 truncate hover:underline cursor-pointer">{post.authorName || "Anonymous"}</span>
+                      <FaCheckCircle className="text-cyan-500 text-[12px] flex-shrink-0" />
+                      <span className="text-[14px] text-gray-500 truncate">@{post.authorName?.split(' ')[0].toLowerCase()}</span>
+                      <span className="text-gray-600 text-[14px]">· {new Date(post.createdAt).toLocaleDateString()}</span>
                     </div>
+                    <FaEllipsisH className="text-gray-600 text-sm" />
+                  </div>
 
-                    {/* পোস্ট টেক্সট */}
-                    {post.text && (
-                      <p className="text-[15px] text-gray-200 mt-1 leading-normal mb-3">
-                        {post.text}
-                      </p>
-                    )}
+                  {/* টেক্সট */}
+                  {post.text && <p className="text-[15px] text-gray-200 mt-0.5 mb-3 leading-normal">{post.text}</p>}
 
-                    {/* মিডিয়া (টুইটারের মতো কার্ভড বর্ডার) */}
-                    {post.mediaUrl && (
-                      <div className="mt-2 rounded-2xl overflow-hidden border border-white/10 bg-black/20 max-h-[500px]">
-                        {post.mediaUrl.endsWith('.mp4') || post.mediaUrl.includes('video') ? (
-                          <video 
-                            src={post.mediaUrl} 
-                            controls 
-                            className="w-full h-auto object-contain"
-                          />
-                        ) : (
-                          <img 
-                            src={post.mediaUrl} 
-                            className="w-full h-auto object-contain" 
-                            alt="Post content" 
-                            loading="lazy"
-                          />
-                        )}
-                      </div>
-                    )}
-
-                    {/* অ্যাকশন বার (টুইটার স্টাইল আইকন সেট) */}
-                    <div className="flex justify-between items-center mt-4 max-w-md opacity-80">
-                      <button className="flex items-center gap-2 text-gray-500 hover:text-cyan-400 transition-all group">
-                        <div className="p-2 group-hover:bg-cyan-500/10 rounded-full transition-all">
-                            <FaComment size={16}/>
-                        </div>
-                        <span className="text-[12px]">{post.comments?.length || 0}</span>
-                      </button>
-                      
-                      <button className="flex items-center gap-2 text-gray-500 hover:text-pink-500 transition-all group">
-                        <div className="p-2 group-hover:bg-pink-500/10 rounded-full transition-all">
-                            <FaHeart size={16}/>
-                        </div>
-                        <span className="text-[12px]">{post.likes?.length || 0}</span>
-                      </button>
-
-                      <button className="p-2 text-gray-500 hover:text-green-500 hover:bg-green-500/10 rounded-full transition-all">
-                        <FaDownload size={15}/>
-                      </button>
-
-                      <button className="p-2 text-gray-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full transition-all">
-                        <FaShareAlt size={15}/>
-                      </button>
+                  {/* ভিডিও/ইমেজ (Twitter Style Curved Border) */}
+                  {post.mediaUrl && (
+                    <div className="mt-2 rounded-[16px] overflow-hidden border border-white/10 bg-black/40">
+                      {post.mediaUrl.match(/\.(mp4|webm|ogg)$/) || post.mediaUrl.includes('video') ? (
+                        <AutoPlayVideo src={post.mediaUrl} />
+                      ) : (
+                        <img 
+                          src={post.mediaUrl} 
+                          className="w-full h-auto max-h-[600px] object-cover" 
+                          alt="Post content" 
+                          loading="lazy"
+                        />
+                      )}
                     </div>
+                  )}
+
+                  {/* ইন্টারেকশন বার */}
+                  <div className="flex justify-between items-center mt-4 max-w-md opacity-70">
+                    <button className="flex items-center gap-2 group text-gray-500 hover:text-cyan-400">
+                      <div className="p-2 group-hover:bg-cyan-500/10 rounded-full transition-all"><FaComment size={16}/></div>
+                      <span className="text-xs">{post.comments?.length || 0}</span>
+                    </button>
+                    <button className="flex items-center gap-2 group text-gray-500 hover:text-pink-500">
+                      <div className="p-2 group-hover:bg-pink-500/10 rounded-full transition-all"><FaHeart size={16}/></div>
+                      <span className="text-xs">{post.likes?.length || 0}</span>
+                    </button>
+                    <button className="p-2 text-gray-500 hover:text-green-500 hover:bg-green-500/10 rounded-full transition-all">
+                      <FaDownload size={15}/>
+                    </button>
+                    <button className="p-2 text-gray-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full transition-all">
+                      <FaShareAlt size={15}/>
+                    </button>
                   </div>
                 </div>
               </motion.div>
             ))}
           </div>
-        ) : (
-          <div className="flex flex-col items-center py-32 opacity-20">
-            <p className="italic text-[10px] tracking-[0.3em] uppercase font-bold text-center text-gray-500">
-              Empty Drift — No Signals Detected
-            </p>
-          </div>
         )}
       </section>
 
-      {/* ৩. পোস্ট মডাল (Popup) - আগের মতোই রাখা হয়েছে */}
+      {/* ৩. পোস্ট মডাল */}
       <AnimatePresence>
         {isPostModalOpen && (
-          <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsPostModalOpen(false)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-md"
-            />
-            
-            <motion.div 
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              className="relative w-full max-w-lg bg-[#0d1117] rounded-t-[32px] sm:rounded-[32px] border border-white/10 overflow-hidden shadow-2xl"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-3">
-                    <img src={user?.picture} className="w-10 h-10 rounded-full border border-cyan-500/20" alt="me" />
-                    <div>
-                      <h4 className="text-xs font-bold text-white uppercase tracking-tighter">{user?.nickname}</h4>
-                      <p className="text-[8px] text-cyan-500 uppercase tracking-[0.2em] font-black">Transmit Mode</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setIsPostModalOpen(false)} className="p-2 bg-white/5 rounded-full text-gray-400">
-                    <FaTimes size={12}/>
-                  </button>
-                </div>
-
-                <textarea
-                  autoFocus
-                  value={postText}
-                  onChange={(e) => setPostText(e.target.value)}
-                  placeholder="Share with the drift..."
-                  className="w-full bg-transparent text-lg text-gray-200 placeholder-gray-700 outline-none resize-none min-h-[140px]"
-                />
-
-                {mediaPreview && (
-                  <div className="relative mt-2 rounded-2xl overflow-hidden border border-white/10 max-h-[300px] bg-black">
-                    <img src={mediaPreview} className="w-full h-full object-contain" alt="preview" />
-                    <button 
-                      onClick={() => {setMediaPreview(null); setMediaFile(null);}} 
-                      className="absolute top-2 right-2 bg-black/70 p-1.5 rounded-full text-white"
-                    >
-                      <FaTimes size={10}/>
-                    </button>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/5">
-                  <div className="flex gap-4">
-                    <button onClick={() => postMediaRef.current.click()} className="flex items-center gap-2 text-gray-500 hover:text-cyan-400 transition-colors">
-                      <FaImage size={20} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Media</span>
-                    </button>
-                    <input type="file" ref={postMediaRef} onChange={handleMediaSelect} hidden accept="image/*,video/*" />
-                  </div>
-
+          <div className="fixed inset-0 z-[2000] flex items-start sm:items-center justify-center pt-4 sm:pt-0">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsPostModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-lg bg-[#0d1117] rounded-2xl border border-white/10 shadow-2xl mx-4 overflow-hidden">
+              <div className="p-5">
+                <div className="flex justify-between items-center mb-4">
+                  <button onClick={() => setIsPostModalOpen(false)} className="text-gray-400 hover:text-white"><FaTimes size={18}/></button>
                   <button 
-                    disabled={isSubmitting || (!postText.trim() && !mediaFile)}
-                    onClick={handlePostSubmit}
-                    className="bg-white text-black px-10 py-3 rounded-full text-[11px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-20"
+                    disabled={isSubmitting || (!postText.trim() && !mediaFile)} 
+                    onClick={handlePostSubmit} 
+                    className="bg-cyan-500 text-white px-5 py-1.5 rounded-full text-[13px] font-bold hover:bg-cyan-600 disabled:opacity-40 transition-all"
                   >
                     {isSubmitting ? "Syncing..." : "Transmit"}
                   </button>
+                </div>
+                <div className="flex gap-3">
+                  <img src={user?.picture} className="w-10 h-10 rounded-full" alt="me" />
+                  <textarea 
+                    autoFocus 
+                    value={postText} 
+                    onChange={(e) => setPostText(e.target.value)} 
+                    placeholder="Share with the drift..." 
+                    className="w-full bg-transparent text-[19px] text-gray-100 placeholder-gray-600 outline-none resize-none min-h-[140px]" 
+                  />
+                </div>
+                {mediaPreview && (
+                  <div className="relative mt-2 rounded-xl overflow-hidden border border-white/10 max-h-[280px] bg-black">
+                    <img src={mediaPreview} className="w-full h-full object-contain" alt="preview" />
+                    <button onClick={() => {setMediaPreview(null); setMediaFile(null);}} className="absolute top-2 right-2 bg-black/70 p-1.5 rounded-full text-white"><FaTimes size={10}/></button>
+                  </div>
+                )}
+                <div className="mt-4 pt-3 border-t border-white/5">
+                   <button onClick={() => postMediaRef.current.click()} className="text-cyan-500 hover:bg-cyan-500/10 p-2 rounded-full transition-all">
+                     <FaImage size={20} />
+                   </button>
+                   <input type="file" ref={postMediaRef} onChange={handleMediaSelect} hidden accept="image/*,video/*" />
                 </div>
               </div>
             </motion.div>
