@@ -20,12 +20,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-// ৩. রাউট ইম্পোর্ট (ES Module এ অবশ্যই শেষে .js দিবেন)
+// ৩. রাউট ইম্পোর্ট (নিশ্চিত করুন reels.js ফাইলটি আপনার routes ফোল্ডারে আছে)
 import profileRoutes from "./src/routes/profile.js"; 
 import postRoutes from "./routes/posts.js";
 import userRoutes from './routes/users.js'; 
 import messageRoutes from "./routes/messages.js";
-import storyRoute from "./routes/stories.js"; // এখানে পরিবর্তন করা হয়েছে
+import storyRoute from "./routes/stories.js";
+import reelRoutes from "./routes/reels.js"; // <--- রিল রাউট ইম্পোর্ট
 
 const app = express();
 const server = http.createServer(app);
@@ -72,7 +73,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/profile", profileRoutes); 
 app.use("/api/posts", postRoutes); 
 app.use("/api/messages", messageRoutes); 
-app.use("/api/stories", storyRoute); // ১২ ঘণ্টার অটো ডিলিট রাউট
+app.use("/api/stories", storyRoute);
+app.use("/api/reels", reelRoutes); // <--- রিল রাউট মাউন্ট (Fixes 404 for /api/reels/upload)
 
 // ৮. রুট এন্ডপয়েন্ট চেক
 app.get("/", (req, res) => {

@@ -1,9 +1,9 @@
-    import express from "express";
+import express from "express";
 const router = express.Router();
 
 // নামের অক্ষর (Case) এবং .js এক্সটেনশন খেয়াল করুন
 import Conversation from "../models/Conversation.js"; 
-import Message from "../models/Message.js";     
+import Message from "../models/Message.js";      
 
 /* ==========================================================
    1️⃣ CREATE OR GET CONVERSATION (Direct Chat)
@@ -13,13 +13,11 @@ router.post("/conversation", async (req, res) => {
   const { senderId, receiverId } = req.body;
 
   try {
-    // আগে চেক করি এই দুজনের মধ্যে কোনো কনভারসেশন আছে কি না
     let conversation = await Conversation.findOne({
       members: { $all: [senderId, receiverId] },
     });
 
     if (!conversation) {
-      // না থাকলে নতুন তৈরি করি
       conversation = new Conversation({
         members: [senderId, receiverId],
       });
@@ -33,17 +31,19 @@ router.post("/conversation", async (req, res) => {
 });
 
 /* ==========================================================
-   2️⃣ GET ALL CONVERSATIONS OF A USER
-   Route: GET api/messages/conversation/:userId
+   2️⃣ GET ALL CONVERSATIONS (Fixing 404 for /conversations)
+   Route: GET api/messages/conversations/:userId
 ========================================================== */
-router.get("/conversation/:userId", async (req, res) => {
+// এখানে 'conversations' (Plural) যোগ করা হয়েছে ফ্রন্টএন্ডের রিকোয়েস্টের সাথে মিল রাখতে
+router.get("/conversations/:userId", async (req, res) => {
   try {
     const conversations = await Conversation.find({
       members: { $in: [req.params.userId] },
-    });
+    }).sort({ updatedAt: -1 }); // নতুন মেসেজ আসা চ্যাটগুলো উপরে দেখাবে
+    
     res.status(200).json(conversations);
   } catch (err) {
-    res.status(500).json(err);
+    res.status(500).json({ error: "Could not sync conversations" });
   }
 });
 
@@ -55,6 +55,12 @@ router.post("/message", async (req, res) => {
   const newMessage = new Message(req.body);
   try {
     const savedMessage = await newMessage.save();
+    
+    // মেসেজ পাঠানোর পর কনভারসেশনের 'updatedAt' ফিল্ড আপডেট করা ভালো
+    await Conversation.findByIdAndUpdate(req.body.conversationId, {
+        $set: { updatedAt: Date.now() }
+    });
+
     res.status(200).json(savedMessage);
   } catch (err) {
     res.status(500).json(err);
