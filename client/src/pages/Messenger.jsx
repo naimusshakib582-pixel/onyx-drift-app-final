@@ -8,7 +8,7 @@ import {
   HiOutlineChatBubbleBottomCenterText, HiOutlineMicrophone, 
   HiOutlineChevronLeft, HiPlus, HiXMark, HiOutlineSparkles,
   HiOutlineMusicalNote, HiOutlineFaceSmile, HiOutlinePaintBrush,
-  HiOutlineTextT, HiCheck, HiOutlinePlay, HiOutlinePause
+  HiLanguage, HiCheck, HiOutlinePlay, HiOutlinePause 
 } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
@@ -42,7 +42,7 @@ const Messenger = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
-  // --- 🎵 ১০০টি ভাইরাল গানের লিস্ট (নমুনা হিসেবে কয়েকটি দেওয়া হলো) ---
+  // --- 🎵 ১০০টি ভাইরাল গানের লিস্ট ---
   const viralSongs = [
     { name: "After Dark x Sweater Weather", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
     { name: "Cyberdrift 2077", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
@@ -50,12 +50,10 @@ const Messenger = () => {
     { name: "Metamorphosis", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
     { name: "Starboy - The Weeknd", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
     { name: "Blinding Lights", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" },
-    // আপনি চাইলে এখানে ১০০টি গানের অবজেক্ট এভাবে যোগ করতে পারেন
   ];
 
   // --- ১. স্টোরি ওপেন করা এবং মিউজিক প্লে করা ---
   const handleOpenStory = (story) => {
-    // ১২ ঘণ্টা চেক করার লজিক (Client Side Check)
     const storyAge = (new Date() - new Date(story.createdAt)) / (1000 * 60 * 60);
     if (storyAge > 12) {
       alert("This story has expired (12h limit).");
@@ -76,7 +74,7 @@ const Messenger = () => {
     setIsPlaying(false);
   };
 
-  // --- ২. স্টোরি আপলোড (মিউজিক এবং টাইমার সহ) ---
+  // --- ২. স্টোরি আপলোড ---
   const handleStoryUpload = async () => {
     if (!selectedStoryFile) return;
     try {
@@ -89,7 +87,7 @@ const Messenger = () => {
       formData.append("musicUrl", storySettings.musicUrl);
       formData.append("filter", storySettings.filter);
       formData.append("isStory", "true");
-      formData.append("createdAt", new Date().toISOString()); // ১২ ঘণ্টা টাইমার শুরু
+      formData.append("createdAt", new Date().toISOString());
 
       await axios.post(`${API_URL}/api/posts`, formData, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" }
@@ -103,7 +101,6 @@ const Messenger = () => {
     }
   };
 
-  // --- Call/Chat Logic ---
   const handleCall = (type) => {
     if (!currentChat) return;
     navigate(`/call/${currentChat._id}?type=${type}`);
@@ -136,7 +133,6 @@ const Messenger = () => {
         {viewingStory && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[6000] bg-black flex items-center justify-center">
              <div className="relative w-full max-w-[420px] h-full md:h-[92vh] bg-zinc-900 overflow-hidden md:rounded-3xl">
-                {/* Progress Bar */}
                 <div className="absolute top-4 left-4 right-4 h-1 bg-white/20 z-50 rounded-full overflow-hidden">
                    <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 15, ease: "linear" }} onAnimationComplete={handleCloseStory} className="h-full bg-cyan-500" />
                 </div>
@@ -155,7 +151,7 @@ const Messenger = () => {
                   <div className="absolute bottom-10 left-6 right-6 flex items-center gap-4 bg-black/60 backdrop-blur-xl p-4 rounded-2xl border border-white/10">
                     <HiOutlineMusicalNote className="text-pink-500 animate-pulse" size={20} />
                     <div className="flex-1 overflow-hidden">
-                       <p className="text-[10px] font-black uppercase tracking-widest truncate">{viewingStory.musicName}</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest truncate">{viewingStory.musicName}</p>
                     </div>
                   </div>
                 )}
@@ -182,7 +178,6 @@ const Messenger = () => {
                 alt="preview"
               />
 
-              {/* Editor Controls */}
               <div className="absolute top-8 left-0 right-0 px-6 flex justify-between items-center z-50">
                 <button onClick={() => setSelectedStoryFile(null)} className="p-3 bg-black/40 backdrop-blur-xl rounded-full"><HiXMark size={24}/></button>
                 <button onClick={handleStoryUpload} disabled={isStoryUploading} className="px-8 py-2.5 bg-white text-black font-black rounded-full text-[11px] tracking-widest uppercase">
@@ -191,19 +186,17 @@ const Messenger = () => {
               </div>
 
               <div className="absolute right-5 top-1/2 -translate-y-1/2 flex flex-col gap-6 z-50">
-                <button onClick={() => setActiveTool('text')} className={`p-3.5 rounded-full backdrop-blur-2xl border ${activeTool==='text' ? 'bg-white text-black' : 'bg-black/40'}`}><HiOutlineTextT size={24}/></button>
+                <button onClick={() => setActiveTool('text')} className={`p-3.5 rounded-full backdrop-blur-2xl border ${activeTool==='text' ? 'bg-white text-black' : 'bg-black/40'}`}><HiLanguage size={24}/></button>
                 <button onClick={() => setActiveTool('music')} className={`p-3.5 rounded-full backdrop-blur-2xl border ${activeTool==='music' ? 'bg-pink-500 text-white' : 'bg-black/40'}`}><HiOutlineMusicalNote size={24}/></button>
                 <button onClick={() => setActiveTool('filter')} className={`p-3.5 rounded-full backdrop-blur-2xl border ${activeTool==='filter' ? 'bg-cyan-500 text-black' : 'bg-black/40'}`}><HiOutlinePaintBrush size={24}/></button>
               </div>
 
-              {/* Draggable Text Preview */}
               {storySettings.text && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="bg-white text-black px-5 py-2 text-xl font-black italic uppercase shadow-2xl">{storySettings.text}</span>
                 </div>
               )}
 
-              {/* Music Selection Menu */}
               <AnimatePresence>
                 {activeTool === 'music' && (
                   <motion.div initial={{ y: 200 }} animate={{ y: 0 }} exit={{ y: 200 }} className="absolute bottom-0 w-full bg-black/95 backdrop-blur-3xl p-8 rounded-t-[2.5rem] border-t border-white/10 z-[60]">
@@ -265,7 +258,6 @@ const Messenger = () => {
               <input type="file" hidden accept="image/*" onChange={(e) => setSelectedStoryFile(e.target.files[0])} />
             </label>
             
-            {/* Story Nodes - ক্লিক করলে handleOpenStory কল হবে */}
             {[1, 2, 3].map(i => (
               <div key={i} onClick={() => handleOpenStory({ 
                   mediaUrl: `https://i.pravatar.cc/500?img=${i+10}`, 
