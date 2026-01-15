@@ -19,9 +19,8 @@ const ReelsEditor = () => {
   // --- VIDEO & EDITING STATES ---
   const [videoSrc, setVideoSrc] = useState(null);
   const [audioSrc, setAudioSrc] = useState(null);
-  const [overlayText, setOverlayText] = useState("VIRAL HOOK ⚡");
+  const [overlayText, setOverlayText] = useState(""); // ডিফল্ট খালি রাখা হয়েছে
   const [filter, setFilter] = useState('none');
-  const [trimStart, setTrimStart] = useState(0);
 
   const videoRef = useRef(null);
   const audioRef = useRef(null);
@@ -33,11 +32,7 @@ const ReelsEditor = () => {
   // --- HANDLERS FOR BUTTONS ---
   const handleSubMenuAction = (action) => {
     console.log(`Action Triggered: ${action}`);
-    if (action === 'Split') {
-      alert(`Clip split at ${currentTime.toFixed(2)} seconds`);
-    } else {
-      alert(`${action} activated!`);
-    }
+    alert(`${action} activated!`);
   };
 
   // --- VIDEO/PHOTO UPLOAD HANDLER ---
@@ -48,6 +43,10 @@ const ReelsEditor = () => {
       setVideoSrc(url);
       setIsPlaying(false);
       setCurrentTime(0);
+      // ভিডিও লোড নিশ্চিত করা
+      if (videoRef.current) {
+        videoRef.current.load();
+      }
     }
   };
 
@@ -62,7 +61,7 @@ const ReelsEditor = () => {
   // --- SYNC PLAYHEAD LOGIC ---
   useEffect(() => {
     let interval;
-    if (isPlaying) {
+    if (isPlaying && videoSrc) {
       if (videoRef.current) videoRef.current.play();
       if (audioRef.current) audioRef.current.play();
       
@@ -80,7 +79,7 @@ const ReelsEditor = () => {
       if (audioRef.current) audioRef.current.pause();
     }
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, videoSrc]);
 
   const editTools = [
     { id: 'clip', icon: <Scissors size={20} />, label: 'Cut', color: 'bg-blue-600' },
@@ -108,14 +107,9 @@ const ReelsEditor = () => {
   return (
     <div className="fixed inset-0 bg-[#050505] flex flex-col overflow-hidden text-white font-sans select-none">
       
-      {/* Hidden File Input for Gallery */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleVideoUpload} 
-        accept="video/*, image/*" 
-        className="hidden" 
-      />
+      {/* Hidden File Inputs */}
+      <input type="file" ref={fileInputRef} onChange={handleVideoUpload} accept="video/*, image/*" className="hidden" />
+      <input type="file" ref={audioInputRef} onChange={handleAudioUpload} accept="audio/*" className="hidden" />
 
       {/* TOP HUD */}
       <div className="relative z-[100] p-4 flex justify-between items-center bg-gradient-to-b from-black/90 via-black/40 to-transparent">
@@ -129,9 +123,8 @@ const ReelsEditor = () => {
             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 p-2 rounded-2xl border border-white/10 transition-all"
           >
             <Upload size={14} className="text-white" />
-            <span className="text-[9px] font-black uppercase tracking-tighter">Upload</span>
+            <span className="text-[9px] font-black uppercase tracking-tighter">Upload Media</span>
           </button>
-          <input type="file" ref={audioInputRef} onChange={handleAudioUpload} accept="audio/*" className="hidden" />
         </div>
         <button 
           onClick={handleExport} 
@@ -154,21 +147,25 @@ const ReelsEditor = () => {
                     src={videoSrc}
                     className="w-full h-full object-cover"
                     style={{ filter: filter }}
+                    playsInline
                   />
                 ) : (
                   <div className="text-zinc-600 font-black text-[10px] tracking-widest uppercase text-center px-4">
-                    Tap the + button below to start editing
+                    Media load হচ্ছে না? <br/> ভিডিও সিলেক্ট করুন
                   </div>
                 )}
 
-                {/* Text Overlay */}
-                <motion.div 
-                  animate={isPlaying ? { scale: [1, 1.1, 1] } : {}}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                  className="absolute z-20 bg-yellow-400 text-black px-6 py-2 font-black italic text-2xl uppercase skew-x-[-12deg] shadow-2xl"
-                >
-                  {overlayText}
-                </motion.div>
+                {/* Draggable Text Overlay - শুধু টেক্সট থাকলেই দেখাবে */}
+                {overlayText && (
+                  <motion.div 
+                    drag
+                    dragConstraints={{ left: -100, right: 100, top: -200, bottom: 200 }}
+                    whileDrag={{ scale: 1.1 }}
+                    className="absolute z-20 bg-yellow-400 text-black px-6 py-2 font-black italic text-2xl uppercase skew-x-[-12deg] shadow-2xl cursor-move"
+                  >
+                    {overlayText}
+                  </motion.div>
+                )}
                 
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle,transparent_20%,black_150%)] pointer-events-none opacity-50" />
              </div>
@@ -194,7 +191,7 @@ const ReelsEditor = () => {
             <button 
               key={tool.id} 
               onClick={() => { setActiveTab(tool.id); setShowSubMenu(tool.label); }} 
-              className={`flex flex-col items-center gap-2 transition-all duration-300 ${activeTab === tool.id ? 'scale-110' : 'opacity-40 hover:opacity-100 hover:scale-105'}`}
+              className={`flex flex-col items-center gap-2 transition-all duration-300 ${activeTab === tool.id ? 'scale-110 opacity-100' : 'opacity-40 hover:opacity-100 hover:scale-105'}`}
             >
               <div className={`p-4 rounded-2xl transition-shadow ${activeTab === tool.id ? `${tool.color} shadow-[0_0_20px_rgba(255,255,255,0.2)]` : 'bg-zinc-900 hover:bg-zinc-800'}`}>
                 {React.cloneElement(tool.icon, { size: 22, className: "text-white" })}
@@ -218,8 +215,6 @@ const ReelsEditor = () => {
            
            <div className="flex items-center gap-4">
              <RotateCcw size={20} className="text-zinc-500 cursor-pointer hover:text-white transition-colors" onClick={() => { if(videoRef.current) videoRef.current.currentTime = 0; setCurrentTime(0); }} />
-             
-             {/* --- গ্যালারি থেকে ভিডিও/ফটো সিলেক্ট করার জন্য নিচের + বাটন --- */}
              <button 
                onClick={() => fileInputRef.current.click()}
                className="p-2 bg-cyan-500/20 hover:bg-cyan-500/40 rounded-full transition-all active:scale-90"
@@ -258,16 +253,17 @@ const ReelsEditor = () => {
                 <button onClick={() => setShowSubMenu(null)} className="p-3 bg-white/5 rounded-full"><X size={24}/></button>
               </div>
 
-              {/* Sub Menu Logic */}
               {showSubMenu === 'Text' ? (
                 <div className="space-y-6">
                   <input 
                     type="text" 
                     value={overlayText} 
                     onChange={(e) => setOverlayText(e.target.value.toUpperCase())}
-                    className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-xl font-black italic outline-none focus:border-yellow-400"
-                    placeholder="ENTER TEXT..."
+                    className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl text-xl font-black italic outline-none focus:border-yellow-400 text-white"
+                    placeholder="ENTER TEXT HERE..."
+                    autoFocus
                   />
+                  <p className="text-[10px] text-zinc-500 uppercase font-black">ইউজারের পছন্দমতো টেক্সটটি ড্র্যাগ করে সরান</p>
                 </div>
               ) : showSubMenu === 'Beats' ? (
                 <div className="space-y-6 text-center">
