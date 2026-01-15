@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   FaHeart, FaRegHeart, FaRegComment, FaTrashAlt, 
   FaPlay, FaPause, FaDownload, FaCertificate, FaShareAlt
@@ -23,7 +23,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
   const likesArray = Array.isArray(post.likes) ? post.likes : [];
   const isLiked = user && likesArray.includes(user.sub);
 
-  // 🚀 ভাইরাল শেয়ার কার্ড জেনারেশন (HD Quality)
+  // 🚀 ভাইরাল শেয়ার কার্ড জেনারেশন
   const generateShareCard = async () => {
     if (!postRef.current || isCapturing) return;
     setIsCapturing(true);
@@ -70,6 +70,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
     try {
       setIsLiking(true);
       const token = await getAccessTokenSilently();
+      // লাইক রিকোয়েস্ট API
       await axios.put(`${API_URL}/api/posts/${post._id}/like`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -84,36 +85,32 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
   return (
     <motion.div 
       ref={postRef}
-      initial={{ opacity: 0, scale: 0.98 }}
-      whileInView={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.4 }}
-      // মোবাইলে ফুল স্ক্রিন করার জন্য w-full এবং sm:rounded ব্যবহার করা হয়েছে
-      className="bg-[#0a0f1e]/60 backdrop-blur-xl border-y border-white/[0.05] sm:border sm:rounded-[2.5rem] overflow-hidden mb-4 w-full transition-all group/card shadow-2xl shadow-black"
+      className="bg-[#0a0f1e]/60 backdrop-blur-xl border-y border-white/[0.05] sm:border sm:rounded-[2rem] overflow-hidden mb-4 w-full transition-all group/card shadow-2xl"
     >
-      {/* --- Header Area --- */}
+      {/* --- Header --- */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div 
             onClick={handleProfileClick}
-            className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-cyan-500 to-purple-600 cursor-pointer active:scale-90 transition-all shadow-lg"
+            className="w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-cyan-500 to-purple-600 cursor-pointer active:scale-90 transition-all shadow-lg"
           >
-            <div className="bg-[#020617] rounded-full p-[1px] w-full h-full">
-              <img 
-                src={post.authorAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorName}`} 
-                className="w-full h-full rounded-full object-cover" 
-                alt="avatar" 
-                referrerPolicy="no-referrer"
-              />
-            </div>
+            <img 
+              src={post.authorAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorName}`} 
+              className="w-full h-full rounded-full object-cover bg-[#020617]" 
+              alt="avatar" 
+              referrerPolicy="no-referrer"
+            />
           </div>
 
           <div className="cursor-pointer" onClick={handleProfileClick}>
-            <h4 className="font-bold text-white text-[14px] leading-tight flex items-center gap-1 tracking-tight">
+            <h4 className="font-bold text-white text-[15px] flex items-center gap-1 truncate max-w-[150px] sm:max-w-full">
               {post.authorName || 'Drifter'}
               {post.isVerified && <FaCertificate className="text-cyan-400 text-[10px]" />}
             </h4>
-            <p className="text-[10px] text-gray-500 font-medium tracking-wider uppercase mt-0.5">
+            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-tighter">
               {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'ONLINE'}
             </p>
           </div>
@@ -122,26 +119,26 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
         {(user?.sub === post.author || user?.sub === post.authorAuth0Id) && (
           <button 
             onClick={(e) => { e.stopPropagation(); if(window.confirm("Terminate Signal?")) onDelete(post._id); }} 
-            className="p-2 text-gray-600 hover:text-rose-500 transition-all rounded-xl"
+            className="p-2 text-gray-600 hover:text-rose-500 transition-all"
           >
             <FaTrashAlt size={12} />
           </button>
         )}
       </div>
 
-      {/* --- Body Text --- */}
+      {/* --- Text Content --- */}
       {post.text && (
         <div className="px-5 pb-3">
-          <p className="text-gray-300 text-[14px] leading-relaxed font-normal">
+          <p className="text-gray-300 text-[15px] leading-relaxed">
             {post.text}
           </p>
         </div>
       )}
 
-      {/* --- Media Section (আপনার ছবির মতো রাউন্ডেড শেপ) --- */}
-      <div className="px-2 pb-2"> 
+      {/* --- Media Area --- */}
+      <div className="px-3 pb-2"> 
         {post.media ? (
-          <div className="relative rounded-[2rem] overflow-hidden bg-[#020617] border border-white/5 group/media shadow-inner">
+          <div className="relative rounded-[1.5rem] overflow-hidden bg-black/40 border border-white/5 group/media shadow-inner">
             {post.mediaType === "video" || post.mediaType === "reel" ? (
               <div className={post.mediaType === "reel" ? "aspect-[9/16] max-h-[500px] mx-auto" : "aspect-video"}>
                 <video
@@ -150,23 +147,23 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
                   loop
                   muted
                   playsInline
-                  className="w-full h-full object-cover cursor-pointer"
+                  className="w-full h-full object-contain cursor-pointer"
                   onClick={togglePlay}
                 />
                 <div 
                   onClick={togglePlay}
-                  className={`absolute inset-0 flex items-center justify-center transition-all duration-300 bg-black/40 video-controls ${isPlaying ? "opacity-0" : "opacity-100"}`}
+                  className={`absolute inset-0 flex items-center justify-center bg-black/20 video-controls transition-opacity ${isPlaying ? "opacity-0" : "opacity-100"}`}
                 >
-                  <div className="p-5 bg-white/10 backdrop-blur-2xl rounded-full text-white border border-white/20">
-                    {isPlaying ? <FaPause size={20} /> : <FaPlay size={20} className="ml-1" />}
+                  <div className="p-4 bg-white/10 backdrop-blur-md rounded-full text-white border border-white/20">
+                    {isPlaying ? <FaPause size={18} /> : <FaPlay size={18} className="ml-1" />}
                   </div>
                 </div>
               </div>
             ) : (
               <img 
                 src={post.media} 
-                className="w-full object-cover max-h-[600px]" 
-                alt="Broadcast"
+                className="w-full object-cover max-h-[550px]" 
+                alt="Post media"
                 referrerPolicy="no-referrer"
               />
             )}
@@ -174,33 +171,34 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
         ) : null}
       </div>
 
-      {/* --- Bottom Actions (Facebook Style Buttons) --- */}
-      <div className="px-5 py-3 flex items-center justify-between border-t border-white/[0.03]">
-        <div className="flex items-center gap-6">
+      {/* --- Action Bar --- */}
+      <div className="px-5 py-3 flex items-center justify-between border-t border-white/[0.03] mt-2">
+        <div className="flex items-center gap-8">
           <button 
             onClick={handleLike} 
-            className={`flex items-center gap-2 transition-all ${isLiked ? "text-rose-500" : "text-gray-400"}`}
+            className={`flex items-center gap-2 transition-colors ${isLiked ? "text-rose-500" : "text-gray-500 hover:text-white"}`}
           >
             {isLiked ? <FaHeart size={18} /> : <FaRegHeart size={18} />}
-            <span className="text-[12px] font-bold">{likesArray.length}</span>
+            <span className="text-xs font-bold">{likesArray.length}</span>
           </button>
 
-          <button className="flex items-center gap-2 text-gray-400">
+          <button className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors">
             <FaRegComment size={18} />
-            <span className="text-[12px] font-bold">{post.comments?.length || 0}</span>
+            <span className="text-xs font-bold">{post.comments?.length || 0}</span>
           </button>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
            <button 
             onClick={(e) => { e.stopPropagation(); generateShareCard(); }}
             disabled={isCapturing}
-            className="p-2 text-gray-400 hover:text-cyan-400 active:scale-95"
+            className="p-2.5 text-gray-500 hover:text-cyan-400 rounded-full hover:bg-white/5 transition-all"
+            title="Download Share Card"
           >
-            <FaDownload size={14} className={isCapturing ? "animate-pulse text-cyan-500" : ""} />
+            <FaDownload size={14} className={isCapturing ? "animate-bounce text-cyan-500" : ""} />
           </button>
           
-          <button className="p-2 text-gray-400 hover:text-purple-400 active:scale-95">
+          <button className="p-2.5 text-gray-500 hover:text-purple-400 rounded-full hover:bg-white/5 transition-all">
             <FaShareAlt size={14} />
           </button>
         </div>
