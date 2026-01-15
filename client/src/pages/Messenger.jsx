@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
-// import { io } from "socket.io-client"; // App.js থেকে আসছে তাই এখানে দরকার নেই
+import { useNavigate } from "react-router-dom"; // <--- শুধু এই ইম্পোর্টটি যোগ করা হয়েছে
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   HiOutlinePhone, HiOutlineVideoCamera, HiOutlinePaperAirplane, 
@@ -9,8 +9,9 @@ import {
   HiOutlineMusicalNote, HiLanguage, HiCheck, HiOutlineMagnifyingGlass
 } from "react-icons/hi2";
 
-const Messenger = ({ socket }) => { // <--- এখানে প্রপস হিসেবে socket গ্রহণ করা হয়েছে
+const Messenger = ({ socket }) => { 
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const navigate = useNavigate(); // <--- নেভিগেশন হুক যোগ করা হয়েছে
   
   const [conversations, setConversations] = useState([]);
   const [currentChat, setCurrentChat] = useState(null);
@@ -36,10 +37,8 @@ const Messenger = ({ socket }) => { // <--- এখানে প্রপস হ�
       📡 REAL-TIME SOCKET LOGIC (Fixed)
   ========================================================== */
   useEffect(() => {
-    // ইনকামিং মেসেজ শোনার জন্য
     if (socket?.current) {
       socket.current.on("getMessage", (data) => {
-        // যদি ওই ইউজারের সাথে চ্যাট ওপেন থাকে তবেই মেসেজ লিস্টে পুশ হবে
         if (currentChat?.members.includes(data.senderId)) {
           setMessages((prev) => [...prev, {
             senderId: data.senderId,
@@ -57,6 +56,13 @@ const Messenger = ({ socket }) => { // <--- এখানে প্রপস হ�
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // 📞 কল করার ফাংশন (কোনো চ্যাট ওপেন থাকলে তার ID নিয়ে কল পেজে যাবে)
+  const handleCall = () => {
+    if (currentChat) {
+      navigate(`/call/${currentChat._id}`);
+    }
+  };
 
   /* ==========================================================
       🔍 SEARCH & CHAT LOGIC
@@ -167,10 +173,7 @@ const Messenger = ({ socket }) => { // <--- এখানে প্রপস হ�
 
   const handleSend = async () => {
     if (!newMessage.trim() || !currentChat) return;
-
     const receiverId = currentChat.members.find(m => m !== user.sub);
-    
-    // 📡 সকেট এর মাধ্যমে রিয়েল-টাইম পাঠানো (Fixed with .current)
     if (socket?.current) {
       socket.current.emit("sendMessage", {
         senderId: user.sub,
@@ -178,12 +181,8 @@ const Messenger = ({ socket }) => { // <--- এখানে প্রপস হ�
         text: newMessage
       });
     }
-
-    // লোকাল স্টেট আপডেট
     setMessages([...messages, { senderId: user.sub, text: newMessage }]);
     setNewMessage("");
-
-    // ডাটাবেসে সেভ করার জন্য API কল (ঐচ্ছিক কিন্তু রিকমেন্ডেড)
     try {
       const token = await getAccessTokenSilently();
       await axios.post(`${API_URL}/api/messages`, {
@@ -336,8 +335,10 @@ const Messenger = ({ socket }) => { // <--- এখানে প্রপস হ�
                 <h3 className="text-sm font-black uppercase tracking-widest text-cyan-500">Terminal_{currentChat._id.slice(-4)}</h3>
               </div>
               <div className="flex gap-4">
-                <button className="p-4 bg-white/5 rounded-2xl hover:bg-white/10"><HiOutlinePhone size={22} /></button>
-                <button className="p-4 bg-white/5 rounded-2xl hover:bg-white/10"><HiOutlineVideoCamera size={22} /></button>
+                {/* 📞 অডিও কল বাটন */}
+                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all active:scale-90"><HiOutlinePhone size={22} /></button>
+                {/* 🎥 ভিডিও কল বাটন */}
+                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all active:scale-90"><HiOutlineVideoCamera size={22} /></button>
               </div>
             </header>
 

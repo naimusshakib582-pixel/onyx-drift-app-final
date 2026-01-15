@@ -9,6 +9,7 @@ const CallPage = () => {
   const { user, isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const containerRef = useRef(null);
+  const zpRef = useRef(null); // Zego instance স্টোর করার জন্য
 
   // ✅ ZegoCloud Credentials
   const appID = 1086315716;
@@ -16,15 +17,12 @@ const CallPage = () => {
 
   useEffect(() => {
     const initMeeting = async () => {
-      if (!roomId || !isAuthenticated) return;
+      if (!roomId || !isAuthenticated || !user) return;
 
       try {
         // ১. ইউজার আইডি ক্লিন করা (Zego স্পেশাল ক্যারেক্টার সাপোর্ট করে না)
-        const cleanUserID = user?.sub 
-          ? user.sub.replace(/[^a-zA-Z0-9_]/g, "_") 
-          : `user_${Math.floor(Math.random() * 10000)}`;
-
-        const userName = user?.name || "Drifter User";
+        const cleanUserID = user.sub.replace(/[^a-zA-Z0-9_]/g, "_");
+        const userName = user.name || "Drifter User";
 
         // ২. কিট টোকেন জেনারেট করা
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
@@ -37,7 +35,8 @@ const CallPage = () => {
 
         // ৩. কলিং ইন্টারফেস তৈরি করা
         const zp = ZegoUIKitPrebuilt.create(kitToken);
-        
+        zpRef.current = zp; // রেফারেন্সে রাখা হলো
+
         zp.joinRoom({
           container: containerRef.current,
           sharedLinks: [
@@ -47,10 +46,10 @@ const CallPage = () => {
             },
           ],
           scenario: {
-            mode: ZegoUIKitPrebuilt.OneONoneCall, // ১-১ কলের জন্য
+            mode: ZegoUIKitPrebuilt.OneONoneCall, // ১-১ ভিডিও কল
           },
           showScreenSharingButton: true,
-          showPreJoinView: false, // সরাসরি জয়েন
+          showPreJoinView: false, // সরাসরি রুমে ঢুকবে
           showUserList: false,
           maxUsers: 2,
           layout: "Auto", 
@@ -58,7 +57,7 @@ const CallPage = () => {
           showNonVideoUser: true,
           showAudioVideoSettingsButton: true,
           onLeaveRoom: () => {
-            navigate('/messenger'); // কল লিভ করলে মেসেঞ্জারে ফিরবে
+            navigate('/messenger'); // কল শেষ হলে মেসেঞ্জারে ব্যাক করবে
           },
         });
       } catch (error) {
@@ -69,12 +68,19 @@ const CallPage = () => {
     if (isAuthenticated) {
       initMeeting();
     }
+
+    // Cleanup: যখন ইউজার পেজ থেকে চলে যাবে
+    return () => {
+      if (zpRef.current) {
+        zpRef.current.destroy();
+      }
+    };
   }, [roomId, user, isAuthenticated, navigate]);
 
   return (
     <div className="relative w-full h-screen bg-[#020617] flex flex-col overflow-hidden">
       
-      {/* 🛰️ Cyber HUD Overlay */}
+      {/* 🛰️ Cyber HUD Overlay (কলের ওপর ভাসমান লেয়ার) */}
       <div className="absolute top-0 left-0 w-full p-6 z-[9999] flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent pointer-events-none">
         <div className="flex items-center gap-4 pointer-events-auto">
           <div className="relative">
@@ -99,22 +105,29 @@ const CallPage = () => {
       <div 
         ref={containerRef} 
         className="zego-container w-full h-full"
+        style={{ width: '100vw', height: '100vh' }}
       ></div>
 
-      {/* 🎨 Custom UI Styling Overrides */}
+      {/* 🎨 CSS Overrides */}
       <style>{`
         .zego-container {
           background-color: #020617 !important;
         }
-        /* Zego-র ডিফল্ট কন্ট্রোল বার লুকানোর বা কাস্টমাইজ করার চেষ্টা */
+        /* Zego কন্ট্রোল প্যানেল স্টাইলিং */
         .ZEGO_V_W_CONTROL_BAR {
-          background: rgba(2, 6, 23, 0.7) !important;
-          backdrop-filter: blur(15px) !important;
-          border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+          background: rgba(2, 6, 23, 0.8) !important;
+          backdrop-filter: blur(20px) !important;
+          border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+          padding-bottom: 20px !important;
         }
         .ZEGO_V_W_VIDEO_PLAYER {
           object-fit: cover !important;
-          border-radius: 20px !important;
+          border-radius: 16px !important;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        /* লোডিং টেক্সট বা অন্যান্য এলিমেন্ট হাইড করা (প্রয়োজনে) */
+        .zp_v_w_loading {
+           color: #22d3ee !important;
         }
       `}</style>
     </div>
