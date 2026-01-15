@@ -3,11 +3,11 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import Post from "../models/Post.js"; 
-import auth from "../middleware/auth.js"; // সিকিউরিটির জন্য auth মিডলওয়্যার যোগ করা ভালো
+import auth from "../middleware/auth.js";
 
 const router = express.Router();
 
-// ১. ক্লাউডিনারি স্টোরেজ কনফিগারেশন
+// ১. ক্লাউডিনারি স্টোরেজ কনফিগারেশন (ভিডিওর জন্য)
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -19,7 +19,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 100 * 1024 * 1024 } // সর্বোচ্চ ১০০ এমবি পর্যন্ত ভিডিও সাপোর্ট
+    limits: { fileSize: 100 * 1024 * 1024 } // ১০০ এমবি লিমিট
 });
 
 /* ==========================================================
@@ -27,41 +27,54 @@ const upload = multer({
 ========================================================== */
 router.post("/upload", upload.single("video"), async (req, res) => {
   try {
-    const { caption, userId, authorName, authorAvatar } = req.body;
+    // ফ্রন্টএন্ড থেকে আসা ডেটা
+    const { caption, userId, authorName, authorAvatar, authorAuth0Id } = req.body;
 
     if (!req.file) {
       return res.status(400).json({ error: "No video file detected. Signal lost." });
     }
 
-    // ২. নতুন পোস্ট অবজেক্ট (আপনার Post মডেলের সাথে মিলিয়ে)
+    // ২. নতুন পোস্ট তৈরি (সব সম্ভাব্য ফিল্ড কভার করা হয়েছে যাতে ৫০০ এরর না আসে)
     const newReel = new Post({
-      author: userId, // আপনার মডেল অনুযায়ী 'author' বা 'authorId'
+      author: userId || authorAuth0Id, // মডেল অনুযায়ী প্রধান আইডি
+      authorAuth0Id: authorAuth0Id || userId, 
       authorId: userId,
       authorName: authorName || "Drifter",
       authorAvatar: authorAvatar || "",
       text: caption || "",
       media: req.file.path, 
       mediaUrl: req.file.path, 
-      mediaType: "video", // ফ্রন্টএন্ড ফিল্টারিংয়ের জন্য জরুরি
+      mediaType: "video", // এটি খুব জরুরি
       likes: [],
-      comments: []
+      comments: [],
+      views: 0,
+      createdAt: new Date()
     });
 
     const savedReel = await newReel.save();
+    console.log("✅ Reel Uploaded Successfully:", savedReel._id);
     res.status(201).json(savedReel);
+
   } catch (err) {
-    console.error("🔥 REEL_UPLOAD_ERROR:", err);
-    res.status(500).json({ error: "Internal Neural Breakdown", details: err.message });
+    // Render Logs এ বিস্তারিত দেখার জন্য console.error রাখা হয়েছে
+    console.error("🔥 REEL_UPLOAD_ERROR_DETAIL:", err);
+    res.status(500).json({ 
+        error: "Internal Neural Breakdown", 
+        message: err.message 
+    });
   }
 });
 
 /* ==========================================================
     📺 GET ALL REELS (GET /api/reels)
-    যাতে রিলস ফিড লোড হতে পারে
 ========================================================== */
 router.get("/", async (req, res) => {
   try {
-    const reels = await Post.find({ mediaType: "video" }).sort({ createdAt: -1 });
+    // ভিডিও টাইপ পোস্টগুলো খুঁজে বের করা
+    const reels = await Post.find({ 
+        $or: [{ mediaType: "video" }, { mediaType: "reel" }] 
+    }).sort({ createdAt: -1 });
+    
     res.status(200).json(reels);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch reels" });
