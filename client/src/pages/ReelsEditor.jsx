@@ -60,6 +60,16 @@ const TikTokEditor = () => {
     }
   };
 
+  const handleNext = (e) => {
+    e.stopPropagation(); // ভিডিও প্লে/পজ ইভেন্ট থামানোর জন্য
+    if (!videoSrc) {
+      alert("Please select a video first!");
+      return;
+    }
+    alert("Moving to the next step..."); 
+    // এখানে আপনি অন্য পেজে যাওয়ার লজিক দিতে পারেন
+  };
+
   const effects = {
     none: "",
     cinematic: "contrast(1.3) saturate(1.4)",
@@ -77,7 +87,6 @@ const TikTokEditor = () => {
   ];
 
   return (
-    // মোবাইল কন্টেইনার (হুবহু ফোনের সাইজ হবে)
     <div className="fixed inset-0 bg-[#0a0a0a] flex justify-center items-center">
       
       <div className="relative w-full h-full max-w-[450px] max-h-[900px] bg-black overflow-hidden flex flex-col md:rounded-[40px] md:border-[8px] md:border-zinc-800 shadow-2xl">
@@ -89,15 +98,21 @@ const TikTokEditor = () => {
         }} />
 
         {/* TOP BAR */}
-        <div className="p-6 flex justify-between items-center z-50 absolute top-0 w-full bg-gradient-to-b from-black/80 to-transparent">
-          <X className="w-6 h-6" onClick={() => setVideoSrc(null)} />
+        <div className="p-6 flex justify-between items-center z-[60] absolute top-0 w-full bg-gradient-to-b from-black/80 to-transparent pointer-events-auto">
+          <X className="w-6 h-6 cursor-pointer" onClick={() => setVideoSrc(null)} />
           <div className="bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-[12px] font-bold border border-white/10 flex items-center gap-2">
             <Music size={14} className="text-pink-500"/> Add Sound
           </div>
-          <button className="bg-[#fe2c55] px-4 py-1.5 rounded-md text-[13px] font-bold">Next</button>
+          {/* NEXT BUTTON FIXED */}
+          <button 
+            onClick={handleNext}
+            className="bg-[#fe2c55] px-4 py-1.5 rounded-md text-[13px] font-bold active:scale-95 transition-transform"
+          >
+            Next
+          </button>
         </div>
 
-        {/* PREVIEW (Mobile Aspect Ratio 9:16) */}
+        {/* PREVIEW */}
         <div className="flex-1 relative overflow-hidden bg-zinc-900">
           {videoSrc ? (
             <video
@@ -109,7 +124,7 @@ const TikTokEditor = () => {
               playsInline
             />
           ) : (
-            <div onClick={() => fileInputRef.current.click()} className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-3">
+            <div onClick={() => fileInputRef.current.click()} className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-3 cursor-pointer">
               <div className="p-4 bg-zinc-800 rounded-full"><Plus size={32} /></div>
               <span className="text-[11px] font-bold uppercase tracking-widest">Select Video</span>
             </div>
@@ -117,20 +132,19 @@ const TikTokEditor = () => {
 
           {audioSrc && <audio ref={audioRef} src={audioSrc} />}
 
-          {/* TEXT OVERLAY */}
           {overlayText && (
             <motion.div drag dragConstraints={{left: -100, right: 100, top: -200, bottom: 200}}
-              className="absolute top-1/3 left-1/4 z-40 bg-white text-black px-4 py-1 font-black text-xl shadow-2xl uppercase">
+              className="absolute top-1/3 left-1/4 z-40 bg-white text-black px-4 py-1 font-black text-xl shadow-2xl uppercase cursor-move">
               {overlayText}
             </motion.div>
           )}
 
-          {/* RIGHT SIDEBAR (মোবাইল অ্যাপের মতো পজিশন) */}
+          {/* RIGHT SIDEBAR */}
           <div className="absolute right-4 top-20 bottom-32 flex flex-col justify-between items-center z-50">
             <div className="flex flex-col gap-6">
               {tools.map((tool) => (
-                <button key={tool.id} onClick={() => tool.action ? tool.action() : setMenu(tool.id)} className="flex flex-col items-center">
-                  <div className="p-2.5 bg-black/30 backdrop-blur-xl rounded-full border border-white/5 shadow-lg">
+                <button key={tool.id} onClick={(e) => { e.stopPropagation(); tool.action ? tool.action() : setMenu(tool.id) }} className="flex flex-col items-center">
+                  <div className="p-2.5 bg-black/30 backdrop-blur-xl rounded-full border border-white/5 shadow-lg active:scale-90 transition-all">
                     {tool.icon}
                   </div>
                   <span className="text-[10px] mt-1 font-bold">{tool.id}</span>
@@ -139,10 +153,10 @@ const TikTokEditor = () => {
             </div>
 
             <div className="flex flex-col gap-6">
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center cursor-pointer" onClick={(e) => e.stopPropagation()}>
                 <div className="p-3 bg-zinc-800/80 rounded-full"><Share2 size={24}/></div>
               </div>
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center cursor-pointer" onClick={(e) => e.stopPropagation()}>
                 <div className="p-3 bg-[#fe2c55] rounded-full shadow-[0_0_15px_rgba(254,44,85,0.4)]"><Send size={24}/></div>
               </div>
             </div>
@@ -155,10 +169,10 @@ const TikTokEditor = () => {
           )}
         </div>
 
-        {/* BOTTOM TIMELINE (Mobile UX) */}
+        {/* BOTTOM TIMELINE */}
         <div className="bg-black p-4 pb-8 border-t border-white/10">
           <div className="flex items-center gap-3">
-            <div onClick={() => fileInputRef.current.click()} className="w-10 h-10 bg-zinc-800 rounded-md flex items-center justify-center border border-white/10 shrink-0">
+            <div onClick={() => fileInputRef.current.click()} className="w-10 h-10 bg-zinc-800 rounded-md flex items-center justify-center border border-white/10 shrink-0 cursor-pointer">
               <Plus size={20}/>
             </div>
             <div className="flex-1 h-10 bg-zinc-900 rounded-md relative overflow-hidden border border-white/5">
@@ -174,7 +188,7 @@ const TikTokEditor = () => {
           </div>
         </div>
 
-        {/* SLIDE UP STUDIO MENU */}
+        {/* SLIDE UP MENU */}
         <AnimatePresence>
           {menu && (
             <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
@@ -200,7 +214,6 @@ const TikTokEditor = () => {
             </motion.div>
           )}
         </AnimatePresence>
-
       </div>
     </div>
   );
