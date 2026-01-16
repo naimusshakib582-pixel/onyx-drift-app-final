@@ -19,9 +19,9 @@ const AutoPlayVideo = ({ src }) => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          videoRef.current.play().catch(() => {});
+          videoRef.current?.play().catch(() => {});
         } else {
-          videoRef.current.pause();
+          videoRef.current?.pause();
         }
       }, { threshold: 0.5 }
     );
@@ -32,8 +32,10 @@ const AutoPlayVideo = ({ src }) => {
   const toggleSound = (e) => {
     e.stopPropagation();
     const nextMuteState = !isMuted;
-    videoRef.current.muted = nextMuteState;
-    setIsMuted(nextMuteState);
+    if (videoRef.current) {
+      videoRef.current.muted = nextMuteState;
+      setIsMuted(nextMuteState);
+    }
   };
 
   return (
@@ -57,7 +59,7 @@ const AutoPlayVideo = ({ src }) => {
 };
 
 const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen }) => {
-  const { user, logout, getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const [postText, setPostText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mediaFile, setMediaFile] = useState(null);
-  const [mediaPreview, setMediaPreview] = useState(null);
   
   const [activePostMenuId, setActivePostMenuId] = useState(null);
   const [activeProfileMenuId, setActiveProfileMenuId] = useState(null);
@@ -117,16 +118,22 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const handleFollowUser = async (e, targetAuth0Id) => {
     e.stopPropagation();
     if (!isAuthenticated) return alert("Please login to follow");
+    
+    // নিজের আইডি চেক করা
+    if (user?.sub === targetAuth0Id) return alert("You cannot link with your own neural signal.");
+
     try {
       const token = await getAccessTokenSilently();
       await axios.post(`${API_URL}/api/user/follow/${encodeURIComponent(targetAuth0Id)}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // ✅ "Neural link established!" এলার্ট
       alert("Neural link established!");
       setActiveProfileMenuId(null);
     } catch (err) {
-      alert("Failed to connect.");
+      // যদি অলরেডি ফলো করা থাকে বা অন্য সমস্যা হয়
+      const msg = err.response?.data?.message || "Already linked or failed to connect.";
+      alert(msg);
+      setActiveProfileMenuId(null);
     }
   };
 
@@ -174,7 +181,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" }
       });
 
-      setPostText(""); setMediaFile(null); setMediaPreview(null);
+      setPostText(""); setMediaFile(null);
       setIsPostModalOpen(false); fetchPosts();
     } catch (err) { alert("Transmission failed."); } finally { setIsSubmitting(false); }
   };
@@ -193,7 +200,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   return (
     <div className="w-full min-h-screen bg-[#02040a] text-white pt-2 pb-32 overflow-x-hidden font-sans">
       
-      <div className="max-w-[550px] mx-auto px-4 flex justify-between items-center py-6 sticky top-0 bg-[#02040a]/90 backdrop-blur-xl z-[1000] pointer-events-auto border-b border-white/5">
+      <div className="max-w-[550px] mx-auto px-4 flex justify-between items-center py-6 sticky top-0 bg-[#02040a]/90 backdrop-blur-xl z-[1000] border-b border-white/5">
           <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
               <h2 className="text-xs font-black uppercase tracking-[0.3em] text-gray-100">Onyx Drift</h2>
@@ -239,9 +246,8 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                             <FaUserPlus size={14} className="text-cyan-500" /> Follow
                           </button>
 
-                          {/* ✅ Message বাটনে ক্লিক করলে সরাসরি ওই ইউজারের চ্যাটে যাবে */}
                           <button 
-                            onClick={(e) => { e.stopPropagation(); navigate(`/messenger/chat/${authorId}`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/messages/chat/${authorId}`); }}
                             className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold"
                           >
                             <FaEnvelope size={14} className="text-gray-400" /> Message
@@ -339,7 +345,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {activeCommentPost.comments?.map((c, i) => (
                   <div key={i} className="flex gap-3">
-                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.userName}`} className="w-8 h-8 rounded-full" />
+                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${c.userName}`} className="w-8 h-8 rounded-full" alt="user" />
                     <div className="bg-white/5 p-3 rounded-2xl flex-1 border border-white/5">
                       <p className="text-[11px] font-black text-cyan-500 uppercase">{c.userName}</p>
                       <p className="text-sm text-gray-200">{c.text}</p>
