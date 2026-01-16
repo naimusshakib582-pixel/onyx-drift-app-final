@@ -12,10 +12,12 @@ const CallPage = ({ socket }) => {
   const zpRef = useRef(null);
   const ringtoneRef = useRef(null);
 
+  // ZegoCloud Credentials
   const appID = 1086315716;
   const serverSecret = "faa9451e78f290d4a11ff8eb53c79bea"; 
 
   useEffect(() => {
+    // রিংটোন সেটআপ
     ringtoneRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3");
     ringtoneRef.current.loop = true;
 
@@ -23,6 +25,7 @@ const CallPage = ({ socket }) => {
       if (!roomId || !isAuthenticated || !user) return;
 
       try {
+        // স্পেশাল ক্যারেক্টার রিমুভ করে আইডি ক্লিন করা
         const cleanUserID = user.sub.replace(/[^a-zA-Z0-9_]/g, "_");
         const userName = user.name || "Onyx Drifter";
 
@@ -37,32 +40,43 @@ const CallPage = ({ socket }) => {
         const zp = ZegoUIKitPrebuilt.create(kitToken);
         zpRef.current = zp;
 
-        ringtoneRef.current.play().catch(() => console.log("Audio play blocked"));
+        // কল শুরু হলে রিংটোন বাজা শুরু হবে (যতক্ষণ না অন্যজন জয়েন করে)
+        ringtoneRef.current.play().catch(() => console.log("Audio play blocked by browser"));
 
         zp.joinRoom({
           container: containerRef.current,
           scenario: {
-            mode: ZegoUIKitPrebuilt.OneONoneCall, // ১:১ কলের জন্য পারফেক্ট
+            mode: ZegoUIKitPrebuilt.OneONoneCall, 
           },
           showScreenSharingButton: false, 
-          showPreJoinView: false,
+          showPreJoinView: false, // সরাসরি কলে ঢুকে যাবে
           showUserList: false,
           maxUsers: 2,
-          layout: "Auto", // Grid এর বদলে Auto দিলে মোবাইলে ফেস ডিটেকশন ভালো হয়
+          layout: "Auto", 
           showLayoutButton: false,
           showAudioVideoSettingsButton: true,
-          showTextChat: true,
-          showNonVideoUser: true, // ভিডিও অফ থাকলেও ইউজারকে দেখাবে
-          showTurnOffRemoteCameraButton: true, 
-          showTurnOffRemoteMicrophoneButton: true,
+          showTextChat: false, // মেসেঞ্জারে অলরেডি চ্যাট আছে তাই এখানে অফ রাখা ভালো
+          showNonVideoUser: true, 
+          showTurnOffRemoteCameraButton: false, 
+          showTurnOffRemoteMicrophoneButton: false,
+          lowerLeftNotification: {
+            showUserJoinAndLeave: true,
+          },
+          branding: {
+            logoURL: "",
+          },
           onUserJoin: (users) => {
-            // অন্য জন জয়েন করলেই রিংটোন বন্ধ হবে
+            // অন্য কেউ জয়েন করলে রিংটোন বন্ধ হবে
+            console.log("Drifter Joined the Neural Link");
             if (ringtoneRef.current) {
               ringtoneRef.current.pause();
               ringtoneRef.current.currentTime = 0;
             }
           },
-          onUserLeave: () => navigate('/messages'),
+          onUserLeave: () => {
+            console.log("Neural Link Severed");
+            navigate('/messages');
+          },
           onLeaveRoom: () => {
             if (ringtoneRef.current) ringtoneRef.current.pause();
             navigate('/messages');
@@ -77,8 +91,11 @@ const CallPage = ({ socket }) => {
       initMeeting();
     }
 
+    // ক্লিনআপ ফাংশন
     return () => {
-      if (zpRef.current) zpRef.current.destroy();
+      if (zpRef.current) {
+        zpRef.current.destroy();
+      }
       if (ringtoneRef.current) {
         ringtoneRef.current.pause();
         ringtoneRef.current.src = "";
@@ -97,7 +114,7 @@ const CallPage = ({ socket }) => {
             <div className="w-2 h-2 bg-cyan-400 rounded-full relative" />
           </div>
           <div>
-            <h2 className="text-cyan-400 font-bold uppercase tracking-widest text-[10px]">Neural Call</h2>
+            <h2 className="text-cyan-400 font-bold uppercase tracking-widest text-[10px]">Neural Connection</h2>
           </div>
         </div>
         
@@ -106,7 +123,7 @@ const CallPage = ({ socket }) => {
             if (zpRef.current) zpRef.current.destroy();
             navigate('/messages');
           }}
-          className="w-10 h-10 bg-red-500/20 backdrop-blur-md rounded-full flex items-center justify-center border border-red-500/30 text-red-500 pointer-events-auto"
+          className="w-10 h-10 bg-red-500/20 backdrop-blur-md rounded-full flex items-center justify-center border border-red-500/30 text-red-500 pointer-events-auto active:scale-90 transition-transform"
         >
           <HiOutlineXMark size={20} />
         </button>
@@ -118,38 +135,42 @@ const CallPage = ({ socket }) => {
         className="zego-container w-full h-full"
       ></div>
 
-      {/* 🎨 CSS Fixes for Remote Video Visibility */}
+      {/* 🎨 CSS Fixes for Mobile & Visibility */}
       <style>{`
         .zego-container {
           background-color: #020617 !important;
         }
         
-        /* রিমোট ভিডিও বড় করে দেখানোর জন্য */
+        /* ভিডিওর ব্যাকগ্রাউন্ড এবং স্টাইল */
         .ZEGO_V_W_VIDEO_PLAYER video {
           object-fit: cover !important;
-          background: #000 !important;
+          border-radius: 0px !important;
         }
 
-        /* মোবাইলে ভিডিওর লেআউট ফিক্স */
+        /* কন্ট্রোল বার কাস্টমাইজেশন (নিচে সুন্দরভাবে দেখাবে) */
+        .ZEGO_V_W_CONTROL_BAR {
+          bottom: 40px !important;
+          background: rgba(15, 23, 42, 0.8) !important;
+          backdrop-filter: blur(20px) !important;
+          border-radius: 50px !important;
+          width: fit-content !important;
+          padding: 8px 16px !important;
+          left: 50% !important;
+          transform: translateX(-50%) !important;
+          border: 1px solid rgba(34, 211, 238, 0.2) !important;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+        }
+
+        /* অপ্রয়োজনীয় জিনিস লুকানো */
+        .ZEGO_V_W_LOGO { display: none !important; }
+        .ZEGO_V_W_PREJOIN_VIEW { display: none !important; }
+        .ZEGO_V_W_TOP_BAR { display: none !important; }
+        
+        /* রিমোট ভিডিও ফুল স্ক্রিন করার জন্য */
         .ZEGO_V_W_REMOTE_VIDEO {
            height: 100% !important;
            width: 100% !important;
         }
-
-        .ZEGO_V_W_CONTROL_BAR {
-          bottom: 30px !important;
-          background: rgba(15, 23, 42, 0.9) !important;
-          backdrop-filter: blur(20px) !important;
-          border-radius: 50px !important;
-          width: fit-content !important;
-          padding: 10px 20px !important;
-          left: 50% !important;
-          transform: translateX(-50%) !important;
-          border: 1px solid rgba(34, 211, 238, 0.3) !important;
-        }
-
-        .ZEGO_V_W_LOGO { display: none !important; }
-        .ZEGO_V_W_PREJOIN_VIEW { display: none !important; }
       `}</style>
     </div>
   );

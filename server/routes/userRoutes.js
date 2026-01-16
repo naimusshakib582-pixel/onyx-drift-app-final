@@ -22,7 +22,7 @@ const upload = multer({
 
 /**
  * ১. ড্রিপ্টার সার্চ (Search Fix)
- * এটি সবার উপরে রাখা হয়েছে যাতে ডায়নামিক রাউটের সাথে কনফ্লিক্ট না হয়।
+ * ইউজারের নাম বা ডাকনাম দিয়ে সার্চ করলে সরাসরি ডাটাবেস থেকে ID সহ তথ্য আসবে।
  */
 router.get('/search', auth, async (req, res) => {
   try {
@@ -32,17 +32,22 @@ router.get('/search', auth, async (req, res) => {
     const currentUserId = req.user.sub || req.user.id;
     const searchRegex = new RegExp(`${query.trim()}`, "i");
 
+    // ডাটাবেস থেকে নাম, ডাকনাম এবং আইডি ম্যাচ করানো হচ্ছে
     const users = await User.find({
-      auth0Id: { $ne: currentUserId },
+      auth0Id: { $ne: currentUserId }, // নিজেকে সার্চ রেজাল্টে দেখাবে না
       $or: [
         { name: { $regex: searchRegex } },
         { nickname: { $regex: searchRegex } },
-        { auth0Id: query }
+        { auth0Id: query } // সরাসরি আইডি দিয়ে সার্চ করলে যেন পাওয়া যায়
       ]
-    }).limit(12).lean();
+    })
+    .select("name nickname avatar auth0Id bio isVerified followers following") // প্রয়োজনীয় সব ডাটা সিলেক্ট করা হয়েছে
+    .limit(12)
+    .lean();
     
     res.status(200).json(users);
   } catch (err) {
+    console.error("Search Error:", err);
     res.status(500).json({ message: "Search signal lost" });
   }
 });
@@ -57,7 +62,13 @@ router.put("/update-profile", auth, upload.fields([
   try {
     const { nickname, name, bio, location, workplace } = req.body;
     const targetAuth0Id = req.user.sub || req.user.id;
-    let updateFields = { name, nickname, bio, location, workplace };
+    let updateFields = {};
+    
+    if (name) updateFields.name = name;
+    if (nickname) updateFields.nickname = nickname;
+    if (bio) updateFields.bio = bio;
+    if (location) updateFields.location = location;
+    if (workplace) updateFields.workplace = workplace;
 
     if (req.files) {
       if (req.files.avatar) updateFields.avatar = req.files.avatar[0].path;
@@ -76,29 +87,31 @@ router.put("/update-profile", auth, upload.fields([
 });
 
 /**
- * ৩. প্রোফাইল এবং পোস্ট একসাথে পাওয়া (Fixes 404 & %7C Error)
- * এই রাউটটি আপনার কনসোলের '/api/user/profile/...' এররটি সমাধান করবে।
+ * ৩. প্রোফাইল এবং পোস্ট একসাথে পাওয়া (Fixes 404 & %7C Error)
  */
 router.get(['/profile/:userId', '/:userId'], auth, async (req, res) => {
   try {
     const rawUserId = req.params.userId;
-    if (rawUserId === 'search' || rawUserId === 'all') return;
+    if (rawUserId === 'search' || rawUserId === 'all') return next();
 
     const targetId = decodeURIComponent(rawUserId);
     console.log(`📡 Neural Sync Request for ID: ${targetId}`);
 
     const user = await User.findOne({ auth0Id: targetId }).lean();
+    
+    // বিভিন্ন ফিল্ড নেমে পোস্ট খোঁজা হচ্ছে যাতে কোনো পোস্ট মিস না হয়
     const posts = await Post.find({ 
       $or: [
         { authorAuth0Id: targetId },
         { authorId: targetId },
         { user: targetId },
-        { author: targetId }
+        { author: targetId },
+        { userId: targetId }
       ]
     }).sort({ createdAt: -1 }).lean();
 
     res.status(200).json({
-      user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "" },
+      user: user || { auth0Id: targetId, name: "Unknown Drifter", avatar: "", bio: "Neural profile not found." },
       posts: posts || []
     });
   } catch (err) {

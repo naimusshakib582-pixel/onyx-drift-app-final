@@ -38,15 +38,18 @@ const Messenger = ({ socket }) => {
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
   /* ==========================================================
-      📡 REAL-TIME SOCKET LOGIC (Fixed & Enhanced)
+      📡 REAL-TIME SOCKET LOGIC (Fixed for Calls & Messages)
   ========================================================== */
   useEffect(() => {
     const socketInstance = socket?.current || socket; 
 
     if (socketInstance) {
+      // অনলাইন হওয়ার জন্য ইউজার আইডি পাঠানো (যাতে কল রিসিভ করা যায়)
+      socketInstance.emit("addNewUser", user?.sub);
+
       // মেসেজ রিসিভ করার লিসেনার
       socketInstance.on("getMessage", (data) => {
-        if (currentChat?.members.includes(data.senderId) && data.senderId !== user?.sub) {
+        if (currentChat?.members.includes(data.senderId)) {
           setMessages((prev) => [...prev, {
             senderId: data.senderId,
             text: data.text,
@@ -55,8 +58,9 @@ const Messenger = ({ socket }) => {
         }
       });
 
-      // ইনকামিং কল রিসিভ করার লিসেনার
+      // ইনকামিং কল রিসিভ করার লিসেনার (এটি অন্য ফোনে পপ-আপ দেখাবে)
       socketInstance.on("incomingCall", (data) => {
+        console.log("Incoming call from:", data.senderName);
         setIncomingCall(data);
         ringtoneRef.current.loop = true;
         ringtoneRef.current.play().catch(e => console.log("Audio blocked by browser"));
@@ -69,14 +73,14 @@ const Messenger = ({ socket }) => {
         socketInstance.off("incomingCall");
       }
     };
-  }, [socket, currentChat, user, navigate]);
+  }, [socket, currentChat, user]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   /* ==========================================================
-      📞 CALL HANDLERS
+      📞 CALL HANDLERS (Fixed Connection)
   ========================================================== */
   const acceptCall = () => {
     ringtoneRef.current.pause();
@@ -95,9 +99,11 @@ const Messenger = ({ socket }) => {
     const socketInstance = socket?.current || socket;
 
     if (currentChat && socketInstance) {
+      // যাকে কল পাঠাচ্ছেন তার আইডি খুঁজে বের করা
       const receiverId = currentChat.members.find(m => m !== user.sub);
       const roomId = `room_${currentChat._id}_${Date.now()}`;
 
+      // কল রিকোয়েস্ট পাঠানো
       socketInstance.emit("sendCallRequest", {
         senderId: user.sub,
         senderName: user.name || "Neural User",
@@ -105,9 +111,10 @@ const Messenger = ({ socket }) => {
         roomId: roomId
       });
 
+      // কলকারী সরাসরি লিঙ্কে চলে যাবে
       navigate(`/call/${roomId}`);
     } else {
-      alert("Socket connection or Chat not active!");
+      alert("Please select a chat first to establish neural link!");
     }
   };
 
@@ -131,11 +138,11 @@ const Messenger = ({ socket }) => {
   }, [currentChat, getAccessTokenSilently]);
 
   /* ==========================================================
-      🔍 SEARCH & CHAT LOGIC
+      🔍 SEARCH & CHAT LOGIC (Fixed for Name Search)
   ========================================================== */
   const handleSearch = async (query) => {
     setSearchQuery(query);
-    if (query.length > 2) {
+    if (query.length >= 1) { // সার্চ আরও দ্রুত করার জন্য ১ ক্যারেক্টার থেকেই শুরু
       try {
         const token = await getAccessTokenSilently();
         const res = await axios.get(`${API_URL}/api/user/search?query=${query}`, {
@@ -153,6 +160,7 @@ const Messenger = ({ socket }) => {
   const startChat = async (targetUser) => {
     try {
       const token = await getAccessTokenSilently();
+      // targetUser.auth0Id ব্যবহার করা হয়েছে যাতে সঠিক আইডি দিয়ে চ্যাট শুরু হয়
       const res = await axios.post(`${API_URL}/api/messages/conversation`, 
         { receiverId: targetUser.auth0Id || targetUser._id },
         { headers: { Authorization: `Bearer ${token}` } }
@@ -299,7 +307,7 @@ const Messenger = ({ socket }) => {
         )}
       </AnimatePresence>
 
-      {/* 🎬 STORY VIEWER */}
+      {/* 🎬 STORY VIEWER & EDITOR (Same as your original code) */}
       <AnimatePresence>
         {viewingStory && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[6000] bg-black flex items-center justify-center">
@@ -360,7 +368,7 @@ const Messenger = ({ socket }) => {
             <HiOutlineMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-cyan-500 transition-colors" size={18} />
             <input 
               type="text" 
-              placeholder="SEARCH NODE NAME OR ID..." 
+              placeholder="SEARCH BY NAME OR ID..." 
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-[10px] font-bold tracking-widest uppercase outline-none focus:border-cyan-500/50 transition-all"
@@ -371,8 +379,8 @@ const Messenger = ({ socket }) => {
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-white/10 rounded-2xl z-[100] shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto">
                   {searchResults.map((u) => (
                     <div key={u.auth0Id || u._id} onClick={() => startChat(u)} className="p-4 flex items-center gap-4 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0 transition-all group">
-                      <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-500 font-black border border-cyan-500/10">
-                        {u.avatar ? <img src={u.avatar} className="w-full h-full rounded-xl object-cover" alt="" /> : (u.name?.slice(0, 2).toUpperCase() || "ID")}
+                      <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-500 font-black border border-cyan-500/10 overflow-hidden">
+                        {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" alt="" /> : (u.name?.slice(0, 2).toUpperCase() || "ID")}
                       </div>
                       <div className="flex flex-col flex-1 truncate">
                         <span className="text-[11px] font-black text-white/80 group-hover:text-cyan-400 uppercase">{u.name}</span>
@@ -435,8 +443,8 @@ const Messenger = ({ socket }) => {
                 <h3 className="text-sm font-black uppercase tracking-widest text-cyan-500">Terminal_{currentChat._id.slice(-4)}</h3>
               </div>
               <div className="flex gap-4">
-                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-90 transition-all"><HiOutlinePhone size={22} /></button>
-                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-90 transition-all"><HiOutlineVideoCamera size={22} /></button>
+                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-90 transition-all shadow-md"><HiOutlinePhone size={22} /></button>
+                <button onClick={handleCall} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-90 transition-all shadow-md"><HiOutlineVideoCamera size={22} /></button>
               </div>
             </header>
 

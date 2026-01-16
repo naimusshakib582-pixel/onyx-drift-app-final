@@ -43,7 +43,6 @@ const userSchema = new mongoose.Schema(
       type: String, 
       unique: true, 
       sparse: true 
-      // 🔥 FIX: এখান থেকে index: true মুছে ফেলা হয়েছে কারণ নিচে schema.index আছে
     }, 
     referredBy: { 
       type: String, 
@@ -84,7 +83,6 @@ const userSchema = new mongoose.Schema(
     ],
 
     // 📡 CONNECTIONS
-    // 🔥 Optimization: এগুলোর টাইপ String রাখা ঠিক আছে যেহেতু আপনি Auth0 ID ব্যবহার করছেন
     followers: [{ type: String, index: true }], 
     following: [{ type: String, index: true }],
     friends: [{ type: String }],
@@ -97,8 +95,12 @@ const userSchema = new mongoose.Schema(
 /* ==========================================================
     🚀 OPTIMIZED INDEXING (Search & Ranking)
 ========================================================== */
-// ১. গ্লোবাল সার্চ ফাস্ট করার জন্য টেক্সট ইনডেক্স
-userSchema.index({ name: 'text', nickname: 'text', bio: 'text' });
+
+// ১. গ্লোবাল সার্চ ফাস্ট করার জন্য টেক্সট ইনডেক্স (Weights সহ যাতে নামকে বেশি গুরুত্ব দেয়)
+userSchema.index(
+  { name: 'text', nickname: 'text', bio: 'text' },
+  { weights: { name: 10, nickname: 5, bio: 1 }, name: "UserSearchIndex" }
+);
 
 // ২. ভাইরাল রিচ এবং ইনভাইট সিস্টেম ফাস্ট করার জন্য ইনডেক্স
 userSchema.index({ createdAt: -1, isVerified: -1 });

@@ -2,7 +2,7 @@ import express from 'express';
 import User from '../models/User.js'; 
 import auth from '../middleware/auth.js'; 
 import upload from '../middleware/multer.js'; // আপনার মিডলওয়্যার পাথ চেক করে নিন
-import Post from '../models/Post.js'; // পোস্ট খোঁজার জন্য এই ইমপোর্টটি প্রয়োজন
+import Post from '../models/Post.js'; // পোস্ট খোঁজার জন্য এই ইমপোর্টটি প্রয়োজন
 
 const router = express.Router();
 
@@ -19,7 +19,6 @@ router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
       .lean();
     
     if (!user) {
-      // যদি নিজের প্রোফাইল হয় কিন্তু ডাটাবেসে না থাকে, তবে তৈরি হবে
       if (targetId === myId) {
         const newUser = new User({
           auth0Id: myId,
@@ -32,7 +31,6 @@ router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
         user = savedUser.toObject();
         console.log("🆕 Neural Identity Created:", targetId);
       } else {
-        // ফিক্স: অন্য ইউজারের ডাটা না থাকলে ৪MD৪ এর বদলে একটি ডিফল্ট অবজেক্ট পাঠানো হচ্ছে
         return res.json({
           auth0Id: targetId,
           name: "Unknown Drifter",
@@ -87,7 +85,7 @@ router.put("/update-profile", auth, upload.fields([
 });
 
 /* ==========================================================
-    3️⃣ SEARCH & DISCOVERY (Search + All Users Combined)
+    3️⃣ SEARCH & DISCOVERY (Fixed Search Logic)
 ========================================================== */
 router.get("/search", auth, async (req, res) => {
   try {
@@ -97,20 +95,24 @@ router.get("/search", auth, async (req, res) => {
 
     if (query && query.trim() !== "") {
       const searchRegex = new RegExp(query.trim(), "i");
+      
+      // এখানে $or এর মাধ্যমে নাম, ডাকনাম অথবা সরাসরি আইডি দিয়েও সার্চ করা যাবে
       filter.$or = [
         { name: { $regex: searchRegex } },
         { nickname: { $regex: searchRegex } },
-        { auth0Id: { $regex: searchRegex } } // এই লাইনটি মেসেঞ্জার ও আইডি সার্চের জন্য যোগ করা হয়েছে
+        { auth0Id: { $regex: searchRegex } }
       ];
     }
 
+    // ডাটাবেস থেকে প্রয়োজনীয় সব তথ্য নিয়ে আসা হচ্ছে
     const users = await User.find(filter)
-      .select("name nickname avatar auth0Id bio isVerified")
-      .limit(15)
+      .select("name nickname avatar auth0Id bio isVerified followers following")
+      .limit(20)
       .lean();
 
     res.json(users);
   } catch (err) {
+    console.error("📡 Search Error:", err);
     res.status(500).json({ msg: "Search signal lost" });
   }
 });
@@ -120,11 +122,9 @@ router.get("/search", auth, async (req, res) => {
 ========================================================== */
 router.post("/follow/:targetId", auth, async (req, res) => {
   try {
-    // ১. আইডি সঠিকভাবে ডিকোড করা
     const myId = req.user.sub; 
     const targetId = decodeURIComponent(req.params.targetId);
 
-    // ২. নিজেকে ফলো করা চেক (এটিই 400 এরর দিচ্ছে)
     if (myId === targetId) {
       return res.status(400).json({ 
         msg: "Neural Loop Detected: You cannot link with yourself.",
@@ -132,24 +132,20 @@ router.post("/follow/:targetId", auth, async (req, res) => {
       });
     }
 
-    // ৩. টার্গেট ইউজার চেক
     const targetUser = await User.findOne({ auth0Id: targetId });
     if (!targetUser) {
       return res.status(404).json({ msg: "Target drifter not found in neural core" });
     }
 
-    // ৪. ফলোয়ার লিস্টে অলরেডি আছে কি না চেক
     const isFollowing = targetUser.followers && targetUser.followers.includes(myId);
 
     if (isFollowing) {
-      // Unfollow Logic
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $pull: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $pull: { followers: myId } })
       ]);
       return res.json({ followed: false, msg: "Disconnected from node" });
     } else {
-      // Follow Logic
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $addToSet: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $addToSet: { followers: myId } })
@@ -161,6 +157,7 @@ router.post("/follow/:targetId", auth, async (req, res) => {
     res.status(500).json({ msg: "Neural link failed due to core error" });
   }
 });
+
 /* ==========================================================
     5️⃣ DISCOVERY (All Users)
 ========================================================== */
@@ -180,13 +177,12 @@ router.get("/all", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    6️⃣ FIXED: GET POSTS BY USER ID (প্রোফাইল পেজের জন্য)
+    6️⃣ FIXED: GET POSTS BY USER ID
 ========================================================== */
 router.get("/posts/user/:userId", auth, async (req, res) => {
   try {
     const targetUserId = decodeURIComponent(req.params.userId);
     
-    // আপনার Post মডেলে authorAuth0Id অথবা userId ফিল্ডটি চেক করে নিন
     const posts = await Post.find({
       $or: [
         { authorAuth0Id: targetUserId },
