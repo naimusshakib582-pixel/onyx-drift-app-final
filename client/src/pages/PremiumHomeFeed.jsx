@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FaTimes, FaImage, FaHeart, FaComment, 
   FaShareAlt, FaDownload, FaEllipsisH, FaCheckCircle,
-  FaVolumeMute, FaVolumeUp, FaTrashAlt, FaUser, FaCog, FaSignOutAlt,
-  FaPaperPlane, FaUserPlus, FaEnvelope
+  FaVolumeMute, FaVolumeUp, FaTrashAlt, FaUser, FaUserPlus, FaEnvelope, FaPaperPlane
 } from 'react-icons/fa'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
@@ -118,13 +117,11 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const handleFollowUser = async (e, targetAuth0Id) => {
     e.stopPropagation();
     if (!isAuthenticated) return alert("Please login to follow");
-    
-    // নিজের আইডি চেক করা
+    if (!targetAuth0Id || targetAuth0Id === "undefined") return alert("Target ID is invalid.");
     if (user?.sub === targetAuth0Id) return alert("You cannot link with your own neural signal.");
 
     try {
       const token = await getAccessTokenSilently();
-      // targetAuth0Id encode করা হয়েছে যাতে স্পেশাল ক্যারেক্টার সমস্যা না করে
       await axios.post(`${API_URL}/api/user/follow/${encodeURIComponent(targetAuth0Id)}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -218,7 +215,8 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               const mediaSrc = post.media || post.mediaUrl;
               const isVideo = mediaSrc?.match(/\.(mp4|webm|mov)$/i) || post.mediaType === 'video';
               const isLiked = post.likes?.includes(user?.sub);
-              const authorId = post.authorAuth0Id || post.userId;
+              // ফিক্সড authorId লজিক:
+              const authorId = post.authorAuth0Id || post.userId || post.authorId;
               
               return (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={post._id} className="flex gap-3 py-6 border-b border-white/5 relative">
@@ -247,7 +245,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                           </button>
 
                           <button 
-                            onClick={(e) => { e.stopPropagation(); navigate(`/messenger/chat/${authorId}`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/messenger`); }}
                             className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold"
                           >
                             <FaEnvelope size={14} className="text-gray-400" /> Message

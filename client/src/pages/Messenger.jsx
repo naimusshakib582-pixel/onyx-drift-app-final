@@ -34,12 +34,13 @@ const Messenger = ({ socket }) => {
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
   /* ==========================================================
-      📡 REAL-TIME SOCKET LOGIC (Fixed)
+      📡 REAL-TIME SOCKET LOGIC
   ========================================================== */
   useEffect(() => {
     if (socket?.current) {
       socket.current.on("getMessage", (data) => {
-        if (currentChat?.members.includes(data.senderId)) {
+        // যদি মেসেজটি বর্তমান চ্যাট থেকে আসে এবং আমি সেন্ডার না হই
+        if (currentChat?.members.includes(data.senderId) && data.senderId !== user?.sub) {
           setMessages((prev) => [...prev, {
             senderId: data.senderId,
             text: data.text,
@@ -51,28 +52,46 @@ const Messenger = ({ socket }) => {
     return () => {
       if (socket?.current) socket.current.off("getMessage");
     };
-  }, [socket, currentChat]);
+  }, [socket, currentChat, user]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   /* ==========================================================
-      📞 CALL LOGIC (Newly Added)
+      📥 FETCH MESSAGES (নতুন যোগ করা হয়েছে)
+  ========================================================== */
+  useEffect(() => {
+    const getMessages = async () => {
+      if (!currentChat) return;
+      try {
+        const token = await getAccessTokenSilently();
+        const res = await axios.get(`${API_URL}/api/messages/message/${currentChat._id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setMessages(res.data);
+      } catch (err) {
+        console.error("Error fetching messages", err);
+      }
+    };
+    getMessages();
+  }, [currentChat, getAccessTokenSilently]);
+
+  /* ==========================================================
+      📞 CALL LOGIC
   ========================================================== */
   const handleCall = () => {
     if (currentChat && socket?.current) {
       const receiverId = currentChat.members.find(m => m !== user.sub);
       const roomId = `room_${currentChat._id}_${Date.now()}`;
 
-      // সকেটের মাধ্যমে কল রিকোয়েস্ট পাঠানো
       socket.current.emit("sendCallRequest", {
+        senderId: user.sub,
         senderName: user.name || "Neural User",
         receiverId: receiverId,
         roomId: roomId
       });
 
-      // কল পেজে নেভিগেট করা
       navigate(`/call/${roomId}`);
     }
   };
@@ -80,7 +99,6 @@ const Messenger = ({ socket }) => {
   /* ==========================================================
       🔍 SEARCH & CHAT LOGIC
   ========================================================== */
-  
   const handleSearch = async (query) => {
     setSearchQuery(query);
     if (query.length > 2) {
@@ -131,7 +149,6 @@ const Messenger = ({ socket }) => {
   /* ==========================================================
       🎬 STORY LOGIC
   ========================================================== */
-
   useEffect(() => {
     const fetchStories = async () => {
       try {
@@ -147,10 +164,7 @@ const Messenger = ({ socket }) => {
     if (story.musicUrl) {
       audioRef.current.src = story.musicUrl;
       audioRef.current.load();
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => console.log("Audio block bypass required"));
-      }
+      audioRef.current.play().catch(() => console.log("Auto-play blocked"));
     }
   };
 
@@ -168,6 +182,7 @@ const Messenger = ({ socket }) => {
       const formData = new FormData();
       formData.append("media", selectedStoryFile);
       formData.append("userId", user.sub); 
+      formData.append("userName", user.name || "Drifter");
       formData.append("text", storySettings.text);
       formData.append("musicName", storySettings.musicName);
       formData.append("musicUrl", storySettings.musicUrl);
@@ -189,6 +204,7 @@ const Messenger = ({ socket }) => {
 
     const receiverId = currentChat.members.find(m => m !== user.sub);
     
+    // সকেটে পাঠানো
     if (socket?.current) {
       socket.current.emit("sendMessage", {
         senderId: user.sub,
@@ -197,19 +213,21 @@ const Messenger = ({ socket }) => {
       });
     }
 
-    setMessages([...messages, { senderId: user.sub, text: newMessage }]);
+    // লোকাললি মেসেজ পুশ করা
+    const tempMessage = { senderId: user.sub, text: newMessage, createdAt: Date.now() };
+    setMessages((prev) => [...prev, tempMessage]);
     setNewMessage("");
 
     try {
       const token = await getAccessTokenSilently();
-      await axios.post(`${API_URL}/api/messages`, {
+      await axios.post(`${API_URL}/api/messages/message`, {
         conversationId: currentChat._id,
         text: newMessage
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
     } catch (err) {
-      console.error("Failed to save message to DB", err);
+      console.error("Failed to save message", err);
     }
   };
 
@@ -220,7 +238,7 @@ const Messenger = ({ socket }) => {
       <AnimatePresence>
         {viewingStory && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[6000] bg-black flex items-center justify-center">
-             <div className="relative w-full max-w-[420px] h-full md:h-[92vh] bg-zinc-900 overflow-hidden md:rounded-3xl shadow-2xl">
+              <div className="relative w-full max-w-[420px] h-full md:h-[92vh] bg-zinc-900 overflow-hidden md:rounded-3xl shadow-2xl">
                 <div className="absolute top-4 left-4 right-4 h-1 bg-white/20 z-50 rounded-full overflow-hidden">
                    <motion.div initial={{ width: 0 }} animate={{ width: "100%" }} transition={{ duration: 7, ease: "linear" }} onAnimationComplete={handleCloseStory} className="h-full bg-cyan-500" />
                 </div>
@@ -237,7 +255,7 @@ const Messenger = ({ socket }) => {
                     <p className="text-[10px] font-black uppercase tracking-widest truncate">{viewingStory.musicName}</p>
                   </div>
                 )}
-             </div>
+              </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -321,7 +339,7 @@ const Messenger = ({ socket }) => {
                     <img src={s.mediaUrl} className="w-full h-full rounded-[1.8rem] object-cover" alt="story" />
                   </div>
                 </div>
-                <span className="text-[9px] font-black uppercase text-white/20 truncate w-16 text-center">{s.name || `Node_${i+1}`}</span>
+                <span className="text-[9px] font-black uppercase text-white/20 truncate w-16 text-center">{s.userName || `Node_${i+1}`}</span>
               </div>
             ))}
           </div>
