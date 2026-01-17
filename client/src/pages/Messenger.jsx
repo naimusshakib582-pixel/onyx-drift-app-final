@@ -22,14 +22,15 @@ const Messenger = ({ socket }) => {
   const [newMessage, setNewMessage] = useState("");
   const [activeUsers, setActiveUsers] = useState([]); 
   const [selectedStory, setSelectedStory] = useState(null); 
-  const [activeTab, setActiveTab] = useState("chats"); // chats, stories, settings
+  const [activeTab, setActiveTab] = useState("chats");
   const [isTyping, setIsTyping] = useState(false);
   const [incomingCall, setIncomingCall] = useState(null);
 
   const ringtoneRef = useRef(new Audio("https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3"));
   const scrollRef = useRef();
   const typingTimeoutRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const storyInputRef = useRef(null); // স্টোরি আপলোডের জন্য
+  const imageInputRef = useRef(null); // চ্যাটে ফটো পাঠানোর জন্য
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
   /* =================📡 SOCKET LOGIC ================= */
@@ -74,7 +75,7 @@ const Messenger = ({ socket }) => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  /* =================✉️ SEND MESSAGE ================= */
+  /* =================✉️ HANDLERS ================= */
   const handleSend = async () => {
     if (!newMessage.trim() || !currentChat) return;
     const receiverId = currentChat.members.find(m => m !== user.sub);
@@ -98,12 +99,32 @@ const Messenger = ({ socket }) => {
     } catch (err) { console.error("Sync failed", err); }
   };
 
-  /* =================📸 STORY HANDLERS ================= */
-  const handleStoryUploadClick = () => fileInputRef.current?.click();
+  // কল করার ফাংশন
+  const startCall = (type) => {
+    if (!currentChat) return;
+    const receiverId = currentChat.members.find(m => m !== user.sub);
+    const roomId = `room_${Date.now()}`;
+    const s = socket?.current || socket;
+    
+    if (s) {
+      s.emit("callUser", {
+        userToCall: receiverId,
+        from: user.sub,
+        name: user.name,
+        type: type,
+        roomId: roomId
+      });
+    }
+    navigate(`/call/${roomId}`);
+  };
 
-  const onFileChange = (e) => {
+  // ফটো এবং স্টোরি সিলেকশন হ্যান্ডলার
+  const onFileSelect = (e, type) => {
     const file = e.target.files[0];
-    if (file) alert(`Selected: ${file.name}. Here you can call your upload API.`);
+    if (file) {
+      alert(`${type === 'story' ? 'Story' : 'Photo'} selected: ${file.name}`);
+      // এখানে আপনার API কলের মাধ্যমে আপলোড লজিক বসাবেন
+    }
   };
 
   /* =================📥 DATA FETCHING ================= */
@@ -122,8 +143,9 @@ const Messenger = ({ socket }) => {
   return (
     <div className="fixed inset-0 bg-black text-white font-sans overflow-hidden z-[99999]">
       
-      {/* Hidden File Input for Story */}
-      <input type="file" ref={fileInputRef} onChange={onFileChange} className="hidden" accept="image/*,video/*" />
+      {/* Hidden File Inputs */}
+      <input type="file" ref={storyInputRef} onChange={(e) => onFileSelect(e, 'story')} className="hidden" accept="image/*,video/*" />
+      <input type="file" ref={imageInputRef} onChange={(e) => onFileSelect(e, 'chat')} className="hidden" accept="image/*" />
 
       {/* --- MAIN MOBILE VIEW --- */}
       <div className={`flex flex-col h-full w-full ${currentChat ? 'hidden md:flex' : 'flex'}`}>
@@ -139,8 +161,8 @@ const Messenger = ({ socket }) => {
              </h1>
           </div>
           <div className="flex gap-2">
-             <button className="p-2 bg-zinc-900 rounded-full active:scale-90 transition-transform"><HiOutlineCamera size={22}/></button>
-             <button className="p-2 bg-zinc-900 rounded-full active:scale-90 transition-transform"><HiPlus size={22}/></button>
+             <button onClick={() => storyInputRef.current.click()} className="p-2 bg-zinc-900 rounded-full"><HiOutlineCamera size={22}/></button>
+             <button onClick={() => storyInputRef.current.click()} className="p-2 bg-zinc-900 rounded-full"><HiPlus size={22}/></button>
           </div>
         </div>
 
@@ -158,15 +180,14 @@ const Messenger = ({ socket }) => {
 
               {/* Active Users Horizontal Story Bar */}
               <div className="flex gap-4 px-4 overflow-x-auto no-scrollbar mb-4">
-                 <div onClick={handleStoryUploadClick} className="flex flex-col items-center gap-1 min-w-[65px] cursor-pointer">
+                 <div onClick={() => storyInputRef.current.click()} className="flex flex-col items-center gap-1 min-w-[65px] cursor-pointer">
                     <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center border border-zinc-800"><HiPlus size={24}/></div>
                     <span className="text-[11px] text-zinc-500">Your Story</span>
                  </div>
-                 {/* Only showing users who are online (Active) */}
                  {activeUsers.filter(u => u.userId !== user?.sub).map((au, i) => (
                    <div 
                     key={i} 
-                    onClick={() => setSelectedStory({ name: `User_${i}`, image: `https://i.pravatar.cc/300?u=${au.userId}` })}
+                    onClick={() => setSelectedStory({ name: `User_${i}`, image: `https://api.dicebear.com/7.x/avataaars/svg?seed=${au.userId}` })}
                     className="flex flex-col items-center gap-1 min-w-[65px] cursor-pointer"
                    >
                       <div className="relative p-0.5 border-2 border-blue-600 rounded-full">
@@ -183,7 +204,7 @@ const Messenger = ({ socket }) => {
                 {conversations.map(c => (
                   <div key={c._id} onClick={() => setCurrentChat(c)} className="px-4 py-3 flex items-center gap-3 hover:bg-zinc-900 active:bg-zinc-800 transition-colors cursor-pointer">
                      <div className="relative">
-                        <div className="w-14 h-14 rounded-full bg-zinc-800 overflow-hidden">
+                        <div className="w-14 h-14 rounded-full bg-zinc-800 overflow-hidden border border-zinc-800">
                            <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${c._id}`} alt=""/>
                         </div>
                         {activeUsers.some(au => c.members.includes(au.userId) && au.userId !== user?.sub) && (
@@ -193,9 +214,9 @@ const Messenger = ({ socket }) => {
                      <div className="flex-1">
                         <div className="flex justify-between items-center">
                            <span className="font-bold text-[15px]">Node_{c._id.slice(-5)}</span>
-                           <span className="text-[11px] text-zinc-500">4:20 PM</span>
+                           <span className="text-[11px] text-zinc-500">Just now</span>
                         </div>
-                        <p className="text-[13px] text-zinc-500 truncate">Sent a message</p>
+                        <p className="text-[13px] text-zinc-500 truncate">Tap to open chat</p>
                      </div>
                   </div>
                 ))}
@@ -205,11 +226,10 @@ const Messenger = ({ socket }) => {
 
           {activeTab === "stories" && (
              <div className="p-4 grid grid-cols-2 gap-3">
-                <div onClick={handleStoryUploadClick} className="aspect-[9/16] bg-zinc-900 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-zinc-800">
+                <div onClick={() => storyInputRef.current.click()} className="aspect-[9/16] bg-zinc-900 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-zinc-800">
                    <HiPlus size={30} className="text-blue-500" />
                    <span className="text-sm font-bold mt-2">Add Story</span>
                 </div>
-                {/* Dummy Stories Grid */}
                 {[1,2,3,4].map(i => (
                   <div key={i} className="aspect-[9/16] bg-zinc-800 rounded-2xl overflow-hidden relative shadow-lg">
                      <img src={`https://picsum.photos/400/700?random=${i}`} className="w-full h-full object-cover" alt=""/>
@@ -259,7 +279,7 @@ const Messenger = ({ socket }) => {
            <header className="p-3 flex justify-between items-center border-b border-zinc-900">
               <div className="flex items-center gap-2">
                  <button onClick={() => setCurrentChat(null)} className="text-blue-500 p-1"><HiOutlineChevronLeft size={28}/></button>
-                 <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800">
+                 <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700">
                     <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${currentChat._id}`} alt=""/>
                  </div>
                  <div className="leading-tight">
@@ -268,8 +288,8 @@ const Messenger = ({ socket }) => {
                  </div>
               </div>
               <div className="flex gap-4 text-blue-500 px-2">
-                 <HiOutlinePhone size={24}/>
-                 <HiOutlineVideoCamera size={24}/>
+                 <button onClick={() => startCall('voice')}><HiOutlinePhone size={24}/></button>
+                 <button onClick={() => startCall('video')}><HiOutlineVideoCamera size={24}/></button>
                  <HiOutlineInformationCircle size={24}/>
               </div>
            </header>
@@ -284,12 +304,14 @@ const Messenger = ({ socket }) => {
                   </div>
                 </div>
               ))}
+              {isTyping && <div className="text-[10px] text-zinc-500 italic ml-2">Typing...</div>}
               <div ref={scrollRef} />
            </div>
 
            <div className="p-3 pb-8 flex items-center gap-2 bg-black border-t border-zinc-900">
-              <HiPlus className="text-blue-500" size={24}/>
-              <HiOutlineCamera className="text-blue-500" size={24}/>
+              <button onClick={() => storyInputRef.current.click()} className="text-blue-500"><HiPlus size={24}/></button>
+              <button onClick={() => imageInputRef.current.click()} className="text-blue-500"><HiOutlineCamera size={24}/></button>
+              <button onClick={() => imageInputRef.current.click()} className="text-blue-500"><HiOutlinePhoto size={24}/></button>
               <div className="flex-1 bg-zinc-900 rounded-full px-4 py-2 flex items-center">
                  <input 
                     value={newMessage} 
@@ -298,9 +320,11 @@ const Messenger = ({ socket }) => {
                     placeholder="Aa" 
                     className="bg-transparent flex-1 outline-none text-sm" 
                  />
-                 <span className="text-blue-500">😊</span>
+                 <span className="text-blue-500 cursor-pointer">😊</span>
               </div>
-              <button onClick={handleSend}><HiOutlinePaperAirplane className="text-blue-500 rotate-45" size={24}/></button>
+              <button onClick={handleSend} disabled={!newMessage.trim()} className={newMessage.trim() ? "text-blue-500" : "text-zinc-700"}>
+                <HiOutlinePaperAirplane className="rotate-45" size={24}/>
+              </button>
            </div>
         </div>
       )}
@@ -314,12 +338,11 @@ const Messenger = ({ socket }) => {
                    <div className="w-10 h-10 rounded-full border border-white/20 overflow-hidden">
                       <img src={selectedStory.image} alt=""/>
                    </div>
-                   <span className="font-bold text-sm">Active Friend</span>
+                   <span className="font-bold text-sm">Active Member</span>
                 </div>
-                <button onClick={() => setSelectedStory(null)} className="p-2 bg-white/10 rounded-full backdrop-blur-md"><HiXMark size={24}/></button>
+                <button onClick={() => setSelectedStory(null)} className="p-2 bg-white/10 rounded-full backdrop-blur-md text-white"><HiXMark size={24}/></button>
              </div>
              <img src={selectedStory.image} className="w-full h-full object-contain" alt=""/>
-             {/* Story Footer / Viewer Info */}
              <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-6 text-white/70">
                 <button className="flex flex-col items-center"><HiOutlineEye size={22}/><span className="text-[10px]">Views</span></button>
                 <button onClick={() => setSelectedStory(null)} className="flex flex-col items-center text-red-500"><HiOutlineTrash size={22}/><span className="text-[10px]">Delete</span></button>
