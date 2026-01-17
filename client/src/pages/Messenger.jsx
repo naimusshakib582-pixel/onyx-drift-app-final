@@ -7,11 +7,13 @@ import {
   HiChatBubbleLeftRight, HiUsers, HiCog6Tooth,
   HiOutlineChevronLeft, HiOutlinePhone, HiOutlineVideoCamera, HiOutlineInformationCircle
 } from "react-icons/hi2";
+import { AnimatePresence } from "framer-motion";
 
-// আলাদা করা কম্পোনেন্টগুলো ইমপোর্ট করো (পাথ ঠিক আছে কিনা দেখে নিও)
-import StorySection from "../components/StorySection";
-import ChatInput from "../components/ChatInput";
-import CallOverlay from "../components/CallOverlay";
+// সঠিক পাথ অনুযায়ী কম্পোনেন্টগুলো ইমপোর্ট করা হয়েছে
+import StorySection from "../components/messenger/StorySection";
+import ChatInput from "../components/messenger/ChatInput";
+import CallOverlay from "../components/messenger/CallOverlay";
+import StoryEditor from "../components/messenger/StoryEditor";
 
 const Messenger = ({ socket }) => {
   const { user, getAccessTokenSilently, isAuthenticated, logout } = useAuth0();
@@ -27,6 +29,7 @@ const Messenger = ({ socket }) => {
   const [activeTab, setActiveTab] = useState("chats");
   const [isTyping, setIsTyping] = useState(false);
   const [incomingCall, setIncomingCall] = useState(null);
+  const [tempStoryFile, setTempStoryFile] = useState(null); // স্টোরি এডিটর ওপেন করার জন্য
 
   const ringtoneRef = useRef(new Audio("https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3"));
   const scrollRef = useRef();
@@ -60,14 +63,11 @@ const Messenger = ({ socket }) => {
 
     s.on("incomingCall", (data) => {
       setIncomingCall(data);
-      ringtoneRef.current.play().catch(() => console.log("Audio play blocked by browser"));
+      ringtoneRef.current.play().catch(() => console.log("Audio play blocked"));
     });
 
     return () => {
-      s.off("getUsers");
-      s.off("getMessage");
-      s.off("displayTyping");
-      s.off("incomingCall");
+      s.off("getUsers"); s.off("getMessage"); s.off("displayTyping"); s.off("incomingCall");
     };
   }, [socket, currentChat, user]);
 
@@ -95,14 +95,16 @@ const Messenger = ({ socket }) => {
   useEffect(() => { if (isAuthenticated) fetchConversations(); }, [isAuthenticated, fetchConversations]);
 
   /* =================✉️ HANDLERS ================= */
+  const handleStorySelect = (e) => {
+    const file = e.target.files[0];
+    if (file) setTempStoryFile(file); // এডিটর ওপেন হবে
+  };
+
   const handleInputChange = (e) => {
     setNewMessage(e.target.value);
     const s = socket?.current || socket;
     if (s && currentChat) {
-      s.emit("typing", {
-        senderId: user.sub,
-        receiverId: currentChat.members.find(m => m !== user.sub)
-      });
+      s.emit("typing", { senderId: user.sub, receiverId: currentChat.members.find(m => m !== user.sub) });
     }
   };
 
@@ -136,13 +138,7 @@ const Messenger = ({ socket }) => {
     const roomId = `room_${Date.now()}`;
     const s = socket?.current || socket;
     if (s) {
-      s.emit("callUser", { 
-        userToCall: receiverId, 
-        from: user.sub, 
-        senderName: user.name, 
-        type, 
-        roomId 
-      });
+      s.emit("callUser", { userToCall: receiverId, from: user.sub, senderName: user.name, type, roomId });
     }
     navigate(`/call/${roomId}`);
   };
@@ -150,8 +146,14 @@ const Messenger = ({ socket }) => {
   return (
     <div className="fixed inset-0 bg-black text-white font-sans overflow-hidden z-[99999]">
       
-      {/* Hidden File Inputs */}
-      <input type="file" ref={storyInputRef} onChange={(e) => alert("Uploading Story...")} className="hidden" accept="image/*,video/*" />
+      {/* Hidden File Input for Story */}
+      <input 
+        type="file" 
+        ref={storyInputRef} 
+        onChange={handleStorySelect} 
+        className="hidden" 
+        accept="image/*" 
+      />
 
       {/* --- MAIN MOBILE VIEW --- */}
       <div className={`flex flex-col h-full w-full ${currentChat ? 'hidden md:flex' : 'flex'}`}>
@@ -186,11 +188,7 @@ const Messenger = ({ socket }) => {
                 </div>
               </div>
 
-              <StorySection 
-                activeUsers={activeUsers} 
-                user={user} 
-                storyInputRef={storyInputRef} 
-              />
+              <StorySection activeUsers={activeUsers} user={user} storyInputRef={storyInputRef} />
 
               <div className="space-y-1">
                 {filteredConversations.map(c => (
@@ -203,11 +201,8 @@ const Messenger = ({ socket }) => {
                            <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-black rounded-full shadow-lg"></div>
                         )}
                       </div>
-                      <div className="flex-1 overflow-hidden">
-                        <div className="flex justify-between items-center">
-                           <span className="font-bold text-[15px] truncate">Node_{c._id.slice(-5)}</span>
-                           <span className="text-[11px] text-zinc-500">Active</span>
-                        </div>
+                      <div className="flex-1 overflow-hidden text-left">
+                        <span className="font-bold text-[15px] block">Node_{c._id.slice(-5)}</span>
                         <p className="text-[13px] text-zinc-500 truncate">Tap to start messaging</p>
                       </div>
                   </div>
@@ -246,12 +241,11 @@ const Messenger = ({ socket }) => {
                  <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-800">
                     <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${currentChat._id}`} alt=""/>
                  </div>
-                 <h3 className="text-sm font-bold truncate w-24">Node_{currentChat._id.slice(-5)}</h3>
+                 <h3 className="text-sm font-bold">Node_{currentChat._id.slice(-5)}</h3>
               </div>
               <div className="flex gap-4 text-blue-500 px-2">
                  <button onClick={() => startCall('voice')}><HiOutlinePhone size={24}/></button>
                  <button onClick={() => startCall('video')}><HiOutlineVideoCamera size={24}/></button>
-                 <HiOutlineInformationCircle size={24}/>
               </div>
            </header>
            
@@ -268,20 +262,29 @@ const Messenger = ({ socket }) => {
            </div>
 
            <ChatInput 
-             newMessage={newMessage} 
-             handleSend={handleSend} 
-             handleInputChange={handleInputChange} 
-             onFileSelect={(e) => alert("File selected")}
+             newMessage={newMessage} handleSend={handleSend} 
+             handleInputChange={handleInputChange} onFileSelect={() => {}}
            />
         </div>
       )}
 
-      {/* Call UI Component */}
+      {/* --- EXTERNAL OVERLAYS (STORY EDITOR & CALL) --- */}
+      <AnimatePresence>
+        {tempStoryFile && (
+          <StoryEditor 
+            selectedFile={tempStoryFile} 
+            onCancel={() => setTempStoryFile(null)} 
+            onPost={(file, text, filter) => {
+              console.log("Post Story Logic Here", { file, text, filter });
+              setTempStoryFile(null);
+            }} 
+          />
+        )}
+      </AnimatePresence>
+
       <CallOverlay 
-        incomingCall={incomingCall} 
-        setIncomingCall={setIncomingCall} 
-        ringtoneRef={ringtoneRef} 
-        navigate={navigate} 
+        incomingCall={incomingCall} setIncomingCall={setIncomingCall} 
+        ringtoneRef={ringtoneRef} navigate={navigate} 
       />
 
       <style>{`
