@@ -7,7 +7,7 @@ import {
   FaEdit, FaShieldAlt, FaRocket, FaCamera, FaImage, 
   FaFilm, FaPlayCircle, FaTimes, FaPlus, FaCheckCircle, 
   FaUserPlus, FaEnvelope, FaSearch, FaMagic, FaAward,
-  FaThLarge, FaPlay, FaUsers, FaHeart // নতুন আইকন যোগ করা হয়েছে
+  FaThLarge, FaPlay, FaUsers, FaHeart 
 } from "react-icons/fa";
 import { BRAND_NAME } from "../utils/constants";
 import PostCard from "../components/PostCard";
@@ -100,8 +100,8 @@ const Profile = () => {
 
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
   const fileInputRef = useRef(null);
-  const profilePhotoRef = useRef(null); // প্রোফাইল ফটোর জন্য
-  const coverPhotoRef = useRef(null);   // কভার ফটোর জন্য
+  const profilePhotoRef = useRef(null);
+  const coverPhotoRef = useRef(null);
 
   const [editData, setEditData] = useState({ nickname: "", bio: "" });
   const [isUpdating, setIsUpdating] = useState(false);
@@ -144,7 +144,6 @@ const Profile = () => {
     }
   };
 
-  // ফটো আপডেট করার নতুন ফাংশন
   const handlePhotoUpdate = async (e, type) => {
     const photoFile = e.target.files[0];
     if (!photoFile) return;
@@ -163,9 +162,9 @@ const Profile = () => {
       });
       
       fetchProfileData(); // রিফ্রেশ
-      alert(`${type.charAt(0).toUpperCase() + type.slice(1)} Sync Complete!`);
+      // alert সরিয়ে দেওয়া হয়েছে
     } catch (err) {
-      alert("Neural Sync Failed");
+      console.error("Neural Sync Failed");
     }
   };
 
@@ -246,11 +245,9 @@ const Profile = () => {
   return (
     <div className={`w-full min-h-screen transition-all duration-700 ${isGhostMode ? 'bg-black' : 'bg-[#020617]'} text-gray-200 overflow-x-hidden flex flex-col`}>
       
-      {/* Hidden Inputs for Photos */}
       <input type="file" ref={profilePhotoRef} hidden onChange={(e) => handlePhotoUpdate(e, "profile")} accept="image/*" />
       <input type="file" ref={coverPhotoRef} hidden onChange={(e) => handlePhotoUpdate(e, "cover")} accept="image/*" />
 
-      {/* Search & Navigation Overlay */}
       <div className="w-full py-4 px-6 border-b border-white/5 sticky top-0 z-[60] bg-[#020617]/80 backdrop-blur-xl">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
           <div className="relative flex-1 max-w-xl">
@@ -266,7 +263,6 @@ const Profile = () => {
       </div>
 
       <div className="flex flex-row max-w-[1400px] mx-auto w-full flex-1">
-        {/* Sidebar: Suggested Nodes */}
         <aside className="hidden lg:block w-72 p-6 sticky top-20 h-[calc(100vh-80px)] border-r border-white/5">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-6">Neural Connects</h3>
           <div className="space-y-6">
@@ -282,9 +278,7 @@ const Profile = () => {
           </div>
         </aside>
 
-        {/* Main Feed Section */}
         <main className="flex-1 pb-20">
-          {/* COVER PHOTO SECTION */}
           <div className="relative h-48 md:h-72 w-full overflow-hidden group">
             <img 
               src={userProfile?.coverImg || "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=1000"} 
@@ -312,7 +306,6 @@ const Profile = () => {
               >
                 <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6">
                   <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
-                    {/* AVATAR PHOTO SECTION */}
                     <div className="relative group">
                       <img 
                         src={userProfile?.avatar || currentUser?.picture} 
@@ -360,7 +353,6 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* --- FOLLOWERS & STATS SECTION (আপনি যেমনটি চেয়েছিলেন) --- */}
                 <div className="flex justify-center md:justify-start gap-8 mt-8 py-4 border-y border-white/5">
                    <div className="text-center md:text-left">
                       <p className="text-lg font-black text-white">{userProfile?.followers?.length || 0}</p>
@@ -388,7 +380,6 @@ const Profile = () => {
               </motion.div>
             ) : null}
 
-            {/* Tabs & Content */}
             <div className="mt-12">
               <div className="flex gap-8 mb-8 border-b border-white/5">
                 {[
@@ -453,11 +444,10 @@ const Profile = () => {
         </main>
       </div>
 
-      {/* Modals */}
       <AnimatePresence>
         {isEditOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#0f172a] w-full max-w-md rounded-[2.5rem] p-8 border border-white/10">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#0f172a] w-full max-md rounded-[2.5rem] p-8 border border-white/10">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-cyan-400 font-black uppercase italic tracking-tighter">Edit Identity</h2>
                 <FaTimes className="cursor-pointer" onClick={() => setIsEditOpen(false)} />
@@ -484,7 +474,7 @@ const Profile = () => {
 
         {isCreateOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#0f172a] w-full max-w-md rounded-[2.5rem] p-8 border border-white/10">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-[#0f172a] w-full max-md rounded-[2.5rem] p-8 border border-white/10">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-purple-400 font-black uppercase italic tracking-tighter">New Echo</h2>
                 <FaTimes className="cursor-pointer" onClick={() => setIsCreateOpen(false)} />
