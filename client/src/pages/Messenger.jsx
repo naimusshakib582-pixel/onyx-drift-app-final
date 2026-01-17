@@ -10,11 +10,10 @@ import {
 import { AnimatePresence } from "framer-motion";
 
 // সঠিক পাথ অনুযায়ী কম্পোনেন্টগুলো ইমপোর্ট করা হয়েছে
-import StorySection from "../components/messenger/StorySection";
-import ChatInput from "../components/messenger/ChatInput";
-import CallOverlay from "../components/messenger/CallOverlay";
-import StoryEditor from "../components/messenger/StoryEditor";
-
+import StorySection from "../components/Messenger/StorySection";
+import ChatInput from "../components/Messenger/ChatInput";
+import CallOverlay from "../components/Messenger/CallOverlay";
+import StoryEditor from "../components/Messenger/StoryEditor";
 const Messenger = ({ socket }) => {
   const { user, getAccessTokenSilently, isAuthenticated, logout } = useAuth0();
   const navigate = useNavigate();
