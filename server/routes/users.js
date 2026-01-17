@@ -85,7 +85,37 @@ router.put("/update-profile", auth, upload.fields([
 });
 
 /* ==========================================================
-    3️⃣ SEARCH & DISCOVERY (Fixed Search Logic)
+    3️⃣ UPDATE PHOTO (New Dedicated Route Added)
+========================================================== */
+router.post("/update-photo", auth, upload.single('image'), async (req, res) => {
+  try {
+    const { type } = req.body; // 'profile' or 'cover'
+    const myId = req.user.sub || req.user.id;
+    
+    if (!req.file) return res.status(400).json({ msg: "No image received" });
+
+    let updateFields = {};
+    if (type === 'profile') {
+      updateFields.avatar = req.file.path;
+    } else if (type === 'cover') {
+      updateFields.coverImg = req.file.path;
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { auth0Id: myId },
+      { $set: updateFields },
+      { new: true, lean: true }
+    );
+
+    res.json(updatedUser);
+  } catch (err) {
+    console.error("📡 Photo Update Error:", err);
+    res.status(500).json({ msg: "Neural Sync Failed" });
+  }
+});
+
+/* ==========================================================
+    4️⃣ SEARCH & DISCOVERY (Fixed Search Logic)
 ========================================================== */
 router.get("/search", auth, async (req, res) => {
   try {
@@ -96,7 +126,6 @@ router.get("/search", auth, async (req, res) => {
     if (query && query.trim() !== "") {
       const searchRegex = new RegExp(query.trim(), "i");
       
-      // এখানে $or এর মাধ্যমে নাম, ডাকনাম অথবা সরাসরি আইডি দিয়েও সার্চ করা যাবে
       filter.$or = [
         { name: { $regex: searchRegex } },
         { nickname: { $regex: searchRegex } },
@@ -104,7 +133,6 @@ router.get("/search", auth, async (req, res) => {
       ];
     }
 
-    // ডাটাবেস থেকে প্রয়োজনীয় সব তথ্য নিয়ে আসা হচ্ছে
     const users = await User.find(filter)
       .select("name nickname avatar auth0Id bio isVerified followers following")
       .limit(20)
@@ -118,7 +146,7 @@ router.get("/search", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    4️⃣ FOLLOW / UNFOLLOW SYSTEM
+    5️⃣ FOLLOW / UNFOLLOW SYSTEM
 ========================================================== */
 router.post("/follow/:targetId", auth, async (req, res) => {
   try {
@@ -159,7 +187,7 @@ router.post("/follow/:targetId", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    5️⃣ DISCOVERY (All Users)
+    6️⃣ DISCOVERY (All Users)
 ========================================================== */
 router.get("/all", auth, async (req, res) => {
   try {
@@ -177,7 +205,7 @@ router.get("/all", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    6️⃣ FIXED: GET POSTS BY USER ID
+    7️⃣ FIXED: GET POSTS BY USER ID
 ========================================================== */
 router.get("/posts/user/:userId", auth, async (req, res) => {
   try {
