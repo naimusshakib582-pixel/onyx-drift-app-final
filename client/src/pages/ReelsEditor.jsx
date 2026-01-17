@@ -16,7 +16,7 @@ const TikTokEditor = () => {
   const audioInputRef = useRef(null);
 
   const [videoSrc, setVideoSrc] = useState(null);
-  const [videoFile, setVideoFile] = useState(null); // আপলোডের জন্য অরিজিনাল ফাইল রাখা
+  const [videoFile, setVideoFile] = useState(null); 
   const [audioSrc, setAudioSrc] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -58,7 +58,7 @@ const TikTokEditor = () => {
   const uploadVideo = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setVideoFile(file); // ফাইলটি সেভ করে রাখা
+      setVideoFile(file);
       const url = URL.createObjectURL(file);
       setVideoSrc(url);
       setIsPlaying(false);
@@ -68,7 +68,7 @@ const TikTokEditor = () => {
   };
 
   const handleNext = async (e) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     if (!videoFile) {
       alert("Please select a video first!");
       return;
@@ -94,6 +94,7 @@ const TikTokEditor = () => {
         alert("Reel Uploaded Successfully!");
         setVideoSrc(null);
         setVideoFile(null);
+        setOverlayText("");
       }
     } catch (err) {
       console.error("Upload failed", err);
@@ -120,9 +121,9 @@ const TikTokEditor = () => {
   ];
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0a] flex justify-center items-center overflow-hidden">
+    <div className="fixed inset-0 bg-[#0a0a0a] flex justify-center items-center overflow-hidden z-[5000]">
       
-      <div className="relative w-full h-full max-w-[450px] md:max-h-[90vh] bg-black overflow-hidden flex flex-col md:rounded-[40px] md:border-[8px] md:border-zinc-800 shadow-2xl">
+      <div className="relative w-full h-[100dvh] max-w-[450px] md:h-[90vh] bg-black overflow-hidden flex flex-col md:rounded-[40px] md:border-[8px] md:border-zinc-800 shadow-2xl">
         
         <input ref={fileInputRef} type="file" accept="video/*" hidden onChange={uploadVideo} />
         <input ref={audioInputRef} type="file" accept="audio/*" hidden onChange={e => {
@@ -130,9 +131,12 @@ const TikTokEditor = () => {
           if(file) setAudioSrc(URL.createObjectURL(file));
         }} />
 
-        {/* TOP BAR */}
-        <div className="p-6 flex justify-between items-center z-[70] absolute top-0 w-full bg-gradient-to-b from-black/80 to-transparent pointer-events-auto">
-          <X className="w-6 h-6 cursor-pointer" onClick={() => setVideoSrc(null)} />
+        {/* TOP BAR - Adjusted for Mobile Safety */}
+        <div className="pt-10 pb-6 px-6 flex justify-between items-center z-[100] absolute top-0 w-full bg-gradient-to-b from-black/80 to-transparent">
+          <button onClick={() => setVideoSrc(null)} className="p-2 bg-black/20 rounded-full backdrop-blur-md">
+            <X className="w-6 h-6 text-white" />
+          </button>
+          
           <div className="bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-[12px] font-bold border border-white/10 flex items-center gap-2">
             <Music size={14} className="text-pink-500"/> Add Sound
           </div>
@@ -140,14 +144,14 @@ const TikTokEditor = () => {
           <button 
             onClick={handleNext}
             disabled={isUploading}
-            className={`${isUploading ? 'bg-gray-600' : 'bg-[#fe2c55]'} px-4 py-1.5 rounded-md text-[13px] font-bold active:scale-95 transition-transform`}
+            className={`${isUploading ? 'bg-gray-600' : 'bg-[#fe2c55]'} px-5 py-2 rounded-full text-[13px] font-bold shadow-lg active:scale-95 transition-transform`}
           >
             {isUploading ? "..." : "Next"}
           </button>
         </div>
 
-        {/* PREVIEW */}
-        <div className="flex-1 relative overflow-hidden bg-zinc-900 z-10">
+        {/* PREVIEW AREA */}
+        <div className="flex-1 relative overflow-hidden bg-zinc-900">
           {videoSrc ? (
             <video
               ref={videoRef}
@@ -156,6 +160,7 @@ const TikTokEditor = () => {
               style={{ filter: `${filter} ${effects[effect]}` }}
               onClick={() => setIsPlaying(!isPlaying)}
               playsInline
+              loop
             />
           ) : (
             <div onClick={() => fileInputRef.current.click()} className="w-full h-full flex flex-col items-center justify-center text-zinc-600 gap-3 cursor-pointer">
@@ -167,35 +172,36 @@ const TikTokEditor = () => {
           {audioSrc && <audio ref={audioRef} src={audioSrc} />}
 
           {overlayText && (
-            <motion.div drag dragConstraints={{left: -100, right: 100, top: -200, bottom: 200}}
+            <motion.div drag dragConstraints={{left: -150, right: 150, top: -250, bottom: 250}}
               className="absolute top-1/3 left-1/4 z-40 bg-white text-black px-4 py-1 font-black text-xl shadow-2xl uppercase cursor-move">
               {overlayText}
             </motion.div>
           )}
 
-          {/* RIGHT SIDEBAR - Fixed positioning for better visibility */}
-          <div className="absolute right-4 top-24 bottom-6 flex flex-col justify-between items-center z-[80]">
+          {/* RIGHT SIDEBAR - Post and Share included here */}
+          <div className="absolute right-4 top-24 bottom-10 flex flex-col justify-between items-center z-[110]">
             <div className="flex flex-col gap-5">
               {tools.map((tool) => (
                 <button key={tool.id} onClick={(e) => { e.stopPropagation(); tool.action ? tool.action() : setMenu(tool.id) }} className="flex flex-col items-center">
-                  <div className="p-2.5 bg-black/40 backdrop-blur-xl rounded-full border border-white/10 shadow-lg active:scale-90 transition-all hover:bg-zinc-800">
+                  <div className="p-2.5 bg-black/40 backdrop-blur-xl rounded-full border border-white/10 shadow-lg active:scale-90 transition-all">
                     {tool.icon}
                   </div>
-                  <span className="text-[9px] mt-1 font-bold shadow-black drop-shadow-md">{tool.id}</span>
+                  <span className="text-[9px] mt-1 font-bold drop-shadow-md text-white">{tool.id}</span>
                 </button>
               ))}
             </div>
 
-            <div className="flex flex-col gap-5 mb-4">
-              <div className="flex flex-col items-center cursor-pointer group" onClick={(e) => e.stopPropagation()}>
-                <div className="p-3 bg-black/40 backdrop-blur-xl rounded-full border border-white/10 hover:bg-zinc-800 transition-all"><Share2 size={22}/></div>
-                <span className="text-[9px] mt-1 font-bold">Share</span>
+            <div className="flex flex-col gap-5 pb-4">
+              <div className="flex flex-col items-center cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                <div className="p-3 bg-black/40 backdrop-blur-xl rounded-full border border-white/10"><Share2 size={22} className="text-white"/></div>
+                <span className="text-[9px] mt-1 font-bold text-white">Share</span>
               </div>
+              
               <div className="flex flex-col items-center cursor-pointer" onClick={handleNext}>
-                <div className="p-3 bg-[#fe2c55] rounded-full shadow-[0_0_20px_rgba(254,44,85,0.4)] hover:scale-105 transition-all">
+                <div className="p-3 bg-[#fe2c55] rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all">
                    {isUploading ? <RotateCcw className="animate-spin" size={22}/> : <Send size={22}/>}
                 </div>
-                <span className="text-[9px] mt-1 font-bold">Post</span>
+                <span className="text-[9px] mt-1 font-bold text-white">Post</span>
               </div>
             </div>
           </div>
@@ -208,10 +214,10 @@ const TikTokEditor = () => {
         </div>
 
         {/* BOTTOM TIMELINE */}
-        <div className="bg-black p-4 pb-8 border-t border-white/10 z-20">
+        <div className="bg-black p-5 pb-10 border-t border-white/10">
           <div className="flex items-center gap-3">
             <div onClick={() => fileInputRef.current.click()} className="w-10 h-10 bg-zinc-800 rounded-md flex items-center justify-center border border-white/10 shrink-0 cursor-pointer">
-              <Plus size={20}/>
+              <Plus size={20} className="text-white"/>
             </div>
             <div className="flex-1 h-10 bg-zinc-900 rounded-md relative overflow-hidden border border-white/5">
               <div className="absolute top-0 bottom-0 bg-[#fe2c55]/40 border-x border-[#fe2c55] z-10" 
@@ -230,25 +236,25 @@ const TikTokEditor = () => {
         <AnimatePresence>
           {menu && (
             <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              className="absolute bottom-0 w-full bg-[#121212] rounded-t-[32px] p-8 z-[100] border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+              className="absolute bottom-0 w-full bg-[#121212] rounded-t-[32px] p-8 z-[200] border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
               <div className="flex justify-between items-center mb-6">
-                <span className="text-sm font-black uppercase tracking-[0.2em]">{menu} Studio</span>
+                <span className="text-sm font-black uppercase tracking-[0.2em] text-white">{menu} Studio</span>
                 <button onClick={() => setMenu(null)} className="p-2 bg-white/5 rounded-full"><Check className="text-green-500" size={20}/></button>
               </div>
               
               <div className="flex flex-wrap gap-3">
                 {menu === "Text" && (
                   <input autoFocus className="w-full p-4 bg-zinc-900 rounded-xl outline-none border border-[#fe2c55]/50 focus:border-[#fe2c55] text-white" 
-                  placeholder="Enter caption..." onChange={e => setOverlayText(e.target.value)} />
+                  placeholder="Enter caption..." value={overlayText} onChange={e => setOverlayText(e.target.value)} />
                 )}
                 {menu === "Filters" && ["none", "grayscale(1)", "sepia(1)"].map(f => (
-                  <button key={f} onClick={() => setFilter(f)} className={`px-5 py-3 rounded-xl border ${filter === f ? 'border-[#fe2c55] bg-[#fe2c55]/10':'border-white/5'} text-[10px] font-bold uppercase`}>{f}</button>
+                  <button key={f} onClick={() => setFilter(f)} className={`px-5 py-3 rounded-xl border ${filter === f ? 'border-[#fe2c55] bg-[#fe2c55]/10 text-white':'border-white/5 text-zinc-400'} text-[10px] font-bold uppercase`}>{f}</button>
                 ))}
                 {menu === "Speed" && [0.5, 1, 1.5, 2].map(s => (
-                  <button key={s} onClick={() => setSpeed(s)} className={`px-6 py-3 rounded-xl border ${speed === s ? 'border-yellow-500 bg-yellow-500/10':'border-white/5'} text-xs font-bold`}>{s}x</button>
+                  <button key={s} onClick={() => setSpeed(s)} className={`px-6 py-3 rounded-xl border ${speed === s ? 'border-yellow-500 bg-yellow-500/10 text-white':'border-white/5 text-zinc-400'} text-xs font-bold`}>{s}x</button>
                 ))}
               </div>
-              <button onClick={() => setMenu(null)} className="w-full mt-10 bg-white text-black py-4 rounded-xl font-black text-sm uppercase tracking-widest">Apply Changes</button>
+              <button onClick={() => setMenu(null)} className="w-full mt-10 bg-white text-black py-4 rounded-xl font-black text-sm uppercase tracking-widest active:scale-95 transition-transform">Apply Changes</button>
             </motion.div>
           )}
         </AnimatePresence>
