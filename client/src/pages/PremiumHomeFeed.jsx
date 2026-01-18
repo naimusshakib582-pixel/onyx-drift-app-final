@@ -85,7 +85,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
   const postMediaRef = useRef(null);
 
-  // --- রিয়েল নিউজ ডেটা ফেচিং (GNews API) ---
+  // --- রিয়েল নিউজ ডেটা ফেচিং (GNews API) ---
   const fetchNews = async () => {
     try {
       const NEWS_API_KEY = "2462daa77162a9f3da4e2f17ca56105e"; // GNews API Key
@@ -402,8 +402,8 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setActiveCommentPost(null)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
             <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="relative w-full max-w-[550px] bg-[#0d1117] rounded-t-[32px] border-t border-white/10 shadow-2xl overflow-hidden h-[80vh] flex flex-col">
               <div className="p-5 border-b border-white/5 flex justify-between items-center">
-                 <h3 className="text-xs font-black uppercase tracking-widest text-cyan-500">Neural_Comments</h3>
-                 <button onClick={() => setActiveCommentPost(null)} className="p-2 bg-white/5 rounded-full"><FaTimes /></button>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-cyan-500">Neural_Comments</h3>
+                  <button onClick={() => setActiveCommentPost(null)} className="p-2 bg-white/5 rounded-full"><FaTimes /></button>
               </div>
               
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
