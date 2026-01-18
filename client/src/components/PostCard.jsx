@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { 
   FaHeart, FaRegHeart, FaRegComment, FaTrashAlt, 
-  FaPlay, FaPause, FaDownload, FaCertificate, FaShareAlt
+  FaPlay, FaPause, FaDownload, FaCertificate, FaShareAlt, FaExternalLinkAlt
 } from "react-icons/fa";
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
@@ -23,7 +23,17 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
   const likesArray = Array.isArray(post.likes) ? post.likes : [];
   const isLiked = user && likesArray.includes(user.sub);
 
-  // 🚀 ভাইরাল শেয়ার কার্ড জেনারেশন
+  // --- তারিখ ফরম্যাট ঠিক করার ফাংশন ---
+  const formatPostDate = (dateStr) => {
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return "JUST NOW";
+      return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch (e) {
+      return "ONLINE";
+    }
+  };
+
   const generateShareCard = async () => {
     if (!postRef.current || isCapturing) return;
     setIsCapturing(true);
@@ -31,7 +41,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
       const canvas = await html2canvas(postRef.current, {
         backgroundColor: "#020617",
         useCORS: true,
-        scale: 3, 
+        scale: 2, 
         logging: false,
         borderRadius: 40,
         ignoreElements: (element) => element.tagName === "BUTTON" || element.classList.contains('video-controls'),
@@ -50,6 +60,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
 
   const handleProfileClick = (e) => {
     e.stopPropagation();
+    if (post.feedType === 'news') return; // নিউজের ক্ষেত্রে প্রোফাইল ক্লিক হবে না
     const targetId = post.authorAuth0Id || post.author;
     if (onUserClick && targetId) onUserClick(targetId);
   };
@@ -65,12 +76,11 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
 
   const handleLike = async (e) => {
     e.stopPropagation();
-    if (!isAuthenticated) return;
-    if (isLiking) return;
+    if (post.feedType === 'news') return; // নিউজে লাইক সিস্টেম বন্ধ (অপশনাল)
+    if (!isAuthenticated || isLiking) return;
     try {
       setIsLiking(true);
       const token = await getAccessTokenSilently();
-      // লাইক রিকোয়েস্ট API
       await axios.put(`${API_URL}/api/posts/${post._id}/like`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -88,14 +98,14 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      className="bg-[#0a0f1e]/60 backdrop-blur-xl border-y border-white/[0.05] sm:border sm:rounded-[2rem] overflow-hidden mb-4 w-full transition-all group/card shadow-2xl"
+      className={`bg-[#0a0f1e]/60 backdrop-blur-xl border-y border-white/[0.05] sm:border sm:rounded-[2rem] overflow-hidden mb-4 w-full transition-all group/card shadow-2xl ${post.feedType === 'news' ? 'border-cyan-500/20' : ''}`}
     >
       {/* --- Header --- */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div 
             onClick={handleProfileClick}
-            className="w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-cyan-500 to-purple-600 cursor-pointer active:scale-90 transition-all shadow-lg"
+            className={`w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr cursor-pointer active:scale-90 transition-all shadow-lg ${post.feedType === 'news' ? 'from-cyan-400 to-blue-600' : 'from-cyan-500 to-purple-600'}`}
           >
             <img 
               src={post.authorAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.authorName}`} 
@@ -106,17 +116,18 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
           </div>
 
           <div className="cursor-pointer" onClick={handleProfileClick}>
-            <h4 className="font-bold text-white text-[15px] flex items-center gap-1 truncate max-w-[150px] sm:max-w-full">
+            <h4 className="font-bold text-white text-[14px] flex items-center gap-1 truncate max-w-[200px]">
               {post.authorName || 'Drifter'}
               {post.isVerified && <FaCertificate className="text-cyan-400 text-[10px]" />}
+              {post.feedType === 'news' && <span className="text-[9px] bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full border border-cyan-500/30 ml-2">NEWS</span>}
             </h4>
-            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-tighter">
-              {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'ONLINE'}
+            <p className="text-[10px] text-gray-500 font-medium tracking-wide">
+              {formatPostDate(post.createdAt)}
             </p>
           </div>
         </div>
 
-        {(user?.sub === post.author || user?.sub === post.authorAuth0Id) && (
+        {post.feedType !== 'news' && (user?.sub === post.author || user?.sub === post.authorAuth0Id) && (
           <button 
             onClick={(e) => { e.stopPropagation(); if(window.confirm("Terminate Signal?")) onDelete(post._id); }} 
             className="p-2 text-gray-600 hover:text-rose-500 transition-all"
@@ -129,9 +140,19 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
       {/* --- Text Content --- */}
       {post.text && (
         <div className="px-5 pb-3">
-          <p className="text-gray-300 text-[15px] leading-relaxed">
+          <p className="text-gray-200 text-[15px] leading-relaxed font-medium">
             {post.text}
           </p>
+          {post.feedType === 'news' && post.link && (
+            <a 
+              href={post.link} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-cyan-400 text-[11px] font-bold mt-3 hover:underline group"
+            >
+              READ FULL SIGNAL <FaExternalLinkAlt size={10} className="group-hover:translate-x-1 transition-transform" />
+            </a>
+          )}
         </div>
       )}
 
@@ -162,7 +183,7 @@ const PostCard = ({ post, onAction, onDelete, onUserClick }) => {
             ) : (
               <img 
                 src={post.media} 
-                className="w-full object-cover max-h-[550px]" 
+                className="w-full object-cover max-h-[550px] min-h-[200px] bg-slate-900" 
                 alt="Post media"
                 referrerPolicy="no-referrer"
               />

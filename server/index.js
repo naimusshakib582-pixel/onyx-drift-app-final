@@ -83,39 +83,37 @@ if (redis) {
 }
 
 /* ==========================================================
-    📰 OnyxDrift - সংশোধিত নিউজ ইঞ্জিন (Fixed)
+    📰 OnyxDrift - নিখুঁত নিউজ ইঞ্জিন (Fixed UI Issues)
 ========================================================== */
 app.get("/api/news", async (req, res) => {
     try {
         const apiKey = process.env.NEWS_API_KEY; 
         if (!apiKey) {
-            return res.status(500).json({ error: "News API Key missing in environment" });
+            return res.status(500).json({ error: "News API Key missing" });
         }
 
-        // GNews API থেকে ডাটা নিয়ে আসা
         const response = await axios.get(`https://gnews.io/api/v4/top-headlines?category=general&lang=en&apikey=${apiKey}`);
         
-        const formattedNews = response.data.articles.map((article, index) => ({
-            _id: `news-${index}-${Date.now()}`,
-            authorName: article.source.name || "Global News",
-            authorAvatar: "https://cdn-icons-png.flaticon.com/512/21/21601.png", 
-            isVerified: true,
+        // স্ক্রিনশটের "Invalid Date" এবং "খালি টেক্সট" সমস্যা সমাধানের জন্য ফরম্যাটিং
+        const formattedNews = response.data.articles.map((article, index) => {
+            // তারিখ ফরম্যাট নিশ্চিত করা
+            const newsDate = article.publishedAt ? new Date(article.publishedAt).toISOString() : new Date().toISOString();
             
-            // "Invalid Date" সমাধান: ISO String ফরম্যাট নিশ্চিত করা
-            createdAt: article.publishedAt || new Date().toISOString(), 
-            
-            // আপনার PostCard-এ লেখাগুলো বড় করে দেখানোর জন্য Title-কে Text হিসেবে পাঠানো হচ্ছে
-            text: article.title || "Latest Update from OnyxDrift Neural Core", 
-            
-            // ছবি না থাকলে একটি ডিফল্ট টেক ইমেজ ব্যবহার করা হবে
-            media: article.image || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000",
-            mediaType: "image",
-            
-            link: article.url,
-            likes: [], // এরর এড়াতে ডিফল্ট অ্যারে
-            comments: [],
-            feedType: 'news' 
-        }));
+            return {
+                _id: `news-${index}-${Date.now()}`,
+                authorName: article.source.name || "Global News",
+                authorAvatar: "https://cdn-icons-png.flaticon.com/512/21/21601.png", 
+                isVerified: true,
+                createdAt: newsDate, // তারিখটি ISO ফরম্যাটে পাঠানো হচ্ছে
+                text: article.title || article.description || "No content available", 
+                media: article.image || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000",
+                mediaType: "image",
+                link: article.url,
+                likes: [], 
+                comments: [],
+                feedType: 'news' 
+            };
+        });
 
         res.json(formattedNews);
     } catch (error) {
@@ -150,8 +148,6 @@ app.use((err, req, res, next) => {
     📡 REAL-TIME ENGINE (Socket.io)
 ========================================================== */
 io.on("connection", (socket) => {
-    console.log("Connected to Neural Socket:", socket.id);
-
     socket.on("addNewUser", async (userId) => {
         if (userId) {
             if (redis) {
@@ -161,7 +157,6 @@ io.on("connection", (socket) => {
             } else {
                 socket.join(userId); 
             }
-            console.log(`Node Active: ${userId}`);
         }
     });
 
