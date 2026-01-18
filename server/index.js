@@ -83,29 +83,36 @@ if (redis) {
 }
 
 /* ==========================================================
-    📰 সংশোধিত অটোমেটিক নিউজ ইঞ্জিন (World News API)
+    📰 OnyxDrift - সংশোধিত নিউজ ইঞ্জিন (Fixed)
 ========================================================== */
 app.get("/api/news", async (req, res) => {
     try {
         const apiKey = process.env.NEWS_API_KEY; 
         if (!apiKey) {
-            return res.status(500).json({ error: "News API Key is missing in environment" });
+            return res.status(500).json({ error: "News API Key missing in environment" });
         }
 
+        // GNews API থেকে ডাটা নিয়ে আসা
         const response = await axios.get(`https://gnews.io/api/v4/top-headlines?category=general&lang=en&apikey=${apiKey}`);
         
-        // আপনার PostCard.jsx এর সাথে সামঞ্জস্য রেখে ডাটা ফরম্যাট
         const formattedNews = response.data.articles.map((article, index) => ({
             _id: `news-${index}-${Date.now()}`,
             authorName: article.source.name || "Global News",
             authorAvatar: "https://cdn-icons-png.flaticon.com/512/21/21601.png", 
             isVerified: true,
-            createdAt: article.publishedAt, // এটি Invalid Date সমস্যা সমাধান করবে
-            text: article.title, // টাইটেলটিকে মেইন টেক্সট হিসেবে দেওয়া হয়েছে
-            media: article.image,
+            
+            // "Invalid Date" সমাধান: ISO String ফরম্যাট নিশ্চিত করা
+            createdAt: article.publishedAt || new Date().toISOString(), 
+            
+            // আপনার PostCard-এ লেখাগুলো বড় করে দেখানোর জন্য Title-কে Text হিসেবে পাঠানো হচ্ছে
+            text: article.title || "Latest Update from OnyxDrift Neural Core", 
+            
+            // ছবি না থাকলে একটি ডিফল্ট টেক ইমেজ ব্যবহার করা হবে
+            media: article.image || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000",
             mediaType: "image",
+            
             link: article.url,
-            likes: [], // এরর এড়াতে ডিফল্ট খালি অ্যারে
+            likes: [], // এরর এড়াতে ডিফল্ট অ্যারে
             comments: [],
             feedType: 'news' 
         }));
