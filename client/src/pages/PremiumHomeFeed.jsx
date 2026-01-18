@@ -4,13 +4,13 @@ import {
   FaTimes, FaImage, FaHeart, FaComment, 
   FaShareAlt, FaDownload, FaEllipsisH, FaCheckCircle,
   FaVolumeMute, FaVolumeUp, FaTrashAlt, FaUser, FaUserPlus, FaEnvelope, FaPaperPlane,
-  FaExternalLinkAlt 
+  FaNewspaper, FaExternalLinkAlt
 } from 'react-icons/fa'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
 import { useNavigate } from 'react-router-dom';
 
-// --- অটো প্লে ভিডিও কম্পোনেন্ট ---
+// --- ফিক্সড ভিডিও কম্পোনেন্ট ---
 const AutoPlayVideo = ({ src }) => {
   const videoRef = useRef(null);
   const [isMuted, setIsMuted] = useState(true);
@@ -65,95 +65,65 @@ const AutoPlayVideo = ({ src }) => {
   );
 };
 
-// --- তারিখ ফরম্যাট করার সেফ ফাংশন (Invalid Date সমস্যা সমাধান করবে) ---
-const formatDate = (dateStr) => {
-  if (!dateStr) return "Just now";
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return "Recently";
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-};
-
-// --- নিউজ কার্ড কম্পোনেন্ট ---
-const NewsFeedCard = ({ news }) => {
-  return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 py-6 border-b border-white/5 relative group">
-      <div className="flex-shrink-0">
-        <div className="w-11 h-11 rounded-full border border-cyan-500/30 flex items-center justify-center bg-cyan-500/10 text-cyan-500 font-black text-[10px]">
-          NEWS
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-[14px] font-black text-cyan-500 uppercase tracking-tighter">{news.source || "Onyx Signal"}</span>
-          <FaCheckCircle className="text-cyan-500 text-[10px]" />
-          <span className="text-gray-600 text-[12px]">· {formatDate(news.publishedAt || news.createdAt)}</span>
-        </div>
-        <h3 className="text-[16px] font-bold text-gray-100 leading-tight mb-2">{news.title}</h3>
-        {news.image && (
-          <div className="rounded-2xl overflow-hidden border border-white/10 mb-3 bg-slate-900">
-             <img 
-               src={news.image} 
-               className="w-full h-48 object-cover grayscale hover:grayscale-0 transition-all duration-700" 
-               alt="news" 
-               onError={(e) => { e.target.style.display = 'none'; }} // ইমেজ এরর দিলে হাইড হবে
-             />
-          </div>
-        )}
-        <p className="text-[14px] text-gray-400 leading-relaxed line-clamp-2 italic mb-3">{news.description}</p>
-        <a href={news.link} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[11px] font-black uppercase text-cyan-400 hover:text-white transition-all">
-          Read Full Signal <FaExternalLinkAlt size={10} />
-        </a>
-      </div>
-    </motion.div>
-  );
-};
-
 const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen }) => {
   const { user, getAccessTokenSilently, isAuthenticated } = useAuth0();
   const navigate = useNavigate();
-  const [mergedFeed, setMergedFeed] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [news, setNews] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [postText, setPostText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mediaFile, setMediaFile] = useState(null);
+  
   const [activePostMenuId, setActivePostMenuId] = useState(null);
   const [activeProfileMenuId, setActiveProfileMenuId] = useState(null);
+  
   const [activeCommentPost, setActiveCommentPost] = useState(null);
   const [commentText, setCommentText] = useState("");
 
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
   const postMediaRef = useRef(null);
 
-  // --- ডাটা ফেচিং এবং মার্জিং লজিক ---
-  const fetchCombinedFeed = async () => {
+  // --- রিয়েল নিউজ ডেটা ফেচিং (GNews API) ---
+  const fetchNews = async () => {
     try {
-      setLoading(true);
-      const [postsRes, newsRes] = await Promise.all([
-        axios.get(`${API_URL}/api/posts`).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/api/news`).catch(() => ({ data: [] }))
-      ]);
-
-      const allPosts = (postsRes.data || []).map(p => ({ ...p, feedType: 'post' }));
-      const allNews = (newsRes.data || []).map(n => ({ ...n, feedType: 'news' }));
-
-      // সর্টিং লজিক ঠিক করা হয়েছে (Post-এর createdAt এবং News-এর publishedAt ব্যবহার করে)
-      const sortedFeed = [...allPosts, ...allNews].sort((a, b) => {
-        const dateA = new Date(a.createdAt || a.publishedAt || 0);
-        const dateB = new Date(b.createdAt || b.publishedAt || 0);
-        return dateB - dateA;
-      });
-
-      setMergedFeed(sortedFeed);
-      setError(null);
-    } catch (err) {
-      setError("Synchronizing Neural Channels...");
-    } finally {
-      setLoading(false);
+      const NEWS_API_KEY = "2462daa77162a9f3da4e2f17ca56105e"; // GNews API Key
+      const response = await axios.get(
+        `https://gnews.io/api/v4/top-headlines?category=technology&lang=en&max=6&apikey=${NEWS_API_KEY}`
+      );
+      
+      const formattedNews = response.data.articles.map((article, index) => ({
+        id: index,
+        title: article.title,
+        source: article.source.name,
+        time: new Date(article.publishedAt).toLocaleDateString(),
+        image: article.image || "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
+        url: article.url
+      }));
+      setNews(formattedNews);
+    } catch (err) { 
+      console.error("News Fetch Error:", err); 
     }
   };
 
-  useEffect(() => { fetchCombinedFeed(); }, []);
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/api/posts`);
+      setPosts(response.data);
+      setError(null);
+    } catch (err) { 
+      setError("Syncing with Neural Network...");
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  useEffect(() => { 
+    fetchPosts(); 
+    fetchNews(); 
+  }, []);
 
   useEffect(() => {
     const closeAllMenus = () => {
@@ -164,7 +134,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
     return () => window.removeEventListener('click', closeAllMenus);
   }, []);
 
-  // --- হ্যান্ডলার ফাংশনগুলো ---
   const handleLike = async (e, postId) => {
     e.stopPropagation(); 
     if (!isAuthenticated) return alert("Please login to like");
@@ -173,13 +142,18 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       const response = await axios.post(`${API_URL}/api/posts/${postId}/like`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setMergedFeed(mergedFeed.map(p => p._id === postId ? { ...response.data, feedType: 'post' } : p));
-    } catch (err) { console.error("Like Error", err); }
+      setPosts(posts.map(p => p._id === postId ? response.data : p));
+    } catch (err) { 
+      console.error("Like Error:", err.response?.data || err.message);
+    }
   };
 
   const handleFollowUser = async (e, targetAuth0Id) => {
     e.stopPropagation();
-    if (!isAuthenticated) return alert("Please login");
+    if (!isAuthenticated) return alert("Please login to follow");
+    if (!targetAuth0Id) return alert("User ID not found.");
+    if (user?.sub === targetAuth0Id) return alert("You cannot link with your own neural signal.");
+
     try {
       const token = await getAccessTokenSilently();
       await axios.post(`${API_URL}/api/user/follow/${encodeURIComponent(targetAuth0Id)}`, {}, {
@@ -187,7 +161,11 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       });
       alert("Neural link established!");
       setActiveProfileMenuId(null);
-    } catch (err) { alert("Failed to connect signal."); }
+    } catch (err) {
+      const msg = err.response?.data?.message || "Already linked or failed to connect.";
+      alert(msg);
+      setActiveProfileMenuId(null);
+    }
   };
 
   const handleCommentClick = (e, post) => {
@@ -203,10 +181,12 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         { text: commentText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setMergedFeed(mergedFeed.map(p => p._id === activeCommentPost._id ? { ...response.data, feedType: 'post' } : p));
+      setPosts(posts.map(p => p._id === activeCommentPost._id ? response.data : p));
       setActiveCommentPost(response.data);
       setCommentText("");
-    } catch (err) { alert("Comment failed."); }
+    } catch (err) {
+      alert("Comment failed to transmit.");
+    }
   };
 
   const handleShare = (e, post) => {
@@ -215,7 +195,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       navigator.share({ title: 'Onyx Drift', text: post.text, url: window.location.href }).catch(console.error);
     } else {
       navigator.clipboard.writeText(window.location.href);
-      alert("Signal copied!");
+      alert("Link copied!");
     }
   };
 
@@ -233,7 +213,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       });
 
       setPostText(""); setMediaFile(null);
-      setIsPostModalOpen(false); fetchCombinedFeed();
+      setIsPostModalOpen(false); fetchPosts();
     } catch (err) { alert("Transmission failed."); } finally { setIsSubmitting(false); }
   };
 
@@ -244,7 +224,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       await axios.delete(`${API_URL}/api/posts/${postId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setMergedFeed(mergedFeed.filter(p => p._id !== postId));
+      setPosts(posts.filter(p => p._id !== postId));
     } catch (err) { alert("Deletion failed."); }
   };
 
@@ -262,18 +242,41 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       <section className="max-w-[550px] mx-auto px-4 relative z-10">
         {error && <div className="p-3 mb-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg text-cyan-400 text-[10px] uppercase text-center animate-pulse">{error}</div>}
 
-        {loading && mergedFeed.length === 0 ? (
+        {/* --- NEWS SECTION START --- */}
+        <div className="mb-8 mt-4">
+          <div className="flex items-center gap-2 mb-4 px-1">
+            <FaNewspaper className="text-cyan-500 text-sm" />
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Neural_Pulse_News</h3>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+            {news.map((item) => (
+              <a 
+                href={item.url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                key={item.id} 
+                className="min-w-[280px] group relative rounded-2xl overflow-hidden border border-white/5 bg-white/5 hover:border-cyan-500/30 transition-all cursor-pointer block"
+              >
+                <img src={item.image} className="w-full h-32 object-cover opacity-60 group-hover:opacity-80 transition-opacity" alt="news" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#02040a] to-transparent" />
+                <div className="absolute bottom-0 p-4 w-full">
+                  <p className="text-[10px] font-bold text-cyan-500 uppercase mb-1">{item.source} • {item.time}</p>
+                  <h4 className="text-sm font-bold text-gray-100 leading-snug line-clamp-2">{item.title}</h4>
+                </div>
+                <div className="absolute top-3 right-3 p-2 bg-black/50 backdrop-blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <FaExternalLinkAlt size={10} className="text-cyan-400" />
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+        {/* --- NEWS SECTION END --- */}
+
+        {loading && posts.length === 0 ? (
           <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div></div>
         ) : (
           <div className="flex flex-col">
-            {mergedFeed.map((item, index) => {
-              // নিউজ ফিড কার্ড
-              if (item.feedType === 'news') {
-                return <NewsFeedCard key={item._id || `news-${index}`} news={item} />;
-              }
-
-              // পোস্ট কার্ড
-              const post = item;
+            {posts.map((post) => {
               const mediaSrc = post.media || post.mediaUrl;
               const isVideo = mediaSrc?.match(/\.(mp4|webm|mov)$/i) || post.mediaType === 'video';
               const isLiked = post.likes?.includes(user?.sub);
@@ -281,6 +284,8 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               
               return (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={post._id} className="flex gap-3 py-6 border-b border-white/5 relative">
+                  
+                  {/* Avatar Section */}
                   <div className="relative flex-shrink-0">
                     <img 
                       onClick={(e) => { e.stopPropagation(); setActiveProfileMenuId(activeProfileMenuId === post._id ? null : post._id); }}
@@ -288,6 +293,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                       className="w-11 h-11 rounded-full border border-white/10 object-cover bg-gray-900 cursor-pointer hover:border-cyan-500/50 transition-all" 
                       alt="avatar" 
                     />
+
                     <AnimatePresence>
                       {activeProfileMenuId === post._id && (
                         <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute left-0 mt-2 w-52 bg-[#0d1117] border border-white/10 rounded-2xl shadow-2xl z-[150] p-2 backdrop-blur-xl">
@@ -295,14 +301,27 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                              <p className="text-xs font-bold text-cyan-500 truncate">{post.authorName}</p>
                              <p className="text-[10px] text-gray-500 truncate">@{post.authorName?.toLowerCase().replace(/\s/g, '')}</p>
                           </div>
-                          <button onClick={(e) => handleFollowUser(e, authorId)} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold">
+                          
+                          <button 
+                            onClick={(e) => handleFollowUser(e, authorId)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold"
+                          >
                             <FaUserPlus size={14} className="text-cyan-500" /> Follow
                           </button>
-                          <button onClick={(e) => { e.stopPropagation(); navigate(`/messenger`); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold">
+
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); navigate(`/messenger`); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold"
+                          >
                             <FaEnvelope size={14} className="text-gray-400" /> Message
                           </button>
+
                           <div className="my-1 border-t border-white/5" />
-                          <button onClick={(e) => { e.stopPropagation(); navigate(`/profile/${authorId}`); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold">
+
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); navigate(`/profile/${authorId}`); }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-white/5 rounded-xl transition-colors font-bold"
+                          >
                             <FaUser size={14} /> View Profile
                           </button>
                         </motion.div>
@@ -310,13 +329,15 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                     </AnimatePresence>
                   </div>
 
+                  {/* Content Section */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 overflow-hidden group">
                         <span className="text-[15px] font-bold text-gray-100 truncate">{post.authorName || 'Drifter'}</span>
                         <FaCheckCircle className="text-cyan-500 text-[11px] flex-shrink-0" />
-                        <span className="text-gray-600 text-[13px]">· {formatDate(post.createdAt)}</span>
+                        <span className="text-gray-600 text-[13px]">· {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Now'}</span>
                       </div>
+                      
                       <div className="relative">
                         <button onClick={(e) => { e.stopPropagation(); setActivePostMenuId(activePostMenuId === post._id ? null : post._id); }} className="p-2 text-gray-600 hover:text-rose-500 rounded-full hover:bg-white/5 transition-colors">
                           <FaEllipsisH size={14} />
@@ -332,25 +353,37 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                         </AnimatePresence>
                       </div>
                     </div>
+
                     <p className="text-[15px] text-gray-200 leading-normal mt-1 mb-3 whitespace-pre-wrap">{post.text}</p>
+
                     {mediaSrc && (
                       <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/40 shadow-inner">
                         {isVideo ? <AutoPlayVideo src={mediaSrc} /> : <img src={mediaSrc} className="w-full h-auto object-cover max-h-[550px]" alt="post-media" loading="lazy" />}
                       </div>
                     )}
+
                     <div className="flex justify-between mt-4 max-w-[420px] text-gray-500">
                       <button onClick={(e) => handleCommentClick(e, post)} className="flex items-center gap-2 hover:text-cyan-400 group transition-colors">
                         <div className="p-2 group-hover:bg-cyan-500/10 rounded-full"><FaComment size={16}/></div>
                         <span className="text-xs font-medium">{post.comments?.length || 0}</span>
                       </button>
-                      <button onClick={(e) => handleLike(e, post._id)} className={`flex items-center gap-2 transition-all group ${isLiked ? 'text-pink-500' : 'hover:text-pink-500'}`}>
+
+                      <button 
+                        onClick={(e) => handleLike(e, post._id)} 
+                        className={`flex items-center gap-2 transition-all group ${isLiked ? 'text-pink-500' : 'hover:text-pink-500'}`}
+                      >
                         <div className={`p-2 rounded-full ${isLiked ? 'bg-pink-500/10' : 'group-hover:bg-pink-500/10'}`}>
                            <FaHeart size={16} className={isLiked ? "fill-current" : ""} />
                         </div>
                         <span className="text-xs font-medium">{post.likes?.length || 0}</span>
                       </button>
+
                       <button className="p-2 hover:text-green-500 hover:bg-green-500/10 rounded-full transition-colors"><FaDownload size={15}/></button>
-                      <button onClick={(e) => handleShare(e, post)} className="p-2 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full transition-colors">
+                      
+                      <button 
+                        onClick={(e) => handleShare(e, post)} 
+                        className="p-2 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full transition-colors"
+                      >
                         <FaShareAlt size={15}/>
                       </button>
                     </div>
@@ -372,6 +405,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                  <h3 className="text-xs font-black uppercase tracking-widest text-cyan-500">Neural_Comments</h3>
                  <button onClick={() => setActiveCommentPost(null)} className="p-2 bg-white/5 rounded-full"><FaTimes /></button>
               </div>
+              
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {activeCommentPost.comments?.map((c, i) => (
                   <div key={i} className="flex gap-3">
@@ -383,9 +417,15 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                   </div>
                 ))}
               </div>
+
               <div className="p-5 border-t border-white/5 bg-[#0d1117]">
                 <div className="flex gap-3 items-center bg-white/5 rounded-2xl px-4 py-2 border border-white/10">
-                  <input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Write a comment..." className="bg-transparent flex-1 outline-none text-sm py-2" />
+                  <input 
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Write a comment..." 
+                    className="bg-transparent flex-1 outline-none text-sm py-2"
+                  />
                   <button onClick={handleAddComment} className="text-cyan-500 p-2"><FaPaperPlane /></button>
                 </div>
               </div>
