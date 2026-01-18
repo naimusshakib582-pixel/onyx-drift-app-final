@@ -86,24 +86,28 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const postMediaRef = useRef(null);
 
   // --- রিয়েল নিউজ ডেটা ফেচিং (GNews API) ---
-  const fetchNews = async () => {
-    try {
-      const NEWS_API_KEY = "2462daa77162a9f3da4e2f17ca56105e"; // GNews API Key
-      const response = await axios.get(
-        `https://gnews.io/api/v4/top-headlines?category=technology&lang=en&max=6&apikey=${NEWS_API_KEY}`
-      );
-      
+ const fetchNews = async () => {
+  try {
+    const NEWS_API_KEY = "2462daa77162a9f3da4e2f17ca56105e";
+    // সরাসরি লিঙ্কের আগে এই প্রক্সিটি যোগ করে দেখতে পারেন
+    const proxyUrl = "https://cors-anywhere.herokuapp.com/"; 
+    const targetUrl = `https://gnews.io/api/v4/top-headlines?category=technology&lang=en&max=6&apikey=${NEWS_API_KEY}`;
+
+    const response = await axios.get(targetUrl); // প্রথমে প্রক্সি ছাড়াই চেষ্টা করুন
+    
+    if (response.data && response.data.articles) {
       const formattedNews = response.data.articles.map((article, index) => ({
         id: index,
         title: article.title,
         source: article.source.name,
         time: new Date(article.publishedAt).toLocaleDateString(),
-        image: article.image || "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
+        image: article.image || "https://images.unsplash.com/photo-1451187580459-43490279c0fa",
         url: article.url
       }));
       setNews(formattedNews);
-    } catch (err) { 
-      console.error("News Fetch Error:", err); 
+    }
+  } catch (err) { 
+    console.error("News Fetch Error:", err.response?.data || err.message);
     }
   };
 
