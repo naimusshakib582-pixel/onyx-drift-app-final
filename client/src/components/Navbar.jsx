@@ -7,7 +7,8 @@ import { useAuth0 } from "@auth0/auth0-react";
 import axios from 'axios';
 import webSocketService from "../services/WebSocketService"; 
 
-const Navbar = ({ setSearchQuery, setIsPostModalOpen }) => { 
+// এখানে toggleSidebar প্রপসটি যোগ করা হয়েছে
+const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => { 
   const navigate = useNavigate();
   const { user, logout, getAccessTokenSilently, isAuthenticated } = useAuth0();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -55,11 +56,16 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen }) => {
   }, [localSearch, getAccessTokenSilently, API_URL]);
 
   return (
-    <nav className="w-full h-[60px] bg-[#030303]/90 backdrop-blur-xl border-b border-white/[0.05] z-[1000] flex items-center justify-between px-4 lg:px-8">
+    <nav className="w-full h-[60px] bg-[#030303]/90 backdrop-blur-xl border-b border-white/[0.05] z-[1000] flex items-center justify-between px-4 lg:px-8 sticky top-0">
       
-      {/* ১. লোগো সেকশন */}
+      {/* ১. লোগো এবং মেনু সেকশন */}
       <div className="flex items-center gap-3">
-        <HiOutlineMenuAlt4 size={22} className="text-gray-400 lg:hidden cursor-pointer hover:text-cyan-400 transition-colors" />
+        {/* এই বাটনে ক্লিক করলে সাইডবার খুলবে */}
+        <HiOutlineMenuAlt4 
+          size={22} 
+          onClick={toggleSidebar} 
+          className="text-gray-400 cursor-pointer hover:text-cyan-400 transition-colors" 
+        />
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/feed')}>
           <div className="w-8 h-8 bg-gradient-to-tr from-cyan-400 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/20">
             <span className="text-black font-black text-xs italic tracking-tighter">OX</span>
@@ -70,7 +76,7 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen }) => {
         </div>
       </div>
 
-      {/* ২. সেন্টার পোস্ট বার (Broadcast Signal) */}
+      {/* ২. সেন্টার পোস্ট বার (এটিই আপনার মেইন সার্চ/পোস্ট বার) */}
       <div className="flex-1 max-w-[400px] mx-4 relative">
         <div 
           onClick={() => setIsPostModalOpen(true)}
@@ -89,8 +95,14 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen }) => {
       {/* ৩. রাইট অ্যাকশন বাটনসমূহ */}
       <div className="flex items-center gap-3 lg:gap-6">
         
-        {/* নোটিফিকেশন */}
-        <div className="relative cursor-pointer group">
+        {/* নোটিফিকেশন - ক্লিক করলে রেড ডট চলে যাবে */}
+        <div 
+          className="relative cursor-pointer group"
+          onClick={() => {
+            setHasNewNotification(false);
+            alert("Opening Notifications...");
+          }}
+        >
           <FaRegBell size={18} className="text-gray-400 group-hover:text-cyan-400 transition-colors" />
           {hasNewNotification && (
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-cyan-500 rounded-full border border-[#030303] animate-pulse"></span>
