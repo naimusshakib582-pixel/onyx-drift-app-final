@@ -55,7 +55,8 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
   }, [localSearch, getAccessTokenSilently, API_URL]);
 
   return (
-    <nav className="w-full h-[60px] bg-[#030303]/90 backdrop-blur-xl border-b border-white/[0.05] z-[1000] flex items-center justify-between px-4 lg:px-8 sticky top-0">
+    // 'sticky top-0' সরিয়ে 'relative' করা হয়েছে যাতে স্ক্রল করলে এটি উপরে চলে যায়
+    <nav className="w-full h-[60px] bg-[#030303] border-b border-white/[0.05] z-[1000] flex items-center justify-between px-4 lg:px-8 relative">
       
       {/* ১. লোগো এবং মেনু সেকশন */}
       <div className="flex items-center gap-3">
@@ -63,7 +64,7 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
           size={22} 
           onClick={(e) => {
             e.stopPropagation();
-            toggleSidebar();
+            if(typeof toggleSidebar === 'function') toggleSidebar();
           }} 
           className="text-gray-400 cursor-pointer hover:text-cyan-400 transition-colors" 
         />
@@ -101,7 +102,7 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
           className="relative cursor-pointer group"
           onClick={() => {
             setHasNewNotification(false);
-            navigate('/notifications'); // এখানে আপনার নোটিফিকেশন পেজের পাথ দিন
+            navigate('/notifications'); 
           }}
         >
           <FaRegBell size={18} className="text-gray-400 group-hover:text-cyan-400 transition-colors" />
@@ -132,11 +133,11 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
           <AnimatePresence>
             {showDropdown && (
               <>
-                {/* আউটার ক্লিক হ্যান্ডলার */}
+                {/* ব্যাকড্রপ ক্লিক হ্যান্ডলার - এখানে 'onClick' এরর হওয়ার সম্ভাবনা থাকে, তাই এটি হ্যান্ডেল করা হয়েছে */}
                 <div 
                   className="fixed inset-0 z-[1001]" 
                   onClick={() => setShowDropdown(false)}
-                ></div>
+                />
                 
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95, y: 10 }} 
@@ -145,24 +146,26 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
                   className="absolute right-0 mt-3 w-44 bg-[#0A0A0A] border border-white/10 rounded-2xl p-2 shadow-2xl overflow-hidden z-[1002]"
                 >
                   <button 
+                    type="button"
                     onClick={(e) => { 
                       e.stopPropagation();
                       navigate(`/profile/${user?.sub}`); 
                       setShowDropdown(false); 
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-[9px] font-black text-gray-400 hover:text-white hover:bg-white/5 rounded-xl uppercase transition-all"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-[9px] font-black text-gray-400 hover:text-white hover:bg-white/5 rounded-xl uppercase transition-all text-left"
                   >
                     <FaUserCircle size={14} /> Profile
                   </button>
 
-                  <div className="h-[1px] bg-white/5 my-1"></div>
+                  <div className="h-[1px] bg-white/5 my-1" />
 
                   <button 
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       logout({ logoutParams: { returnTo: window.location.origin } });
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-[9px] font-black text-rose-500 hover:bg-rose-500/10 rounded-xl uppercase transition-all"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-[9px] font-black text-rose-500 hover:bg-rose-500/10 rounded-xl uppercase transition-all text-left"
                   >
                     <FaSignOutAlt size={14} /> Log Out
                   </button>
