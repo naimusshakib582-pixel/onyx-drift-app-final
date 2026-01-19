@@ -218,7 +218,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   return (
     <div className="w-full min-h-screen bg-[#02040a] text-white pt-2 pb-32 overflow-x-hidden font-sans">
       
-      {/* --- SIDEBAR DRAWER --- */}
+      {/* --- SIDEBAR DRAWER (Settings Panel) --- */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -260,12 +260,15 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         )}
       </AnimatePresence>
 
-      {/* --- HEADER (Fixed Only One Bar) --- */}
+      {/* --- MAIN HEADER (Only one, as you requested) --- */}
       <div className="max-w-[550px] mx-auto px-4 flex justify-between items-center py-6 bg-[#02040a] border-b border-white/5">
           <div className="flex items-center gap-4">
-              {/* মেইন বারের Bars আইকন - এখন এটি কাজ করবে */}
-              <button onClick={() => setIsSidebarOpen(true)} className="p-1 text-gray-400 hover:text-white transition-colors">
-                <FaBars size={18} />
+              {/* মেইন বারের Bars আইকন - এখন এটি কার্যকর */}
+              <button 
+                onClick={() => setIsSidebarOpen(true)} 
+                className="p-1 text-gray-400 hover:text-white transition-colors"
+              >
+                <FaBars size={20} />
               </button>
               
               <div className="flex items-center gap-2">
@@ -275,12 +278,12 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
           </div>
 
           <div className="flex items-center gap-4">
-              {/* মেইন বারের নোটিফিকেশন বেল - এখন এটি কাজ করবে */}
+              {/* মেইন বারের নোটিফিকেশন বেল - এখন এটি কার্যকর */}
               <button 
                 onClick={() => alert("Neural Notifications: No new signals detected.")}
                 className="relative p-1 text-gray-400 hover:text-white transition-colors"
               >
-                <FaBell size={18} />
+                <FaBell size={20} />
                 <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-cyan-500 rounded-full"></span>
               </button>
 
@@ -293,6 +296,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
           </div>
       </div>
 
+      {/* --- FEED SECTION --- */}
       <section className="max-w-[550px] mx-auto px-4 relative z-10">
         {error && <div className="p-3 mb-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg text-cyan-400 text-[10px] uppercase text-center animate-pulse">{error}</div>}
 
@@ -403,7 +407,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         )}
       </section>
 
-      {/* --- Comment Slide-up Modal --- */}
+      {/* --- অন্যান্য মডাল (Comment/Post) --- */}
       <AnimatePresence>
         {activeCommentPost && (
           <div className="fixed inset-0 z-[3000] flex items-end justify-center">
@@ -428,34 +432,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                 <div className="flex gap-3 items-center bg-white/5 rounded-2xl px-4 py-2 border border-white/10">
                   <input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Write a comment..." className="bg-transparent flex-1 outline-none text-sm py-2" />
                   <button onClick={handleAddComment} className="text-cyan-500 p-2"><FaPaperPlane /></button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* --- Transmit Signal Modal --- */}
-      <AnimatePresence>
-        {isPostModalOpen && (
-          <div className="fixed inset-0 z-[2000] flex items-start sm:items-center justify-center pt-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsPostModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-lg bg-[#0d1117] rounded-2xl border border-white/10 shadow-2xl mx-4 overflow-hidden">
-              <div className="p-5">
-                <div className="flex justify-between items-center mb-4">
-                  <button onClick={() => setIsPostModalOpen(false)} className="text-gray-400 hover:text-white p-2"><FaTimes size={18}/></button>
-                  <button disabled={isSubmitting || (!postText.trim() && !mediaFile)} onClick={handlePostSubmit} className="bg-cyan-500 text-white px-6 py-1.5 rounded-full text-[14px] font-bold disabled:opacity-40 hover:bg-cyan-400 transition-all">
-                    {isSubmitting ? "Syncing..." : "Transmit"}
-                  </button>
-                </div>
-                <div className="flex gap-3">
-                  <img src={user?.picture} className="w-10 h-10 rounded-full border border-white/10" alt="me" />
-                  <textarea autoFocus value={postText} onChange={(e) => setPostText(e.target.value)} placeholder="What's happening?" className="w-full bg-transparent text-[19px] text-gray-100 placeholder-gray-600 outline-none resize-none min-h-[150px]" />
-                </div>
-                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                   <button onClick={() => postMediaRef.current.click()} className="text-cyan-500 hover:bg-cyan-500/10 p-2.5 rounded-full transition-colors"><FaImage size={22} /></button>
-                   <input type="file" ref={postMediaRef} onChange={(e) => setMediaFile(e.target.files[0])} hidden accept="image/*,video/*" />
-                   <span className="text-[11px] font-mono text-gray-600">{postText.length} / 280</span>
                 </div>
               </div>
             </motion.div>
