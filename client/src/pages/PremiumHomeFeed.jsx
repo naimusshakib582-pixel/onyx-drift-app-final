@@ -131,14 +131,15 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
 
     try {
       const token = await getAccessTokenSilently();
-      // Added encodeURIComponent to handle ID symbols like '|' correctly
-      await axios.post(`${API_URL}/api/user/follow/${encodeURIComponent(targetAuth0Id)}`, {}, {
+      // ✅ URL-এ বিশেষ ক্যারেক্টার (যেমন '|') ঠিকমতো পাঠানোর জন্য encodeURIComponent ব্যবহার করা হয়েছে
+      const encodedId = encodeURIComponent(targetAuth0Id);
+      await axios.post(`${API_URL}/api/user/follow/${encodedId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert("Neural link established!");
     } catch (err) {
       console.error("Follow Error Status:", err.response?.status);
-      const msg = err.response?.data?.message || "Already linked or failed to connect.";
+      const msg = err.response?.data?.message || "Follow route not found (404) or failed to connect.";
       alert(msg);
     }
   };
@@ -268,17 +269,17 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                         </span>
                         <FaCheckCircle className="text-cyan-500 text-[11px] flex-shrink-0" />
                         
-                        {/* ✅ Follow & Message Buttons added here */}
+                        {/* ✅ Follow & Messenger Buttons (নাম পরিবর্তন এবং রুট ঠিক করা হয়েছে) */}
                         {user?.sub !== authorId && (
                           <div className="flex items-center gap-3 ml-2">
                              <button 
                                 onClick={(e) => handleFollowUser(e, authorId)}
                                 className="text-[11px] font-black uppercase text-cyan-500 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 hover:bg-cyan-500 hover:text-white transition-all"
                               >
-                                Connect
+                                Follow
                               </button>
                               <button 
-                                onClick={(e) => { e.stopPropagation(); navigate('/messenger'); }}
+                                onClick={(e) => { e.stopPropagation(); navigate('/messages'); }}
                                 className="text-gray-500 hover:text-cyan-400 transition-colors"
                               >
                                 <FaEnvelope size={12} />
