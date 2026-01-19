@@ -19,7 +19,6 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
 
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
 
-  // Notification Listener
   useEffect(() => {
     if (isAuthenticated && user?.sub) {
       const subscription = webSocketService.subscribe(`/topic/notifications/${user.sub}`, (data) => {
@@ -29,36 +28,10 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
     }
   }, [user, isAuthenticated]);
 
-  // Real-time Search Logic
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      if (localSearch.trim().length > 0) {
-        setLoading(true);
-        try {
-          const token = await getAccessTokenSilently();
-          const res = await axios.get(`${API_URL}/api/user/search`, {
-            params: { query: localSearch },
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setSearchResults(res.data);
-          setShowResults(true);
-        } catch (err) {
-          console.error("Search error:", err);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setShowResults(false);
-      }
-    }, 400);
-    return () => clearTimeout(delayDebounceFn);
-  }, [localSearch, getAccessTokenSilently, API_URL]);
-
   return (
-    // 'sticky top-0' সরিয়ে 'relative' করা হয়েছে যাতে স্ক্রল করলে এটি উপরে চলে যায়
-    <nav className="w-full h-[60px] bg-[#030303] border-b border-white/[0.05] z-[1000] flex items-center justify-between px-4 lg:px-8 relative">
+    // 'relative' পজিশন ব্যবহার করা হয়েছে যাতে স্ক্রল করলে এটি উপরে চলে যায়
+    <nav className="w-full h-[60px] bg-[#030303]/90 backdrop-blur-xl border-b border-white/[0.05] z-[1000] flex items-center justify-between px-4 lg:px-8 relative">
       
-      {/* ১. লোগো এবং মেনু সেকশন */}
       <div className="flex items-center gap-3">
         <HiOutlineMenuAlt4 
           size={22} 
@@ -78,7 +51,6 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
         </div>
       </div>
 
-      {/* ২. সেন্টার পোস্ট বার */}
       <div className="flex-1 max-w-[400px] mx-4 relative">
         <div 
           onClick={() => setIsPostModalOpen(true)}
@@ -94,15 +66,12 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
         </div>
       </div>
 
-      {/* ৩. রাইট অ্যাকশন বাটনসমূহ */}
       <div className="flex items-center gap-3 lg:gap-6">
-        
-        {/* নোটিফিকেশন বাটন */}
         <div 
           className="relative cursor-pointer group"
           onClick={() => {
             setHasNewNotification(false);
-            navigate('/notifications'); 
+            navigate('/notifications');
           }}
         >
           <FaRegBell size={18} className="text-gray-400 group-hover:text-cyan-400 transition-colors" />
@@ -111,7 +80,6 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
           )}
         </div>
 
-        {/* ইউজার প্রোফাইল ড্রপডাউন */}
         <div className="relative">
           <div 
             onClick={(e) => {
@@ -120,11 +88,7 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
             }}
             className="flex items-center gap-2 bg-white/5 p-1 lg:pr-3 rounded-full border border-white/10 cursor-pointer hover:bg-white/10 transition-all"
           >
-            <img 
-              src={user?.picture} 
-              className="w-7 h-7 lg:w-8 lg:h-8 rounded-full border border-cyan-500/30 object-cover" 
-              alt="Avatar" 
-            />
+            <img src={user?.picture} className="w-7 h-7 lg:w-8 lg:h-8 rounded-full border border-cyan-500/30 object-cover" alt="Avatar" />
             <span className="hidden lg:block text-[9px] font-black text-white uppercase tracking-widest">
               {user?.nickname?.substring(0, 8)}
             </span>
@@ -133,12 +97,7 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
           <AnimatePresence>
             {showDropdown && (
               <>
-                {/* ব্যাকড্রপ ক্লিক হ্যান্ডলার - এখানে 'onClick' এরর হওয়ার সম্ভাবনা থাকে, তাই এটি হ্যান্ডেল করা হয়েছে */}
-                <div 
-                  className="fixed inset-0 z-[1001]" 
-                  onClick={() => setShowDropdown(false)}
-                />
-                
+                <div className="fixed inset-0 z-[1001]" onClick={() => setShowDropdown(false)}></div>
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95, y: 10 }} 
                   animate={{ opacity: 1, scale: 1, y: 0 }} 
@@ -156,9 +115,7 @@ const Navbar = ({ setSearchQuery, setIsPostModalOpen, toggleSidebar }) => {
                   >
                     <FaUserCircle size={14} /> Profile
                   </button>
-
-                  <div className="h-[1px] bg-white/5 my-1" />
-
+                  <div className="h-[1px] bg-white/5 my-1"></div>
                   <button 
                     type="button"
                     onClick={(e) => {
