@@ -4,7 +4,7 @@ import {
   FaTimes, FaImage, FaHeart, FaComment, 
   FaShareAlt, FaDownload, FaEllipsisH, FaCheckCircle,
   FaVolumeMute, FaVolumeUp, FaTrashAlt, FaUser, FaUserPlus, FaEnvelope, FaPaperPlane,
-  FaBars, FaBell, FaSignOutAlt // নতুন আইকন যোগ করা হয়েছে
+  FaBars, FaBell, FaSignOutAlt 
 } from 'react-icons/fa'; 
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from "axios";
@@ -78,7 +78,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const [activeCommentPost, setActiveCommentPost] = useState(null);
   const [commentText, setCommentText] = useState("");
   
-  // মেনু বা সাইডবারের জন্য নতুন স্টেট
+  // সাইডবার স্টেট
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
@@ -216,14 +216,14 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   return (
     <div className="w-full min-h-screen bg-[#02040a] text-white pt-2 pb-32 overflow-x-hidden font-sans">
       
-      {/* --- Sidebar / Drawer --- */}
+      {/* --- সাইডবার ড্রয়ার (Sidebar) --- */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsSidebarOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2500]" 
+              className="fixed inset-0 bg-black/70 backdrop-blur-md z-[2500]" 
             />
             <motion.div 
               initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
@@ -238,9 +238,14 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                   <FaUser className="text-gray-400 group-hover:text-cyan-500" />
                   <span className="text-sm font-bold text-gray-200">Neural Profile</span>
                 </button>
-                <button onClick={() => logout()} className="w-full flex items-center gap-4 p-4 hover:bg-rose-500/10 rounded-2xl transition-all group text-rose-500 mt-10">
+                <button onClick={() => { setIsSidebarOpen(false); navigate('/messenger'); }} className="w-full flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all group">
+                  <FaEnvelope className="text-gray-400 group-hover:text-cyan-500" />
+                  <span className="text-sm font-bold text-gray-200">Messages</span>
+                </button>
+                <div className="my-6 border-t border-white/5" />
+                <button onClick={() => logout()} className="w-full flex items-center gap-4 p-4 hover:bg-rose-500/10 rounded-2xl transition-all group text-rose-500">
                   <FaSignOutAlt />
-                  <span className="text-sm font-bold">Disconnect</span>
+                  <span className="text-sm font-bold">Disconnect Neural Signal</span>
                 </button>
               </div>
             </motion.div>
@@ -248,11 +253,12 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         )}
       </AnimatePresence>
 
-      {/* --- Header (Scrolls up with content) --- */}
+      {/* --- মেইন হেডার (Main Header) --- */}
       <div className="max-w-[550px] mx-auto px-4 flex justify-between items-center py-6 bg-[#02040a] border-b border-white/5">
           <div className="flex items-center gap-4">
-              <button onClick={() => setIsSidebarOpen(true)} className="p-1 text-gray-400 hover:text-white transition-colors">
-                <FaBars size={18} />
+              {/* সাইডবার বাটন */}
+              <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-gray-400 hover:text-cyan-500 transition-colors">
+                <FaBars size={20} />
               </button>
               <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
@@ -261,14 +267,16 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
           </div>
           
           <div className="flex items-center gap-4">
-              <button onClick={() => alert("No new notifications")} className="p-1 text-gray-400 hover:text-white transition-colors relative">
+              {/* নোটিফিকেশন বাটন */}
+              <button onClick={() => alert("No new notifications")} className="p-1.5 text-gray-400 hover:text-cyan-500 transition-colors relative">
                 <FaBell size={18} />
-                <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-cyan-500 rounded-full"></span>
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-cyan-500 rounded-full"></span>
               </button>
+              {/* প্রোফাইল পিকচার */}
               <img 
                 onClick={() => navigate('/profile')}
                 src={user?.picture} 
-                className="w-8 h-8 rounded-full border border-white/10 cursor-pointer object-cover" 
+                className="w-9 h-9 rounded-full border border-white/10 cursor-pointer object-cover hover:border-cyan-500 transition-all" 
                 alt="user" 
               />
           </div>
@@ -290,7 +298,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               return (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={post._id} className="flex gap-3 py-6 border-b border-white/5 relative">
                   
-                  {/* Avatar Section */}
+                  {/* Avatar */}
                   <div className="relative flex-shrink-0">
                     <img 
                       onClick={(e) => { e.stopPropagation(); setActiveProfileMenuId(activeProfileMenuId === post._id ? null : post._id); }}
@@ -298,7 +306,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                       className="w-11 h-11 rounded-full border border-white/10 object-cover bg-gray-900 cursor-pointer hover:border-cyan-500/50 transition-all" 
                       alt="avatar" 
                     />
-
                     <AnimatePresence>
                       {activeProfileMenuId === post._id && (
                         <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute left-0 mt-2 w-52 bg-[#0d1117] border border-white/10 rounded-2xl shadow-2xl z-[150] p-2 backdrop-blur-xl">
@@ -315,15 +322,14 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                     </AnimatePresence>
                   </div>
 
-                  {/* Content Section */}
+                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 overflow-hidden group">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
                         <span className="text-[15px] font-bold text-gray-100 truncate">{post.authorName || 'Drifter'}</span>
                         <FaCheckCircle className="text-cyan-500 text-[11px] flex-shrink-0" />
                         <span className="text-gray-600 text-[13px]">· {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Now'}</span>
                       </div>
-                      
                       <div className="relative">
                         <button onClick={(e) => { e.stopPropagation(); setActivePostMenuId(activePostMenuId === post._id ? null : post._id); }} className="p-2 text-gray-600 hover:text-rose-500 rounded-full hover:bg-white/5 transition-colors">
                           <FaEllipsisH size={14} />
@@ -339,28 +345,24 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                         </AnimatePresence>
                       </div>
                     </div>
-
                     <p className="text-[15px] text-gray-200 leading-normal mt-1 mb-3 whitespace-pre-wrap">{post.text}</p>
-
                     {mediaSrc && (
                       <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/40 shadow-inner">
                         {isVideo ? <AutoPlayVideo src={mediaSrc} /> : <img src={mediaSrc} className="w-full h-auto object-cover max-h-[550px]" alt="post-media" loading="lazy" />}
                       </div>
                     )}
-
+                    {/* Reactions */}
                     <div className="flex justify-between mt-4 max-w-[420px] text-gray-500">
-                      <button onClick={(e) => handleCommentClick(e, post)} className="flex items-center gap-2 hover:text-cyan-400 group transition-colors">
-                        <div className="p-2 group-hover:bg-cyan-500/10 rounded-full"><FaComment size={16}/></div>
+                      <button onClick={(e) => handleCommentClick(e, post)} className="flex items-center gap-2 hover:text-cyan-400 transition-colors">
+                        <div className="p-2 hover:bg-cyan-500/10 rounded-full"><FaComment size={16}/></div>
                         <span className="text-xs font-medium">{post.comments?.length || 0}</span>
                       </button>
-
                       <button onClick={(e) => handleLike(e, post._id)} className={`flex items-center gap-2 transition-all group ${isLiked ? 'text-pink-500' : 'hover:text-pink-500'}`}>
                         <div className={`p-2 rounded-full ${isLiked ? 'bg-pink-500/10' : 'group-hover:bg-pink-500/10'}`}>
                            <FaHeart size={16} className={isLiked ? "fill-current" : ""} />
                         </div>
                         <span className="text-xs font-medium">{post.likes?.length || 0}</span>
                       </button>
-
                       <button className="p-2 hover:text-green-500 hover:bg-green-500/10 rounded-full transition-colors"><FaDownload size={15}/></button>
                       <button onClick={(e) => handleShare(e, post)} className="p-2 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-full transition-colors"><FaShareAlt size={15}/></button>
                     </div>
@@ -372,7 +374,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         )}
       </section>
 
-      {/* --- Comment Slide-up Modal --- */}
+      {/* --- কমেন্ট মডাল --- */}
       <AnimatePresence>
         {activeCommentPost && (
           <div className="fixed inset-0 z-[3000] flex items-end justify-center">
@@ -404,7 +406,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         )}
       </AnimatePresence>
 
-      {/* --- Transmit Signal Modal --- */}
+      {/* --- ট্রান্সমিট সিগন্যাল (Post) মডাল --- */}
       <AnimatePresence>
         {isPostModalOpen && (
           <div className="fixed inset-0 z-[2000] flex items-start sm:items-center justify-center pt-4">
