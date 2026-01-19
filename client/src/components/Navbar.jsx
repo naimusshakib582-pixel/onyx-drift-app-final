@@ -8,9 +8,11 @@ import { HiOutlineMenuAlt4 } from "react-icons/hi";
 import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from 'axios';
-import webSocketService from "../services/WebSocketService"; 
 
-const Navbar = ({ setIsPostModalOpen, toggleSidebar }) => { 
+// দ্রষ্টব্য: এখানে webSocketService ইমপোর্টটি সরিয়ে দেওয়া হয়েছে কারণ এটি কনফ্লিক্ট করছে।
+// সকেটটি সাধারণত props হিসেবে আসে অথবা গ্লোবাল স্টোর থেকে।
+
+const Navbar = ({ setIsPostModalOpen, toggleSidebar, socket }) => { 
   const navigate = useNavigate();
   const { user, logout, getAccessTokenSilently, isAuthenticated } = useAuth0();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -21,10 +23,11 @@ const Navbar = ({ setIsPostModalOpen, toggleSidebar }) => {
   const [loading, setLoading] = useState(false);
   const [hasNewNotification, setHasNewNotification] = useState(false);
 
-  // আপনার Render URL টি একবার চেক করে নিন, ERR_NAME_NOT_RESOLVED মানে ডোমেইন ঠিক নেই
   const API_URL = "https://onyx-drift-app-final.onrender.com";
 
-  // ১. সার্চ লজিক (Debounced Search)
+  /**
+   * ১. সার্চ লজিক (Debounced Search)
+   */
   useEffect(() => {
     const fetchResults = async () => {
       if (localSearch.trim().length < 2) {
@@ -52,15 +55,30 @@ const Navbar = ({ setIsPostModalOpen, toggleSidebar }) => {
     return () => clearTimeout(delayDebounceFn);
   }, [localSearch, getAccessTokenSilently]);
 
-  // ২. নোটিফিকেশন সাবস্ক্রিপশন
+  /**
+   * ২. নোটিফিকেশন লজিক (Socket.io - Fixed)
+   */
   useEffect(() => {
-    if (isAuthenticated && user?.sub) {
-      const subscription = webSocketService.subscribe(`/topic/notifications/${user.sub}`, () => {
+    // এখানে আপনার মেসেঞ্জারের মতো একই সকেট ইনস্ট্যান্স ব্যবহার করা হচ্ছে
+    const s = socket?.current || socket; 
+
+    if (s && isAuthenticated && user?.sub) {
+      // ব্যাকএন্ড থেকে আসা নোটিফিকেশন শোনা
+      s.on("getNotification", (data) => {
+        console.log("📡 New Signal Received:", data);
         setHasNewNotification(true);
       });
-      return () => { if (subscription) subscription.unsubscribe(); };
+
+      // কানেকশন এরর হ্যান্ডলিং (কনসোল ক্লিন রাখার জন্য)
+      s.on("connect_error", () => {
+        console.log("Waiting for Neural Link connection...");
+      });
     }
-  }, [user, isAuthenticated]);
+
+    return () => {
+      if (s) s.off("getNotification");
+    };
+  }, [socket, isAuthenticated, user]);
 
   return (
     <nav className="w-full h-[60px] bg-[#030303]/90 backdrop-blur-xl border-b border-white/[0.05] z-[1000] flex items-center justify-between px-4 lg:px-8 relative">
@@ -138,7 +156,7 @@ const Navbar = ({ setIsPostModalOpen, toggleSidebar }) => {
       {/* Right Section: Plus Menu, Notifications & Profile */}
       <div className="flex items-center gap-3 lg:gap-6">
         
-        {/* NEW: Plus (+) Broadcast Menu (লাল মার্ক করা জায়গায়) */}
+        {/* Plus (+) Broadcast Menu */}
         <div className="relative">
           <button 
             onClick={() => setShowPlusMenu(!showPlusMenu)}
