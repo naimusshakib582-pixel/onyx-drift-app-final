@@ -174,6 +174,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
     }
   };
 
+  // --- আপডেট করা সাবমিট লজিক ---
   const handlePostSubmit = async () => {
     if (!postText.trim() && !mediaFile) return;
     setIsSubmitting(true);
@@ -181,11 +182,16 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       const token = await getAccessTokenSilently();
       const formData = new FormData();
       formData.append("text", postText);
-      if (mediaFile) formData.append("media", mediaFile);
+      
+      // ব্যাকএন্ডে যেহেতু upload.single("media") আছে, তাই এখানে "media" কি-ওয়ার্ড ব্যবহার করা হয়েছে
+      if (mediaFile) {
+        formData.append("media", mediaFile);
+      }
       
       await axios.post(`${API_URL}/api/posts`, formData, {
         headers: { 
           Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
         }
       });
 
@@ -195,7 +201,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       fetchPosts();
     } catch (err) { 
       console.error("Submit Error:", err.response?.data);
-      alert(err.response?.data?.message || "Transmission failed. Check console for details."); 
+      alert(err.response?.data?.msg || "Transmission failed. No media detected by server."); 
     } finally { 
       setIsSubmitting(false); 
     }
@@ -215,7 +221,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   return (
     <div className="w-full min-h-screen bg-[#02040a] text-white pb-32 font-sans">
       
-      {/* --- Header: Fixed Class রিমুভ করা হয়েছে যাতে স্ক্রল করলে উপরে উঠে যায় --- */}
+      {/* --- Header --- */}
       <div className="max-w-[550px] mx-auto px-4 flex justify-between items-center py-6 bg-[#02040a] border-b border-white/5">
           <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
@@ -396,7 +402,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         {isPostModalOpen && (
           <div className="fixed inset-0 z-[2000] flex items-start sm:items-center justify-center pt-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsPostModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-lg bg-[#0d1117] rounded-2xl border border-white/10 shadow-2xl mx-4 overflow-hidden">
+            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-lg bg-[#0d1117] rounded-2xl border border-white/10 shadow-2xl mx-4 overflow-hidden">
               <div className="p-5">
                 <div className="flex justify-between items-center mb-4">
                   <button onClick={() => setIsPostModalOpen(false)} className="text-gray-400 hover:text-white p-2"><FaTimes size={18}/></button>
@@ -409,9 +415,9 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                   <textarea autoFocus value={postText} onChange={(e) => setPostText(e.target.value)} placeholder="What's happening?" className="w-full bg-transparent text-[19px] text-gray-100 placeholder-gray-600 outline-none resize-none min-h-[150px]" />
                 </div>
                 <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
-                   <button onClick={() => postMediaRef.current.click()} className="text-cyan-500 hover:bg-cyan-500/10 p-2.5 rounded-full transition-colors"><FaImage size={22} /></button>
-                   <input type="file" ref={postMediaRef} onChange={(e) => setMediaFile(e.target.files[0])} hidden accept="image/*,video/*" />
-                   <span className="text-[11px] font-mono text-gray-600">{postText.length} / 280</span>
+                    <button onClick={() => postMediaRef.current.click()} className="text-cyan-500 hover:bg-cyan-500/10 p-2.5 rounded-full transition-colors"><FaImage size={22} /></button>
+                    <input type="file" ref={postMediaRef} onChange={(e) => setMediaFile(e.target.files[0])} hidden accept="image/*,video/*" />
+                    <span className="text-[11px] font-mono text-gray-600">{postText.length} / 280</span>
                 </div>
               </div>
             </motion.div>
