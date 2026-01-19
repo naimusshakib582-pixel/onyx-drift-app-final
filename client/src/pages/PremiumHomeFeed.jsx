@@ -131,15 +131,15 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
 
     try {
       const token = await getAccessTokenSilently();
+      // Added encodeURIComponent to handle ID symbols like '|' correctly
       await axios.post(`${API_URL}/api/user/follow/${encodeURIComponent(targetAuth0Id)}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert("Neural link established!");
-      setActiveProfileMenuId(null);
     } catch (err) {
+      console.error("Follow Error Status:", err.response?.status);
       const msg = err.response?.data?.message || "Already linked or failed to connect.";
       alert(msg);
-      setActiveProfileMenuId(null);
     }
   };
 
@@ -199,7 +199,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
       fetchPosts();
     } catch (err) { 
       console.error("Submit Error:", err.response?.data);
-      alert(err.response?.data?.msg || "Transmission failed. No media detected by server."); 
+      alert(err.response?.data?.msg || "Transmission failed."); 
     } finally { 
       setIsSubmitting(false); 
     }
@@ -268,17 +268,25 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
                         </span>
                         <FaCheckCircle className="text-cyan-500 text-[11px] flex-shrink-0" />
                         
-                        {/* ✅ Follow Button added here */}
+                        {/* ✅ Follow & Message Buttons added here */}
                         {user?.sub !== authorId && (
-                          <button 
-                            onClick={(e) => handleFollowUser(e, authorId)}
-                            className="ml-2 text-[11px] font-black uppercase text-cyan-500 hover:text-white transition-colors"
-                          >
-                            Follow
-                          </button>
+                          <div className="flex items-center gap-3 ml-2">
+                             <button 
+                                onClick={(e) => handleFollowUser(e, authorId)}
+                                className="text-[11px] font-black uppercase text-cyan-500 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 hover:bg-cyan-500 hover:text-white transition-all"
+                              >
+                                Connect
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); navigate('/messenger'); }}
+                                className="text-gray-500 hover:text-cyan-400 transition-colors"
+                              >
+                                <FaEnvelope size={12} />
+                              </button>
+                          </div>
                         )}
                         
-                        <span className="text-gray-600 text-[13px]">· {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Now'}</span>
+                        <span className="text-gray-600 text-[13px] ml-auto sm:ml-2">· {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Now'}</span>
                       </div>
                       
                       <div className="relative">
