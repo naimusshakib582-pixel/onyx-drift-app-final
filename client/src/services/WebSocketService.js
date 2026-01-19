@@ -1,43 +1,72 @@
-import SockJS from "sockjs-client";
-import { Stomp } from "@stomp/stompjs";
+import SockJS from 'sockjs-client';
+import { Stomp } from '@stomp/stompjs';
 
 class WebSocketService {
     constructor() {
-        // রেন্ডার সার্ভারের সঠিক সকেট এন্ডপয়েন্ট
-        this.socketUrl = "https://onyx-drift-api-server.onrender.com/ws";
         this.stompClient = null;
+        this.connected = false;
+        this.subscribers = new Map();
+        // আপনার ব্যাকএন্ড URL
+        this.socketUrl = "https://onyx-drift-app-final.onrender.com/ws"; 
     }
 
-    connect() {
-        // যদি অলরেডি কানেক্টেড থাকে তবে নতুন করে করার দরকার নেই
-        if (this.stompClient && this.stompClient.connected) return;
+    // কানেকশন শুরু করা
+    connect(onConnectedCallback) {
+        if (this.connected && this.stompClient) return;
 
         const socket = new SockJS(this.socketUrl);
         this.stompClient = Stomp.over(socket);
-        this.stompClient.debug = () => {}; // কনসোলে অপ্রয়োজনীয় লগ বন্ধ রাখবে
+
+        // কনসোলে সকেট লগ বন্ধ করতে চাইলে নিচের লাইনটি আনকমেন্ট করুন
+        // this.stompClient.debug = () => {};
 
         this.stompClient.connect({}, (frame) => {
-            console.log("Connected to Onyx Neural Core");
-        }, (err) => {
-            console.error("Neural Link Error:", err);
-            // কানেকশন লস্ট হলে ৫ সেকেন্ড পর আবার চেষ্টা করবে
-            setTimeout(() => this.connect(), 5000);
+            console.log('✅ Connected to OnyxDrift Neural Link: ' + frame);
+            this.connected = true;
+            if (onConnectedCallback) onConnectedCallback();
+        }, (error) => {
+            console.error('❌ WebSocket Error:', error);
+            this.connected = false;
+            // ৫ সেকেন্ড পর আবার কানেক্ট করার চেষ্টা করবে
+            setTimeout(() => this.connect(onConnectedCallback), 5000);
         });
     }
 
+    // কোনো টপিকে সাবস্ক্রাইব করা (যেমন: নোটিফিকেশন বা মেসেজ)
     subscribe(topic, callback) {
-        if (this.stompClient && this.stompClient.connected) {
-            return this.stompClient.subscribe(topic, (msg) => callback(JSON.parse(msg.body)));
+        if (!this.connected || !this.stompClient) {
+            console.warn("⚠️ WebSocket not connected. Retrying subscription in 2s...");
+            setTimeout(() => this.subscribe(topic, callback), 2000);
+            return;
         }
-        return null;
+
+        const subscription = this.stompClient.subscribe(topic, (message) => {
+            if (message.body) {
+                callback(JSON.parse(message.body));
+            }
+        });
+
+        console.log(`📡 Subscribed to: ${topic}`);
+        return subscription;
+    }
+
+    // ডাটা পাঠানো
+    send(destination, payload) {
+        if (this.stompClient && this.connected) {
+            this.stompClient.send(destination, {}, JSON.stringify(payload));
+        } else {
+            console.error("❌ Cannot send message. WebSocket not connected.");
+        }
     }
 
     disconnect() {
         if (this.stompClient) {
             this.stompClient.disconnect();
-            console.log("Disconnected from Neural Core");
+            this.connected = false;
+            console.log("🔌 Disconnected from WebSocket");
         }
     }
 }
 
-export default new WebSocketService();
+const webSocketService = new WebSocketService();
+export default webSocketService;
