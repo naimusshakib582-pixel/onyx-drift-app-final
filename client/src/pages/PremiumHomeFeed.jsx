@@ -80,7 +80,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   const [activeCommentPost, setActiveCommentPost] = useState(null);
   const [commentText, setCommentText] = useState("");
 
-  // নতুন স্টেট: সাইডবার এবং নোটিফিকেশনের জন্য
+  // স্টেট: সাইডবার ওপেন করার জন্য
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://onyx-drift-app-final.onrender.com").replace(/\/$/, "");
@@ -218,7 +218,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
   return (
     <div className="w-full min-h-screen bg-[#02040a] text-white pt-2 pb-32 overflow-x-hidden font-sans">
       
-      {/* --- SIDEBAR DRAWER (RED MARKED SIDE BAR) --- */}
+      {/* --- SIDEBAR DRAWER --- */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -233,7 +233,6 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               initial={{ x: "-100%" }} 
               animate={{ x: 0 }} 
               exit={{ x: "-100%" }} 
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
               className="fixed top-0 left-0 h-full w-72 bg-[#0d1117] border-r border-white/10 z-[3000] p-6 shadow-2xl"
             >
               <div className="flex justify-between items-center mb-10">
@@ -242,7 +241,7 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
               </div>
 
               <div className="space-y-2">
-                <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all group">
+                <button onClick={() => { navigate('/profile'); setIsSidebarOpen(false); }} className="w-full flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl transition-all group">
                   <FaUser className="text-gray-400 group-hover:text-cyan-500" />
                   <span className="text-sm font-bold text-gray-200">Account Profile</span>
                 </button>
@@ -261,16 +260,14 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
         )}
       </AnimatePresence>
 
-      {/* Header (Red marked objects integrated here) */}
+      {/* --- HEADER (Fixed Only One Bar) --- */}
       <div className="max-w-[550px] mx-auto px-4 flex justify-between items-center py-6 bg-[#02040a] border-b border-white/5">
           <div className="flex items-center gap-4">
-              {/* SIDEBAR BUTTON (Red Mark 1) */}
-              <button 
-                onClick={() => setIsSidebarOpen(true)}
-                className="p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-400"
-              >
+              {/* মেইন বারের Bars আইকন - এখন এটি কাজ করবে */}
+              <button onClick={() => setIsSidebarOpen(true)} className="p-1 text-gray-400 hover:text-white transition-colors">
                 <FaBars size={18} />
               </button>
+              
               <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
                   <h2 className="text-xs font-black uppercase tracking-[0.3em] text-gray-100">Onyx Drift</h2>
@@ -278,20 +275,19 @@ const PremiumHomeFeed = ({ searchQuery = "", isPostModalOpen, setIsPostModalOpen
           </div>
 
           <div className="flex items-center gap-4">
-              {/* NOTIFICATION BUTTON (Red Mark 2) */}
+              {/* মেইন বারের নোটিফিকেশন বেল - এখন এটি কাজ করবে */}
               <button 
                 onClick={() => alert("Neural Notifications: No new signals detected.")}
-                className="relative p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-400"
+                className="relative p-1 text-gray-400 hover:text-white transition-colors"
               >
                 <FaBell size={18} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-500 rounded-full border-2 border-[#02040a]"></span>
+                <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-cyan-500 rounded-full"></span>
               </button>
 
-              {/* User Avatar */}
               <img 
                 onClick={() => navigate('/profile')}
                 src={user?.picture} 
-                className="w-8 h-8 rounded-full border border-white/10 cursor-pointer" 
+                className="w-8 h-8 rounded-full border border-white/10 cursor-pointer object-cover" 
                 alt="user" 
               />
           </div>
