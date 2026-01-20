@@ -41,11 +41,9 @@ export default function App() {
 
   /* =================📡 SOCKET CONFIGURATION ================= */
   useEffect(() => {
-    // শুধুমাত্র ইউজার লগইন থাকলেই সকেট কানেক্ট হবে
     if (isAuthenticated && user?.sub) {
       const socketUrl = "https://onyx-drift-app-final.onrender.com";
       
-      // ডাবল কানেকশন রোধ করতে চেক
       if (!socket.current) {
         socket.current = io(socketUrl, {
           transports: ["websocket", "polling"],
@@ -57,7 +55,6 @@ export default function App() {
           socket.current.emit("addNewUser", user.sub);
         });
 
-        // কল বা ইনকামিং সিগন্যাল লিসেনার (গ্লোবাল নোটিফিকেশন)
         socket.current.on("incomingCall", (data) => {
           toast(`Incoming ${data.type} call...`, { icon: '📞' });
         });
@@ -83,12 +80,10 @@ export default function App() {
   );
 
   /* =================📏 LAYOUT LOGIC ================= */
-  // কোন পেজগুলো ফুল স্ক্রিন (সাইডবার ছাড়া) হবে তা নির্ধারণ
+  // এখানে নিশ্চিত করা হয়েছে যেন মেসেঞ্জার এবং রিলস পেজে সাইডবার না থাকে এবং রিডাইরেক্ট না হয়
   const isFullWidthPage = [
     "/messenger", "/messages", "/settings", "/", "/join", "/reels", "/reels-editor"
-  ].includes(location.pathname) || 
-  location.pathname.startsWith("/messenger") || 
-  location.pathname.startsWith("/call/");
+  ].some(path => location.pathname === path || location.pathname.startsWith(path + "/"));
 
   return (
     <div className="min-h-screen bg-[#020617] text-gray-200 font-sans relative overflow-x-hidden">
@@ -102,7 +97,7 @@ export default function App() {
         {isAuthenticated && !["/", "/join"].includes(location.pathname) && (
           <Navbar 
             user={user} 
-            socket={socket.current} // সকেট ইনস্ট্যান্স পাঠানো হচ্ছে
+            socket={socket.current} 
             setSearchQuery={setSearchQuery} 
             setIsPostModalOpen={setIsPostModalOpen}
             toggleSidebar={() => {}} 
@@ -113,7 +108,7 @@ export default function App() {
         <div className="flex justify-center w-full transition-all duration-500">
           <div className={`flex w-full ${isFullWidthPage ? "max-w-full" : "max-w-[1440px] px-0 lg:px-6"} gap-6`}>
             
-            {/* LEFT SIDEBAR (Sticky) */}
+            {/* LEFT SIDEBAR */}
             {isAuthenticated && !isFullWidthPage && (
               <aside className="hidden lg:block w-[280px] sticky top-6 h-[calc(100vh-40px)] mt-6">
                 <Sidebar />
@@ -140,15 +135,15 @@ export default function App() {
                       />} 
                     />
                     
+                    {/* REELS ROUTE FIXED */}
                     <Route path="/reels" element={<ProtectedRoute component={ReelsFeed} />} />
                     
                     <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
-                    
                     <Route path="/following" element={<ProtectedRoute component={FollowingPage} />} />
 
-                    <Route path="/messages" element={
-                      <ProtectedRoute component={() => <Messenger socket={socket.current} />} />
-                    } />
+                    {/* MESSENGER ROUTES FIXED (Both paths supported) */}
+                    <Route path="/messages/:userId?" element={<ProtectedRoute component={() => <Messenger socket={socket.current} />} />} />
+                    <Route path="/messenger/:userId?" element={<ProtectedRoute component={() => <Messenger socket={socket.current} />} />} />
                     
                     <Route path="/settings" element={<ProtectedRoute component={Settings} />} />
                     
@@ -159,7 +154,7 @@ export default function App() {
               </div>
             </main>
 
-            {/* RIGHT SIDEBAR (Extra Space for Ads/Suggestions) */}
+            {/* RIGHT SIDEBAR */}
             {isAuthenticated && !isFullWidthPage && (
               <aside className="hidden xl:block w-[320px] sticky top-6 h-[calc(100vh-40px)] mt-6">
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-6 h-full backdrop-blur-md">

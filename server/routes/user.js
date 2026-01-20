@@ -142,35 +142,41 @@ router.get("/search", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    5️⃣ FOLLOW / UNFOLLOW SYSTEM (Fixed Logic)
+    5️⃣ FOLLOW / UNFOLLOW SYSTEM (Fixed 404 & Param Logic)
 ========================================================== */
 router.post("/follow/:targetId", auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
+    // URL থেকে আইডি পাওয়ার সময় decodeURIComponent ব্যবহার করা হয়েছে নিশ্চিত করতে
     const targetId = decodeURIComponent(req.params.targetId);
 
     if (myId === targetId) return res.status(400).json({ msg: "Self-link forbidden" });
 
+    // ডাটাবেসে টার্গেট ইউজার আছে কি না চেক করা হচ্ছে
     const targetUser = await User.findOne({ auth0Id: targetId });
-    if (!targetUser) return res.status(404).json({ msg: "Target not found" });
+    if (!targetUser) {
+      return res.status(404).json({ msg: 'Target drifter not found in neural core' });
+    }
 
     const isFollowing = targetUser.followers ? targetUser.followers.includes(myId) : false;
 
     if (isFollowing) {
+      // Unfollow Logic
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $pull: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $pull: { followers: myId } })
       ]);
-      res.json({ followed: false });
+      return res.json({ followed: false });
     } else {
+      // Follow Logic
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $addToSet: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $addToSet: { followers: myId } })
       ]);
-      res.json({ followed: true });
+      return res.json({ followed: true });
     }
   } catch (err) {
-    console.error("Follow Error:", err);
+    console.error("📡 Neural Link Follow Error:", err);
     res.status(500).json({ msg: "Connection failed" });
   }
 });

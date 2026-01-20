@@ -4,6 +4,7 @@ import { Heart, MessageCircle, Share2, Music, Send, X, ArrowLeft, Copy, Download
 import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from "@auth0/auth0-react";
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 // --- হেল্পার কম্পোনেন্ট: শেয়ার মেনু ---
 const ShareSheet = ({ reel, onClose }) => {
@@ -26,14 +27,14 @@ const ShareSheet = ({ reel, onClose }) => {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert("Download failed.");
+      toast.error("Download failed.");
     }
   };
 
   return (
     <motion.div 
       initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-      className="fixed bottom-0 left-0 right-0 bg-zinc-900/98 backdrop-blur-2xl p-6 rounded-t-[2rem] z-[2100] flex flex-col gap-6"
+      className="fixed bottom-0 left-0 right-0 bg-zinc-900/98 backdrop-blur-2xl p-6 rounded-t-[2rem] z-[3000] flex flex-col gap-6"
     >
       <div className="flex justify-between items-center border-b border-white/5 pb-4">
         <h3 className="text-white font-bold text-sm">Share Reel</h3>
@@ -78,7 +79,7 @@ const CommentSheet = ({ reel, onClose, API_URL }) => {
   return (
     <motion.div 
       initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-      className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl h-[70vh] rounded-t-[2rem] z-[2000] flex flex-col"
+      className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl h-[70vh] rounded-t-[2rem] z-[3000] flex flex-col"
     >
       <div className="p-4 border-b border-white/5 flex justify-between items-center">
         <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Feedback ({comments.length})</span>
@@ -115,21 +116,41 @@ const ReelsFeed = () => {
       try {
         const response = await axios.get(`${API_URL}/api/posts/reels/all`); 
         setReels(response.data);
-      } catch (err) { console.error(err); } finally { setLoading(false); }
+      } catch (err) { 
+        console.error(err); 
+        toast.error("Failed to load reels");
+      } finally { 
+        setLoading(false); 
+      }
     };
     fetchReels();
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black z-[1000] overflow-y-scroll snap-y snap-mandatory hide-scrollbar">
-      <button onClick={() => navigate(-1)} className="fixed top-6 left-4 z-[1100] p-2 bg-black/40 backdrop-blur-md rounded-full text-white border border-white/10"><ArrowLeft size={24} /></button>
+    <div className="fixed inset-0 bg-black z-[100] overflow-y-scroll snap-y snap-mandatory hide-scrollbar">
+      <button 
+        onClick={() => navigate('/feed')} 
+        className="fixed top-6 left-4 z-[110] p-2 bg-black/40 backdrop-blur-md rounded-full text-white border border-white/10"
+      >
+        <ArrowLeft size={24} />
+      </button>
+      
       {loading ? (
         <div className="h-full flex items-center justify-center bg-black">
           <div className="w-10 h-10 border-4 border-t-cyan-500 border-white/10 rounded-full animate-spin"></div>
         </div>
       ) : (
-        reels.map((reel) => <ReelItem key={reel._id} reel={reel} API_URL={API_URL} />)
+        reels.length > 0 ? (
+          reels.map((reel) => <ReelItem key={reel._id} reel={reel} API_URL={API_URL} />)
+        ) : (
+          <div className="h-full flex items-center justify-center text-white/50">No reels found.</div>
+        )
       )}
+      
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 };
@@ -189,15 +210,13 @@ const ReelItem = ({ reel, API_URL }) => {
       </AnimatePresence>
 
       <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 z-[1005] pointer-events-none">
-        <div className="absolute bottom-0 left-0 right-0 p-5 pb-12 flex items-end justify-between pointer-events-auto">
+        <div className="absolute bottom-0 left-0 right-0 p-5 pb-20 flex items-end justify-between pointer-events-auto">
           
-          {/* ✅ ইউজার নেম এবং প্রোফাইল আইডি লজিক */}
           <div className="flex-1 text-white pr-10">
             <div className="flex items-center gap-3 mb-3" onClick={() => navigate(`/profile/${reel.authorAuth0Id}`)}>
-              <img src={reel.authorAvatar} className="w-10 h-10 rounded-full border-2 border-white shadow-lg cursor-pointer" />
+              <img src={reel.authorAvatar} className="w-10 h-10 rounded-full border-2 border-white shadow-lg cursor-pointer" alt="" />
               <div className="flex flex-col">
                 <h4 className="font-bold text-[14px] hover:underline cursor-pointer">@{reel.authorName}</h4>
-                <span className="text-[8px] text-white/50 font-mono tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">ID: {reel.authorAuth0Id?.substring(0, 10)}...</span>
               </div>
             </div>
             <p className="text-[13px] leading-tight mb-3 line-clamp-2">{reel.text}</p>
@@ -207,22 +226,21 @@ const ReelItem = ({ reel, API_URL }) => {
             </div>
           </div>
 
-          {/* সাইড অ্যাকশন বাটন */}
           <div className="flex flex-col gap-5 items-center">
-            <div className="flex flex-col items-center gap-1" onClick={handleLike}>
+            <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={handleLike}>
               <Heart fill={isLiked ? "#ff0050" : "none"} className={isLiked ? "text-[#ff0050]" : "text-white"} size={32} />
               <span className="text-[10px] font-bold">{likesCount}</span>
             </div>
-            <div className="flex flex-col items-center gap-1" onClick={() => setIsCommentOpen(true)}>
+            <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => setIsCommentOpen(true)}>
               <MessageCircle size={32} className="text-white" />
               <span className="text-[10px] font-bold">{reel.comments?.length || 0}</span>
             </div>
-            <div className="flex flex-col items-center gap-1" onClick={() => setIsShareOpen(true)}>
+            <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => setIsShareOpen(true)}>
               <Share2 size={32} className="text-white" />
               <span className="text-[10px] font-bold">Share</span>
             </div>
             <div className="w-9 h-9 rounded-full border-2 border-white/20 p-1 animate-spin-slow">
-              <img src={reel.authorAvatar} className="w-full h-full rounded-full object-cover" />
+              <img src={reel.authorAvatar} className="w-full h-full rounded-full object-cover" alt="" />
             </div>
           </div>
         </div>
@@ -233,9 +251,7 @@ const ReelItem = ({ reel, API_URL }) => {
         {isShareOpen && <ShareSheet reel={reel} onClose={() => setIsShareOpen(false)} />}
       </AnimatePresence>
 
-      <style jsx>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      <style>{`
         .animate-spin-slow { animation: spin 4s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
