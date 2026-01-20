@@ -11,7 +11,7 @@ dotenv.config();
 const router = express.Router();
 
 /* ==========================================================
-    ☁️ Cloudinary & Multer Configuration
+    ☁️ Cloudinary Configuration
 ========================================================== */
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -34,7 +34,7 @@ const upload = multer({
 });
 
 /* ==========================================================
-    🌍 1. GET ALL POSTS (GET /api/posts)
+    🌍 1. GET ALL POSTS (With Safety Null Check)
 ========================================================== */
 router.get("/", async (req, res) => {
   try {
@@ -42,28 +42,52 @@ router.get("/", async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(30)
       .lean();
-    res.json(posts);
+    
+    // নিশ্চিত করা হচ্ছে যে প্রতিটি পোস্টে প্রয়োজনীয় ফিল্ড আছে
+    const safePosts = posts.map(post => ({
+      ...post,
+      authorName: post.authorName || "Unknown Drifter",
+      authorAvatar: post.authorAvatar || "https://ui-avatars.com/api/?name=Drifter",
+      likes: post.likes || [],
+      comments: post.comments || []
+    }));
+
+    res.json(safePosts);
   } catch (err) {
     res.status(500).json({ msg: "Neural Fetch Failure", error: err.message });
   }
 });
 
 /* ==========================================================
-    📺 1.5. GET ALL REELS (Fixes 404 for /api/posts/reels/all)
+    📺 1.5. GET ALL REELS (Optimized for Video Feed)
 ========================================================== */
 router.get("/reels/all", async (req, res) => {
   try {
+    // এখানে mediaType চেক করার পাশাপাশি data null কিনা তা হ্যান্ডেল করা হয়েছে
     const reels = await Post.find({ 
       mediaType: { $in: ["video", "reel"] } 
-    }).sort({ createdAt: -1 });
-    res.json(reels);
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+    // ফ্রন্টেন্ডে map করার সময় যেন crash না করে তার জন্য empty array handle
+    if (!reels || reels.length === 0) return res.json([]);
+
+    const safeReels = reels.map(reel => ({
+      ...reel,
+      authorName: reel.authorName || "Unknown Drifter",
+      authorAvatar: reel.authorAvatar || "https://ui-avatars.com/api/?name=Drifter"
+    }));
+
+    res.json(safeReels);
   } catch (err) {
+    console.error("Reels Error:", err);
     res.status(500).json({ msg: "Failed to fetch neural reels" });
   }
 });
 
 /* ==========================================================
-    🚀 2. CREATE POST / REEL / STORY (POST /api/posts)
+    🚀 2. CREATE POST / REEL / STORY
 ========================================================== */
 router.post("/", auth, upload.single("media"), async (req, res) => {
   try {
@@ -72,11 +96,13 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
     }
 
     const currentUserId = req.user?.sub || req.user?.id;
+    // ইউজারের লেটেস্ট প্রোফাইল ডেটা আনা হচ্ছে
     const userProfile = await User.findOne({ auth0Id: currentUserId }).lean();
 
     const isVideo = req.file.mimetype ? req.file.mimetype.includes("video") : false;
     let detectedType = isVideo ? "video" : "image";
     
+    // Reels কন্ডিশন চেক
     if (req.body.isStory === "true" || req.body.type === "story") {
       detectedType = "story";
     } else if ((req.body.isReel === "true" || req.body.type === "reel") && isVideo) {
@@ -105,7 +131,7 @@ router.post("/", auth, upload.single("media"), async (req, res) => {
 });
 
 /* ==========================================================
-    💬 3. ADD COMMENT (POST /api/posts/:id/comment)
+    💬 3. ADD COMMENT
 ========================================================== */
 router.post("/:id/comment", auth, async (req, res) => {
   try {
@@ -131,7 +157,7 @@ router.post("/:id/comment", auth, async (req, res) => {
 
     res.json(post);
   } catch (err) {
-    res.status(500).json({ msg: "Comment Failure", error: err.message });
+    res.status(500).json({ msg: "Comment Failure" });
   }
 });
 
@@ -144,7 +170,7 @@ router.post("/:id/like", auth, async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ msg: "Post not found" });
 
-    const isLiked = post.likes.includes(userId);
+    const isLiked = post.likes && post.likes.includes(userId);
     const update = isLiked ? { $pull: { likes: userId } } : { $addToSet: { likes: userId } };
 
     const updatedPost = await Post.findByIdAndUpdate(req.params.id, update, { new: true });
@@ -174,7 +200,7 @@ router.delete("/:id", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    ✅ NEW FIX: GET POSTS BY USER ID (প্রোফাইল পেজের এরর দূর করার জন্য)
+    ✅ 6. GET POSTS BY USER ID
 ========================================================== */
 router.get("/user/:userId", async (req, res) => {
   try {
@@ -184,12 +210,11 @@ router.get("/user/:userId", async (req, res) => {
         { authorAuth0Id: targetUserId },
         { author: targetUserId }
       ]
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 }).lean();
 
     res.json(userPosts || []);
   } catch (err) {
-    console.error("📡 Profile Post Fetch Error:", err);
-    res.status(500).json({ msg: "Neural signal lost while fetching posts" });
+    res.status(500).json({ msg: "Neural signal lost" });
   }
 });
 
