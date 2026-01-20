@@ -79,11 +79,16 @@ export default function App() {
     </div>
   );
 
-  /* =================📏 LAYOUT LOGIC ================= */
-  // এখানে নিশ্চিত করা হয়েছে যেন মেসেঞ্জার এবং রিলস পেজে সাইডবার না থাকে এবং রিডাইরেক্ট না হয়
+  /* =================📏 LAYOUT LOGIC (Fixed) ================= */
+  
+  // এই পেজগুলোতে কোনো সাইডবার থাকবে না
   const isFullWidthPage = [
-    "/messenger", "/messages", "/settings", "/", "/join", "/reels", "/reels-editor"
+    "/messenger", "/messages", "/settings", "/", "/join", "/reels"
   ].some(path => location.pathname === path || location.pathname.startsWith(path + "/"));
+
+  // রিলস পেজে আমরা Navbar এবং MobileNav হাইড রাখব যাতে ফুল স্ক্রিন ভিডিও দেখা যায়
+  const isReelsPage = location.pathname.startsWith("/reels");
+  const isAuthPage = ["/", "/join"].includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-[#020617] text-gray-200 font-sans relative overflow-x-hidden">
@@ -93,8 +98,8 @@ export default function App() {
 
       <div className="flex flex-col w-full">
         
-        {/* --- 1. NAVBAR --- */}
-        {isAuthenticated && !["/", "/join"].includes(location.pathname) && (
+        {/* --- 1. NAVBAR (Hidden on Reels and Auth Pages) --- */}
+        {isAuthenticated && !isAuthPage && !isReelsPage && (
           <Navbar 
             user={user} 
             socket={socket.current} 
@@ -108,7 +113,7 @@ export default function App() {
         <div className="flex justify-center w-full transition-all duration-500">
           <div className={`flex w-full ${isFullWidthPage ? "max-w-full" : "max-w-[1440px] px-0 lg:px-6"} gap-6`}>
             
-            {/* LEFT SIDEBAR */}
+            {/* LEFT SIDEBAR (Hidden on Full Width Pages) */}
             {isAuthenticated && !isFullWidthPage && (
               <aside className="hidden lg:block w-[280px] sticky top-6 h-[calc(100vh-40px)] mt-6">
                 <Sidebar />
@@ -116,10 +121,11 @@ export default function App() {
             )}
             
             {/* MAIN FEED AREA */}
-            <main className={`flex-1 flex justify-center pb-24 lg:pb-10 ${isFullWidthPage ? "mt-0" : "mt-6"}`}>
+            <main className={`flex-1 flex justify-center ${isFullWidthPage ? "mt-0 pb-0" : "mt-6 pb-24 lg:pb-10"}`}>
               <div className={`${isFullWidthPage ? "w-full" : "w-full lg:max-w-[650px] max-w-full"}`}>
                 <AnimatePresence mode="wait">
                   <Routes location={location} key={location.pathname}>
+                    
                     {/* Public Routes */}
                     <Route path="/" element={isAuthenticated ? <Navigate to="/feed" /> : <Landing />} />
                     <Route path="/join" element={<JoinPage />} /> 
@@ -135,13 +141,13 @@ export default function App() {
                       />} 
                     />
                     
-                    {/* REELS ROUTE FIXED */}
+                    {/* REELS ROUTE */}
                     <Route path="/reels" element={<ProtectedRoute component={ReelsFeed} />} />
                     
                     <Route path="/profile/:userId" element={<ProtectedRoute component={Profile} />} />
                     <Route path="/following" element={<ProtectedRoute component={FollowingPage} />} />
 
-                    {/* MESSENGER ROUTES FIXED (Both paths supported) */}
+                    {/* MESSENGER ROUTES */}
                     <Route path="/messages/:userId?" element={<ProtectedRoute component={() => <Messenger socket={socket.current} />} />} />
                     <Route path="/messenger/:userId?" element={<ProtectedRoute component={() => <Messenger socket={socket.current} />} />} />
                     
@@ -154,7 +160,7 @@ export default function App() {
               </div>
             </main>
 
-            {/* RIGHT SIDEBAR */}
+            {/* RIGHT SIDEBAR (Hidden on Full Width Pages) */}
             {isAuthenticated && !isFullWidthPage && (
               <aside className="hidden xl:block w-[320px] sticky top-6 h-[calc(100vh-40px)] mt-6">
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-6 h-full backdrop-blur-md">
@@ -167,8 +173,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* MOBILE NAVIGATION */}
-      {isAuthenticated && <MobileNav userAuth0Id={user?.sub} />}
+      {/* MOBILE NAVIGATION (Hidden on Reels) */}
+      {isAuthenticated && !isReelsPage && <MobileNav userAuth0Id={user?.sub} />}
     </div>
   );
 }
