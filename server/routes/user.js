@@ -6,35 +6,35 @@ import upload from '../middleware/multer.js';
 const router = express.Router();
 
 /* ==========================================================
-    1️⃣ GET PROFILE BY ID (With Auto-Sync to fix 404 Error)
+    1️⃣ GET PROFILE BY ID & IDENTITY SYNC
+    (লগইন করার সাথে সাথে আইডি ও নাম ডাটাবেসে সেভ করবে)
 ========================================================== */
 router.get(['/:id', '/profile/:id'], auth, async (req, res) => {
   try {
     const targetId = decodeURIComponent(req.params.id);
+    const myId = req.user.sub || req.user.id;
     
-    let user = await User.findOne({ auth0Id: targetId })
-      .select("-__v")
-      .lean();
+    // ডাটাবেসে ইউজার খোঁজা
+    let user = await User.findOne({ auth0Id: targetId }).select("-__v").lean();
+    
+    // যদি ইউজার ডাটাবেসে না থাকে এবং এটি বর্তমান ইউজার হয়, তবে নতুন তৈরি করবে
+    if (!user && targetId === myId) {
+      console.log("🆕 Syncing identity for new user:", targetId);
+      const newUser = new User({
+        auth0Id: myId,
+        name: req.user.name || req.user.nickname || "Drifter",
+        nickname: req.user.nickname || "drifter",
+        avatar: req.user.picture || "",
+        isVerified: false,
+        followers: [],
+        following: []
+      });
+      const savedUser = await newUser.save();
+      user = savedUser.toObject();
+    }
     
     if (!user) {
-      const myId = req.user.sub || req.user.id;
-      
-      if (targetId === myId) {
-        const newUser = new User({
-          auth0Id: myId,
-          name: req.user.name || "Drifter",
-          nickname: req.user.nickname || "drifter",
-          avatar: req.user.picture || "",
-          isVerified: false,
-          followers: [],
-          following: []
-        });
-        const savedUser = await newUser.save();
-        user = savedUser.toObject();
-        console.log("🆕 New Neural Identity Synced:", targetId);
-      } else {
-        return res.status(404).json({ msg: "Drifter not found in neural network" });
-      }
+      return res.status(404).json({ msg: "Drifter not found in neural network" });
     }
     
     res.json(user);
@@ -45,7 +45,7 @@ router.get(['/:id', '/profile/:id'], auth, async (req, res) => {
 });
 
 /* ==========================================================
-    2️⃣ UPDATE PROFILE (Identity Synchronization)
+    2️⃣ UPDATE PROFILE (নাম চেঞ্জ করলে সাথে সাথে আপডেট হবে)
 ========================================================== */
 router.put("/update-profile", auth, upload.fields([
   { name: 'avatar', maxCount: 1 },
@@ -62,10 +62,12 @@ router.put("/update-profile", auth, upload.fields([
       if (req.files.cover) updateFields.coverImg = req.files.cover[0].path;
     }
 
+    // ফাকা ডাটা ফিল্টার করা
     Object.keys(updateFields).forEach(key => 
       (updateFields[key] === undefined || updateFields[key] === "") && delete updateFields[key]
     );
 
+    // upsert: true ব্যবহার করা হয়েছে যেন ইউজার না থাকলে তৈরি হয়, থাকলে আপডেট হয়
     const updatedUser = await User.findOneAndUpdate(
       { auth0Id: targetAuth0Id }, 
       { $set: updateFields },
@@ -80,11 +82,11 @@ router.put("/update-profile", auth, upload.fields([
 });
 
 /* ==========================================================
-    3️⃣ UPDATE PHOTO (New Dedicated Route for Profile/Cover)
+    3️⃣ UPDATE PHOTO
 ========================================================== */
 router.post("/update-photo", auth, upload.single('image'), async (req, res) => {
   try {
-    const { type } = req.body; // 'profile' or 'cover'
+    const { type } = req.body; 
     const targetAuth0Id = req.user.sub || req.user.id;
     
     if (!req.file) return res.status(400).json({ msg: "No image provided" });
@@ -110,7 +112,7 @@ router.post("/update-photo", auth, upload.single('image'), async (req, res) => {
 });
 
 /* ==========================================================
-    4️⃣ SEARCH DRIFTERS (Neural Scan)
+    4️⃣ SEARCH DRIFTERS
 ========================================================== */
 router.get("/search", auth, async (req, res) => {
   try {
@@ -142,17 +144,15 @@ router.get("/search", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    5️⃣ FOLLOW / UNFOLLOW SYSTEM (Fixed 404 & Param Logic)
+    5️⃣ FOLLOW / UNFOLLOW SYSTEM
 ========================================================== */
 router.post("/follow/:targetId", auth, async (req, res) => {
   try {
     const myId = req.user.sub || req.user.id;
-    // URL থেকে আইডি পাওয়ার সময় decodeURIComponent ব্যবহার করা হয়েছে নিশ্চিত করতে
     const targetId = decodeURIComponent(req.params.targetId);
 
     if (myId === targetId) return res.status(400).json({ msg: "Self-link forbidden" });
 
-    // ডাটাবেসে টার্গেট ইউজার আছে কি না চেক করা হচ্ছে
     const targetUser = await User.findOne({ auth0Id: targetId });
     if (!targetUser) {
       return res.status(404).json({ msg: 'Target drifter not found in neural core' });
@@ -161,14 +161,12 @@ router.post("/follow/:targetId", auth, async (req, res) => {
     const isFollowing = targetUser.followers ? targetUser.followers.includes(myId) : false;
 
     if (isFollowing) {
-      // Unfollow Logic
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $pull: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $pull: { followers: myId } })
       ]);
       return res.json({ followed: false });
     } else {
-      // Follow Logic
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $addToSet: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $addToSet: { followers: myId } })

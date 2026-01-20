@@ -7,7 +7,7 @@ import Post from '../models/Post.js';
 const router = express.Router();
 
 /* ==========================================================
-    1️⃣ GET PROFILE BY ID (With Auto-Sync & 404 Fix)
+    1️⃣ GET PROFILE BY ID
     ফেসবুকের মতো এই আইডিটিই প্রোফাইল চাবিকাঠি
 ========================================================== */
 router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
@@ -15,11 +15,13 @@ router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
     const targetId = decodeURIComponent(req.params.id);
     const myId = req.user.sub || req.user.id;
     
+    // User খুঁজে বের করা (auth0Id দিয়ে)
     let user = await User.findOne({ auth0Id: targetId })
       .select("-__v")
       .lean();
     
     if (!user) {
+      // যদি নিজের প্রোফাইল হয় কিন্তু ডাটাবেসে না থাকে, তবে অটো-ক্রিয়েট হবে
       if (targetId === myId) {
         const newUser = new User({
           auth0Id: myId,
@@ -32,13 +34,16 @@ router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
         user = savedUser.toObject();
         console.log("🆕 Neural Identity Created:", targetId);
       } else {
+        // অন্য কারো প্রোফাইল না পাওয়া গেলে একটি ডামি রেসপন্স
         return res.json({
           auth0Id: targetId,
           name: "Unknown Drifter",
           nickname: "drifter",
           avatar: `https://ui-avatars.com/api/?name=Drifter&background=random`,
           bio: "Neural profile not yet synced.",
-          isVerified: false
+          isVerified: false,
+          followers: [],
+          following: []
         });
       }
     }
@@ -51,7 +56,7 @@ router.get(['/profile/:id', '/:id'], auth, async (req, res) => {
 });
 
 /* ==========================================================
-    2️⃣ UPDATE PROFILE
+    2️⃣ UPDATE PROFILE (Unified)
 ========================================================== */
 router.put("/update-profile", auth, upload.fields([
   { name: 'avatar', maxCount: 1 },
@@ -81,56 +86,23 @@ router.put("/update-profile", auth, upload.fields([
 
     res.json(updatedUser);
   } catch (err) {
+    console.error("📡 Update Error:", err);
     res.status(500).json({ msg: 'Identity Sync Failed' });
   }
 });
 
 /* ==========================================================
-    3️⃣ UPDATE PHOTO
-========================================================== */
-router.post("/update-photo", auth, upload.single('image'), async (req, res) => {
-  try {
-    const { type } = req.body; 
-    const myId = req.user.sub || req.user.id;
-    
-    if (!req.file) return res.status(400).json({ msg: "No image received" });
-
-    let updateFields = {};
-    if (type === 'profile') {
-      updateFields.avatar = req.file.path;
-    } else if (type === 'cover') {
-      updateFields.coverImg = req.file.path;
-    }
-
-    const updatedUser = await User.findOneAndUpdate(
-      { auth0Id: myId },
-      { $set: updateFields },
-      { new: true, lean: true }
-    );
-
-    res.json(updatedUser);
-  } catch (err) {
-    console.error("📡 Photo Update Error:", err);
-    res.status(500).json({ msg: "Neural Sync Failed" });
-  }
-});
-
-/* ==========================================================
-    4️⃣ SEARCH & DISCOVERY (ফেসবুক স্টাইল সার্চ)
-    নাম বা নেকনেম লিখলে ওই ইউজারের আইডি রিটার্ন করবে
+    3️⃣ SEARCH USERS
 ========================================================== */
 router.get("/search", auth, async (req, res) => {
   try {
     const { query } = req.query;
     const myId = req.user.sub || req.user.id;
     
-    // নিজের আইডি বাদে অন্য সব আইডি খোঁজার ফিল্টার
     let filter = { auth0Id: { $ne: myId } };
 
     if (query && query.trim() !== "") {
       const searchRegex = new RegExp(query.trim(), "i");
-      
-      // নাম, নেকনেম বা আইডির আংশিক মিল খুঁজবে
       filter.$or = [
         { name: { $regex: searchRegex } },
         { nickname: { $regex: searchRegex } },
@@ -139,8 +111,8 @@ router.get("/search", auth, async (req, res) => {
     }
 
     const users = await User.find(filter)
-      .select("name nickname avatar auth0Id bio isVerified followers following")
-      .limit(20)
+      .select("name nickname avatar auth0Id bio isVerified")
+      .limit(10)
       .lean();
 
     res.json(users);
@@ -151,46 +123,33 @@ router.get("/search", auth, async (req, res) => {
 });
 
 /* ==========================================================
- 5️⃣ FOLLOW / UNFOLLOW SYSTEM (Fixed & Optimized)
+    4️⃣ FOLLOW / UNFOLLOW SYSTEM
 ========================================================== */
 router.post("/follow/:targetId", auth, async (req, res) => {
   try {
-    // Auth0 থেকে ইউজারের আইডি নেওয়া হচ্ছে
     const myId = req.user.sub || req.user.id; 
-    
-    // URL থেকে আসা আইডি ডিকোড করা হচ্ছে (google-oauth2|... ঠিক করার জন্য)
     const targetId = decodeURIComponent(req.params.targetId);
 
-    // ১. নিজের আইডি চেক
     if (myId === targetId) {
-      return res.status(400).json({ 
-        msg: "Neural Loop Detected: You cannot link with yourself.",
-        selfLink: true 
-      });
+      return res.status(400).json({ msg: "Neural Loop: You cannot link with yourself." });
     }
 
-    // ২. টার্গেট ইউজার ডাটাবেসে আছে কি না তা 'auth0Id' দিয়ে খোঁজা
     const targetUser = await User.findOne({ auth0Id: targetId });
-    
     if (!targetUser) {
-      // যদি ইউজার না পাওয়া যায়, তবে ডাটাবেসে একবার আইডিগুলো চেক করুন
-      console.log("Error: Target user not found for ID:", targetId);
-      return res.status(404).json({ msg: "Target drifter not found in neural core" });
+      return res.status(404).json({ msg: "Target drifter not found" });
     }
 
-    // ৩. ফলো স্ট্যাটাস চেক (Array আছে কি না তা নিশ্চিত করা)
-    const followersArray = targetUser.followers || [];
-    const isFollowing = followersArray.includes(myId);
+    const isFollowing = targetUser.followers && targetUser.followers.includes(myId);
 
     if (isFollowing) {
-      // --- UNFOLLOW LOGIC ---
+      // Unfollow
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $pull: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $pull: { followers: myId } })
       ]);
       return res.json({ followed: false, msg: "Disconnected from node" });
     } else {
-      // --- FOLLOW LOGIC ---
+      // Follow
       await Promise.all([
         User.findOneAndUpdate({ auth0Id: myId }, { $addToSet: { following: targetId } }),
         User.findOneAndUpdate({ auth0Id: targetId }, { $addToSet: { followers: myId } })
@@ -198,12 +157,13 @@ router.post("/follow/:targetId", auth, async (req, res) => {
       return res.json({ followed: true, msg: "Neural Link Established" });
     }
   } catch (err) {
-    console.error("📡 Follow System Core Error:", err);
-    res.status(500).json({ msg: "Neural link failed due to core error" });
+    console.error("📡 Follow Error:", err);
+    res.status(500).json({ msg: "Connection failed" });
   }
 });
+
 /* ==========================================================
-    6️⃣ DISCOVERY (All Users)
+    5️⃣ DISCOVERY (All Users)
 ========================================================== */
 router.get("/all", auth, async (req, res) => {
   try {
@@ -221,23 +181,24 @@ router.get("/all", auth, async (req, res) => {
 });
 
 /* ==========================================================
-    7️⃣ FIXED: GET POSTS BY USER ID
+    6️⃣ GET POSTS BY USER ID
 ========================================================== */
 router.get("/posts/user/:userId", auth, async (req, res) => {
   try {
     const targetUserId = decodeURIComponent(req.params.userId);
     
+    // Posts খোঁজা হচ্ছে যেখানে আইডিটি Author বা User হিসেবে আছে
     const posts = await Post.find({
       $or: [
         { authorAuth0Id: targetUserId },
         { userId: targetUserId },
-        { author: targetUserId } // আপনার মডেল অনুযায়ী 'author' ও থাকতে পারে
+        { author: targetUserId }
       ]
     }).sort({ createdAt: -1 });
 
     res.json(posts);
   } catch (err) {
-    console.error("📡 User Posts Fetch Error:", err);
+    console.error("📡 User Posts Error:", err);
     res.status(500).json({ msg: "Error fetching user signals" });
   }
 });
