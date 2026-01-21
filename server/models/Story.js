@@ -1,25 +1,21 @@
+// models/Story.js
+
 import mongoose from "mongoose";
 
 const StorySchema = new mongoose.Schema({
   userId: { type: String, required: true },
   mediaUrl: { type: String, required: true },
-  text: { type: String },
-  musicName: { type: String },
-  musicUrl: { type: String },
-  filter: { type: String },
-  // Boolean টাইপ ব্যবহার করা বেশি নিরাপদ
-  onlyMessenger: { 
-    type: Boolean, 
-    default: true 
-  },
+  text: { type: String, default: "" },
+  filter: { type: String, default: "None" },
+  onlyMessenger: { type: Boolean, default: true },
   createdAt: { 
     type: Date, 
-    default: Date.now, 
-    index: { expires: '12h' } // ১২ ঘণ্টা পর অটো ডিলিট (TTL Index)
+    default: Date.now,
+    expires: 43200 // ১২ ঘণ্টা (১২ * ৬০ * ৬০ সেকেন্ড) সরাসরি সেকেন্ডে দিন
   }
-}, { timestamps: true }); // এটি অতিরিক্ত ব্যাকআপ হিসেবে কাজ করবে
+}, { timestamps: true });
 
-// দ্রুত সার্চ করার জন্য ইনডেক্সিং
-StorySchema.index({ userId: 1, createdAt: -1 });
+// ডুপ্লিকেট ইনডেক্স এড়াতে এটি ব্যবহার করুন
+StorySchema.index({ userId: 1 });
 
 export default mongoose.model("Story", StorySchema);
