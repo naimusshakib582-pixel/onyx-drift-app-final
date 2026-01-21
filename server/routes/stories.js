@@ -6,13 +6,13 @@ import Story from "../models/Story.js";
 
 const router = express.Router();
 
-// ১. ক্লাউডিনারি স্টোরেজ কনফিগারেশন (ভিডিও এবং ইমেজ দুইটাই সাপোর্ট করবে)
+// ১. ক্লাউডিনারি কনফিগারেশন চেক
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     return {
       folder: "onyx_stories",
-      resource_type: "auto", // এটি ইমেজ এবং ভিডিও অটো ডিটেক্ট করবে
+      resource_type: "auto", // ইমেজ বা ভিডিও যাই হোক অটো ডিটেক্ট করবে
       allowed_formats: ["jpg", "png", "jpeg", "gif", "webp", "mp4", "mov"],
     };
   },
@@ -21,69 +21,59 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage: storage });
 
 /* ==========================================================
-    📡 GET ALL STORIES (১০-১২ ঘণ্টার ফিল্টারসহ)
+    📡 GET ALL STORIES
    ========================================================== */
 router.get("/", async (req, res) => {
   try {
-    // ২৪ ঘণ্টার পুরোনো স্টোরি সাধারণত দেখানো হয় না (আপনি চাইলে ১২ করতে পারেন)
-    const timeLimit = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
-    const stories = await Story.find({
-      createdAt: { $gte: timeLimit }
-    }).sort({ createdAt: -1 });
-
+    // যেহেতু আপনার মডেলে TTL Index আছে, তাই ফিল্টার করার প্রয়োজন নেই, মঙ্গোডিবি নিজেই ডিলিট করবে
+    const stories = await Story.find().sort({ createdAt: -1 });
     res.status(200).json(stories);
   } catch (err) {
-    console.error("GET_STORIES_ERROR:", err);
-    res.status(500).json({ message: "Could not fetch stories", error: err.message });
+    res.status(500).json({ message: "Fetch Error", error: err.message });
   }
 });
 
 /* ==========================================================
-    📡 POST A NEW STORY (Fixing the 404 issue by adding /upload)
+    📡 POST A NEW STORY
    ========================================================== */
 router.post("/upload", upload.single("media"), async (req, res) => {
   try {
-    // ক্লাউডিনারি থেকে আসা ফাইল পাথ চেক
-    const mediaUrl = req.file ? req.file.path : null;
-
-    if (!mediaUrl) {
-      return res.status(400).json({ message: "No media file uploaded or upload failed" });
+    // ১. ফাইল এসেছে কি না চেক
+    if (!req.file) {
+      console.error("No file found in request");
+      return res.status(400).json({ message: "Please upload an image or video." });
     }
 
-    // ফ্রন্টএন্ড থেকে আসা userId (user.sub)
-    const { userId, text, musicName, musicUrl, onlyMessenger } = req.body;
+    // ২. রিকোয়েস্ট বডিতে ডাটা আছে কি না চেক
+    const { userId, text, musicName, musicUrl, filter, onlyMessenger } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ message: "User ID is required" });
+      return res.status(400).json({ message: "UserId is missing in body." });
     }
 
+    // ৩. নতুন স্টোরি অবজেক্ট তৈরি
     const newStory = new Story({
       userId: userId,
-      mediaUrl: mediaUrl,
+      mediaUrl: req.file.path, // ক্লাউডিনারি ইউআরএল
       text: text || "",
       musicName: musicName || "",
       musicUrl: musicUrl || "",
-      onlyMessenger: onlyMessenger === "false" ? false : true 
+      filter: filter || "none",
+      onlyMessenger: onlyMessenger === "false" ? false : true,
     });
 
+    // ৪. ডেটাবেসে সেভ করা
     const savedStory = await newStory.save();
+    console.log("Story saved successfully:", savedStory._id);
+    
     res.status(200).json(savedStory);
   } catch (err) {
-    console.error("STORY_POST_ERROR:", err);
-    res.status(500).json({ message: "Server Side Error during upload", error: err.message });
-  }
-});
-
-/* ==========================================================
-    📡 DELETE A STORY (ঐচ্ছিক: ইউজার নিজের স্টোরি ডিলিট করতে চাইলে)
-   ========================================================== */
-router.delete("/:id", async (req, res) => {
-  try {
-    await Story.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: "Story deleted successfully" });
-  } catch (err) {
-    res.status(500).json(err);
+    console.error("BACKEND_STORY_ERROR:", err); // এটি আপনার রেন্ডার লগে দেখাবে
+    res.status(500).json({ 
+      message: "Internal Server Error", 
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 
