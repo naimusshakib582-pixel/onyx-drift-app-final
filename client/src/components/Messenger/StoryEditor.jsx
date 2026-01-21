@@ -46,11 +46,11 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
       className="fixed inset-0 z-[1000] bg-black flex flex-col overflow-hidden touch-none"
     >
-      {/* --- Header: Mobile Safe Area Padding --- */}
+      {/* --- Header: Mobile Safe Area --- */}
       <div className="absolute top-12 left-0 right-0 px-6 flex justify-between items-center z-[720]">
         <button 
           onClick={onCancel} 
-          className="p-3 bg-black/40 rounded-full text-white backdrop-blur-xl border border-white/10 active:scale-90 transition-transform"
+          className="p-3 bg-black/40 rounded-full text-white backdrop-blur-xl border border-white/10 active:scale-90 transition-all"
         >
           <HiXMark size={24} />
         </button>
@@ -71,9 +71,21 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
       <div className="flex-1 relative flex items-center justify-center bg-zinc-950 overflow-hidden">
         <div className={`w-full h-full transition-all duration-700 ease-in-out ${filters.find(f => f.name === activeFilter)?.class}`}>
           {selectedFile?.type.includes("video") ? (
-            <video src={previewUrl} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+            <video 
+              src={previewUrl} 
+              autoPlay 
+              loop 
+              muted 
+              playsInline 
+              className="w-full h-full object-cover" 
+            />
           ) : (
-            <img src={previewUrl} className="w-full h-full object-cover" alt="preview" />
+            <img 
+              src={previewUrl} 
+              className="w-full h-full object-cover" 
+              alt="preview" 
+              onDragStart={(e) => e.preventDefault()} // ইমেজ ড্র্যাগিং প্রিভেন্ট করা
+            />
           )}
         </div>
         
@@ -83,11 +95,11 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
             <motion.div 
               drag 
               dragElastic={0.1}
-              dragConstraints={{ left: -150, right: 150, top: -250, bottom: 250 }}
+              dragConstraints={{ left: -120, right: 120, top: -200, bottom: 200 }}
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               style={{ color: textColor }}
-              className="absolute z-[710] p-4 bg-black/20 backdrop-blur-[2px] rounded-xl font-black text-4xl cursor-move text-center drop-shadow-[0_5px_15px_rgba(0,0,0,0.5)] leading-tight select-none uppercase tracking-tighter"
+              className="absolute z-[710] p-4 bg-black/10 backdrop-blur-[1px] rounded-xl font-black text-4xl cursor-move text-center drop-shadow-[0_5px_15px_rgba(0,0,0,0.8)] leading-tight select-none uppercase tracking-tighter"
             >
               {text}
             </motion.div>
@@ -103,7 +115,7 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
             onClick={() => setActiveFilter(f.name)}
             className={`px-6 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${
               activeFilter === f.name 
-              ? "bg-white text-black scale-105 shadow-lg" 
+              ? "bg-white text-black scale-105 shadow-[0_0_20px_rgba(255,255,255,0.4)]" 
               : "bg-zinc-900/80 text-zinc-500 border border-white/5"
             }`}
           >
@@ -112,10 +124,10 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
         ))}
       </div>
 
-      {/* --- Bottom Tool Bar: Bottom Safe Area Padding --- */}
+      {/* --- Bottom Tool Bar --- */}
       <div className="p-6 bg-black border-t border-white/5 pb-12">
         <div className="flex justify-around items-center bg-zinc-900/40 py-4 rounded-[2rem] border border-white/5 mb-6">
-          <button onClick={() => setShowTextInput(true)} className="flex flex-col items-center gap-1.5 text-zinc-400">
+          <button onClick={() => setShowTextInput(true)} className="flex flex-col items-center gap-1.5 text-zinc-400 active:text-white transition-colors">
             <HiOutlinePencil size={20} />
             <span className="text-[9px] font-bold uppercase tracking-tighter">Text</span>
           </button>
@@ -135,36 +147,38 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
           className={`w-full py-5 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all ${
             isUploading 
             ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" 
-            : "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20 active:scale-95"
+            : "bg-cyan-500 text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)] active:scale-95"
           }`}
         >
           {isUploading ? (
             <>
               <div className="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin"></div>
-              Uploading...
+              Processing...
             </>
           ) : (
             <>
-              Share Story <HiOutlineChevronRight size={18} />
+              Share to Story <HiOutlineChevronRight size={18} />
             </>
           )}
         </button>
       </div>
 
-      {/* --- Text Input Overlay (Mobile Optimized Full Screen) --- */}
+      {/* --- Text Input Overlay (Full Screen Editor) --- */}
       <AnimatePresence>
         {showTextInput && (
           <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-[1100] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 touch-auto"
           >
-            {/* Color Picker */}
-            <div className="flex flex-wrap justify-center gap-4 mb-12">
+            {/* Color Picker Container */}
+            <div className="flex flex-wrap justify-center gap-4 mb-16">
               {["#ffffff", "#06b6d4", "#ff3b30", "#ffcc00", "#4cd964", "#5856d6", "#eb4d4b"].map(color => (
                 <button 
                   key={color} 
                   onClick={() => setTextColor(color)}
-                  className={`w-9 h-9 rounded-full border-2 transition-transform ${textColor === color ? 'border-white scale-125 shadow-lg' : 'border-white/10'}`}
+                  className={`w-10 h-10 rounded-full border-2 transition-transform ${textColor === color ? 'border-white scale-125 shadow-lg' : 'border-white/10'}`}
                   style={{ backgroundColor: color }}
                 />
               ))}
@@ -174,7 +188,7 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
               autoFocus
               className="bg-transparent border-none outline-none text-white text-5xl font-black text-center w-full resize-none placeholder-zinc-800 uppercase tracking-tighter"
               style={{ color: textColor }}
-              placeholder="Aa"
+              placeholder="Start Typing..."
               rows={2}
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -182,7 +196,7 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
             
             <button 
               onClick={() => setShowTextInput(false)} 
-              className="absolute top-12 right-8 px-8 py-3 bg-white text-black rounded-full font-black text-xs uppercase tracking-widest active:scale-90 shadow-xl"
+              className="absolute top-12 right-8 px-8 py-3 bg-white text-black rounded-full font-black text-xs uppercase tracking-widest active:scale-90 shadow-2xl"
             >
               Done
             </button>

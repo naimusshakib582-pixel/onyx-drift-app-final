@@ -6,13 +6,13 @@ import Story from "../models/Story.js";
 
 const router = express.Router();
 
-// ১. ক্লাউডিনারি কনফিগারেশন চেক
+// ১. ক্লাউডিনারি কনফিগারেশন
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     return {
       folder: "onyx_stories",
-      resource_type: "auto", // ইমেজ বা ভিডিও যাই হোক অটো ডিটেক্ট করবে
+      resource_type: "auto", // ইমেজ এবং ভিডিও দুইটাই হ্যান্ডেল করবে
       allowed_formats: ["jpg", "png", "jpeg", "gif", "webp", "mp4", "mov"],
     };
   },
@@ -25,7 +25,7 @@ const upload = multer({ storage: storage });
    ========================================================== */
 router.get("/", async (req, res) => {
   try {
-    // যেহেতু আপনার মডেলে TTL Index আছে, তাই ফিল্টার করার প্রয়োজন নেই, মঙ্গোডিবি নিজেই ডিলিট করবে
+    // TTL Index (12h) এর কারণে অটোমেটিক ডিলিট হবে, তাই শুধু সব ডেটা আনলেই হবে
     const stories = await Story.find().sort({ createdAt: -1 });
     res.status(200).json(stories);
   } catch (err) {
@@ -34,46 +34,57 @@ router.get("/", async (req, res) => {
 });
 
 /* ==========================================================
-    📡 POST A NEW STORY
+    📡 POST A NEW STORY (The /upload endpoint)
    ========================================================== */
 router.post("/upload", upload.single("media"), async (req, res) => {
   try {
-    // ১. ফাইল এসেছে কি না চেক
+    // ফাইল চেক
     if (!req.file) {
-      console.error("No file found in request");
-      return res.status(400).json({ message: "Please upload an image or video." });
+      return res.status(400).json({ message: "No media file found in the request." });
     }
 
-    // ২. রিকোয়েস্ট বডিতে ডাটা আছে কি না চেক
     const { userId, text, musicName, musicUrl, filter, onlyMessenger } = req.body;
 
+    // ইউজার আইডি চেক
     if (!userId) {
-      return res.status(400).json({ message: "UserId is missing in body." });
+      return res.status(400).json({ message: "User identity (userId) is required." });
     }
 
-    // ৩. নতুন স্টোরি অবজেক্ট তৈরি
     const newStory = new Story({
-      userId: userId,
-      mediaUrl: req.file.path, // ক্লাউডিনারি ইউআরএল
+      userId,
+      mediaUrl: req.file.path, // Cloudinary Secure URL
       text: text || "",
       musicName: musicName || "",
       musicUrl: musicUrl || "",
-      filter: filter || "none",
+      filter: filter || "None",
       onlyMessenger: onlyMessenger === "false" ? false : true,
     });
 
-    // ৪. ডেটাবেসে সেভ করা
     const savedStory = await newStory.save();
-    console.log("Story saved successfully:", savedStory._id);
+    console.log("✅ Story Live:", savedStory._id);
     
     res.status(200).json(savedStory);
   } catch (err) {
-    console.error("BACKEND_STORY_ERROR:", err); // এটি আপনার রেন্ডার লগে দেখাবে
+    console.error("❌ BACKEND_STORY_ERROR:", err);
     res.status(500).json({ 
-      message: "Internal Server Error", 
-      error: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      message: "Internal Server Error during upload", 
+      error: err.message 
     });
+  }
+});
+
+/* ==========================================================
+    📡 DELETE STORY (Optional)
+   ========================================================== */
+router.delete("/:id", async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id);
+    if (!story) return res.status(404).json("Story not found");
+    
+    await Story.findByIdAndDelete(req.params.id);
+    res.status(200).json("Story has been deleted.");
+  } catch (err) {
+    res.status(500).json(err);
   }
 });
 
