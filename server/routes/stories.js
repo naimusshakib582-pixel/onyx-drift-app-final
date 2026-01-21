@@ -6,27 +6,30 @@ import Story from "../models/Story.js";
 
 const router = express.Router();
 
-// ১. ক্লাউডিনারি স্টোরেজ কনফিগারেশন
+// ১. ক্লাউডিনারি স্টোরেজ কনফিগারেশন (ভিডিও এবং ইমেজ দুইটাই সাপোর্ট করবে)
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: "onyx_stories",
-    allowed_formats: ["jpg", "png", "jpeg", "gif", "webp"],
+  params: async (req, file) => {
+    return {
+      folder: "onyx_stories",
+      resource_type: "auto", // এটি ইমেজ এবং ভিডিও অটো ডিটেক্ট করবে
+      allowed_formats: ["jpg", "png", "jpeg", "gif", "webp", "mp4", "mov"],
+    };
   },
 });
 
 const upload = multer({ storage: storage });
 
 /* ==========================================================
-   📡 GET ALL STORIES (এটি না থাকার কারণেই 404 আসছিল)
+    📡 GET ALL STORIES (১০-১২ ঘণ্টার ফিল্টারসহ)
    ========================================================== */
 router.get("/", async (req, res) => {
   try {
-    // ১২ ঘণ্টার বেশি পুরোনো স্টোরি ফিল্টার করার জন্য (ঐচ্ছিক লজিক)
-    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+    // ২৪ ঘণ্টার পুরোনো স্টোরি সাধারণত দেখানো হয় না (আপনি চাইলে ১২ করতে পারেন)
+    const timeLimit = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
     const stories = await Story.find({
-      createdAt: { $gte: twelveHoursAgo }
+      createdAt: { $gte: timeLimit }
     }).sort({ createdAt: -1 });
 
     res.status(200).json(stories);
@@ -37,29 +40,31 @@ router.get("/", async (req, res) => {
 });
 
 /* ==========================================================
-   📡 POST A NEW STORY
+    📡 POST A NEW STORY (Fixing the 404 issue by adding /upload)
    ========================================================== */
-router.post("/", upload.single("media"), async (req, res) => {
+router.post("/upload", upload.single("media"), async (req, res) => {
   try {
-    // ইমেজ URL চেক
+    // ক্লাউডিনারি থেকে আসা ফাইল পাথ চেক
     const mediaUrl = req.file ? req.file.path : null;
 
     if (!mediaUrl) {
-      return res.status(400).json({ message: "Image upload failed on Cloudinary or no file selected" });
+      return res.status(400).json({ message: "No media file uploaded or upload failed" });
     }
 
-    // ফ্রন্টএন্ড থেকে আসা userId চেক (user.sub)
-    if (!req.body.userId) {
-      return res.status(400).json({ message: "User ID is required to sync story" });
+    // ফ্রন্টএন্ড থেকে আসা userId (user.sub)
+    const { userId, text, musicName, musicUrl, onlyMessenger } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
     }
 
     const newStory = new Story({
-      userId: req.body.userId,
+      userId: userId,
       mediaUrl: mediaUrl,
-      text: req.body.text || "",
-      musicName: req.body.musicName || "",
-      musicUrl: req.body.musicUrl || "",
-      onlyMessenger: req.body.onlyMessenger === "true" || true // ডিফল্ট true
+      text: text || "",
+      musicName: musicName || "",
+      musicUrl: musicUrl || "",
+      onlyMessenger: onlyMessenger === "false" ? false : true 
     });
 
     const savedStory = await newStory.save();
@@ -67,6 +72,18 @@ router.post("/", upload.single("media"), async (req, res) => {
   } catch (err) {
     console.error("STORY_POST_ERROR:", err);
     res.status(500).json({ message: "Server Side Error during upload", error: err.message });
+  }
+});
+
+/* ==========================================================
+    📡 DELETE A STORY (ঐচ্ছিক: ইউজার নিজের স্টোরি ডিলিট করতে চাইলে)
+   ========================================================== */
+router.delete("/:id", async (req, res) => {
+  try {
+    await Story.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: "Story deleted successfully" });
+  } catch (err) {
+    res.status(500).json(err);
   }
 });
 
