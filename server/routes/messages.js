@@ -7,7 +7,7 @@ import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";      
 
 /* ==========================================================
-   1️⃣ GET ALL CONVERSATIONS
+   1️⃣ GET ALL CONVERSATIONS (Including Groups)
    Route: GET /api/messages/conversations
 ========================================================== */
 router.get("/conversations", auth, async (req, res) => {
@@ -18,7 +18,7 @@ router.get("/conversations", auth, async (req, res) => {
       return res.status(401).json({ error: "Neural identity missing" });
     }
 
-    // চ্যাট লিস্ট খুঁজে বের করা এবং লেটেস্ট আপডেট হওয়া চ্যাট আগে রাখা
+    // ইউজার যে যে কনভারসেশন বা গ্রুপের মেম্বার সেগুলো সব খুঁজে বের করা
     const conversations = await Conversation.find({
       members: { $in: [currentUserId] },
     }).sort({ updatedAt: -1 });
@@ -31,24 +31,43 @@ router.get("/conversations", auth, async (req, res) => {
 });
 
 /* ==========================================================
-   2️⃣ CREATE OR GET CONVERSATION
+   2️⃣ CREATE PRIVATE OR GROUP CONVERSATION
    Route: POST /api/messages/conversation
 ========================================================== */
 router.post("/conversation", auth, async (req, res) => {
-  const { receiverId } = req.body;
+  const { receiverId, isGroup, groupName, members } = req.body;
   const senderId = req.user?.sub || req.user?.id;
 
-  if (!receiverId) return res.status(400).json({ error: "Receiver ID required" });
-
   try {
-    // চেক করা হচ্ছে অলরেডি কনভারসেশন বিদ্যমান কি না
+    // যদি এটি গ্রুপ চ্যাট হয়
+    if (isGroup) {
+      if (!groupName || !members || members.length === 0) {
+        return res.status(400).json({ error: "Group name and members required" });
+      }
+
+      const newGroup = new Conversation({
+        members: [...new Set([...members, senderId])], // ডুপ্লিকেট রিমুভ করে সেন্ডারকে অ্যাড করা
+        isGroup: true,
+        groupName: groupName,
+        admin: senderId // যে গ্রুপ খুলবে সে অ্যাডমিন
+      });
+
+      const savedGroup = await newGroup.save();
+      return res.status(200).json(savedGroup);
+    }
+
+    // যদি এটি প্রাইভেট (One-to-One) চ্যাট হয়
+    if (!receiverId) return res.status(400).json({ error: "Receiver ID required" });
+
     let conversation = await Conversation.findOne({
-      members: { $all: [senderId, receiverId] },
+      isGroup: false,
+      members: { $all: [senderId, receiverId], $size: 2 },
     });
 
     if (!conversation) {
       conversation = new Conversation({
         members: [senderId, receiverId],
+        isGroup: false
       });
       await conversation.save();
     }
@@ -61,30 +80,32 @@ router.post("/conversation", auth, async (req, res) => {
 });
 
 /* ==========================================================
-   3️⃣ SAVE NEW MESSAGE (Fixed 500 Error & Duplicate Prevention)
+   3️⃣ SAVE NEW MESSAGE (Supports Group Messages)
    Route: POST /api/messages/message
 ========================================================== */
 router.post("/message", auth, async (req, res) => {
   try {
-    // ফ্রন্টএন্ড থেকে আসা ডাটা রিসিভ
-    const { conversationId, text, tempId } = req.body;
+    const { conversationId, text, tempId, isGroup } = req.body;
     const senderId = req.user?.sub || req.user?.id;
+    const senderName = req.user?.name || "Drifter";
 
     if (!conversationId || !text) {
       return res.status(400).json({ error: "Data missing: conversationId or text required" });
     }
 
-    // মেসেজ অবজেক্ট তৈরি (স্কিমা অনুযায়ী senderId এবং tempId সহ)
+    // মেসেজ অবজেক্ট তৈরি
     const newMessage = new Message({
       conversationId,
-      senderId: senderId, // ফ্রন্টএন্ড ফিল্ডের সাথে ম্যাচিং
+      senderId,
+      senderName, // গ্রুপ চ্যাটে দেখার জন্য সেন্ডার নেম সেভ করা ভালো
       text,
-      tempId // ডুপ্লিকেট চেকের জন্য জরুরি
+      tempId,
+      isGroup: isGroup || false
     });
 
     const savedMessage = await newMessage.save();
 
-    // চ্যাট লিস্টের updatedAt এবং lastMessage আপডেট করা
+    // চ্যাট লিস্টে লেটেস্ট মেসেজ এবং টাইম আপডেট করা
     await Conversation.findByIdAndUpdate(conversationId, {
       $set: { 
         updatedAt: Date.now(),
@@ -110,7 +131,7 @@ router.get("/message/:conversationId", auth, async (req, res) => {
   try {
     const { conversationId } = req.params;
     
-    // মেসেজগুলো টাইম অনুযায়ী সাজানো (Oldest to Newest)
+    // মেসেজগুলো টাইম অনুযায়ী সাজানো
     const messages = await Message.find({
       conversationId: conversationId,
     }).sort({ createdAt: 1 });

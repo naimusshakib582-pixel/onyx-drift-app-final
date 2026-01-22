@@ -50,7 +50,6 @@ const corsOptions = {
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 };
 
-// মিডলওয়্যার (অর্ডার খুবই গুরুত্বপূর্ণ)
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -61,92 +60,99 @@ const io = new Server(server, {
     transports: ['polling', 'websocket'], 
     allowEIO3: true, 
     pingTimeout: 60000,   
-    pingInterval: 25000,  
-    connectTimeout: 30000,
-    maxHttpBufferSize: 1e8 
+    pingInterval: 25000
 });
 
 // ৫. Redis Setup
 const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: null,
-    enableReadyCheck: false,
-    retryStrategy(times) {
-        return Math.min(times * 50, 2000);
-    }
+    enableReadyCheck: false
 }) : null;
 
-/* ==========================================================
-    📡 এপিআই রাুটস (Fixes 404 & Messenger Issues)
-========================================================== */
-
-// ফলো এবং প্রোফাইল ডাটার জন্য প্রধান রাউট
+// এপিআই রাউটস
 app.use("/api/user", userRoutes); 
 app.use("/api/profile", profileRoutes); 
 app.use("/api/posts", postRoutes); 
-app.use("/api/messages", messageRoutes); // মেসেঞ্জার বাটনের ব্যাকএন্ড লজিক এখানে
+app.use("/api/messages", messageRoutes); 
 app.use("/api/stories", storyRoute);
 app.use("/api/reels", reelRoutes); 
 
-// নিউজ ইঞ্জিন (ঐচ্ছিক)
-app.get("/api/news", async (req, res) => {
-    try {
-        const apiKey = process.env.NEWS_API_KEY; 
-        if (!apiKey) return res.status(500).json({ error: "News API Key missing" });
-        const response = await axios.get(`https://gnews.io/api/v4/top-headlines?category=technology&lang=en&apikey=${apiKey}`);
-        const formattedNews = response.data.articles.map((article, index) => ({
-            _id: `news-${index}-${Date.now()}`,
-            authorName: article.source.name || "Global News",
-            authorAvatar: "https://cdn-icons-png.flaticon.com/512/21/21601.png", 
-            isVerified: true,
-            createdAt: article.publishedAt || new Date().toISOString(),
-            text: article.title || "Neural Signal Received", 
-            media: article.image || "https://images.unsplash.com/photo-1504711434969-e33886168f5c",
-            mediaType: "image",
-            link: article.url,
-            feedType: 'news' 
-        }));
-        res.json(formattedNews);
-    } catch (error) {
-        res.status(500).json({ error: "Failed to sync world news" });
-    }
-});
-
 app.get("/", (req, res) => res.send("🚀 OnyxDrift Neural Core is Online!"));
 
-// ৬. গ্লোবাল এরর হ্যান্ডলার
-app.use((err, req, res, next) => {
-    console.error("🔥 SYSTEM_ERROR:", err.stack);
-    res.status(err.status || 500).json({ 
-        error: "Internal Neural Breakdown", 
-        message: err.message 
-    });
-});
-
 /* ==========================================================
-    📡 REAL-TIME ENGINE (Socket.io)
+    📡 REAL-TIME ENGINE (Socket.io) - Group & Video Added
 ========================================================== */
 io.on("connection", (socket) => {
+    
+    // ১. ইউজার অনলাইন হ্যান্ডলিং
     socket.on("addNewUser", async (userId) => {
         if (!userId) return;
+        socket.join(userId); // ব্যক্তিগত রুম (DM এর জন্য)
         if (redis) {
             await redis.hset("online_users", userId, socket.id);
             const allUsers = await redis.hgetall("online_users");
             io.emit("getOnlineUsers", Object.keys(allUsers).map(id => ({ userId: id })));
-        } else {
-            socket.join(userId); 
         }
     });
 
+    // ২. স্মার্ট মেসেজিং (প্রাইভেট ও গ্রুপ)
     socket.on("sendMessage", async (data) => {
-        const { receiverId } = data;
-        if (redis) {
-            const socketId = await redis.hget("online_users", receiverId);
-            if (socketId) io.to(socketId).emit("getMessage", data);
-        } else {
+        const { receiverId, isGroup, members, conversationId } = data;
+
+        if (isGroup && members) {
+            // গ্রুপের প্রতিটি মেম্বারকে মেসেজ পাঠানো (নিজে বাদে)
+            members.forEach(memberId => {
+                if (memberId !== data.senderId) {
+                    io.to(memberId).emit("getMessage", data);
+                }
+            });
+        } else if (receiverId) {
+            // প্রাইভেট মেসেজ
             io.to(receiverId).emit("getMessage", data);
         }
     });
 
+    // ৩. টাইপিং ইন্ডিকেটর
+    socket.on("typing", (data) => {
+        if (data.isGroup && data.members) {
+            data.members.forEach(mId => {
+                if (mId !== data.senderId) io.to(mId).emit("displayTyping", data);
+            });
+        } else {
+            io.to(data.receiverId).emit("displayTyping", data);
+        }
+    });
+
+    // ৪. গ্রুপ ভিডিও কল সিগন্যালিং
+    socket.on("startGroupCall", (data) => {
+        const { participants, roomId, senderName, type } = data;
+        // গ্রুপের সবাইকে ইনকামিং কল সিগন্যাল পাঠানো
+        participants.forEach(userId => {
+            io.to(userId).emit("incomingGroupCall", {
+                roomId,
+                senderName,
+                type,
+                isGroup: true
+            });
+        });
+    });
+
+    // ৫. একক কল সিগন্যালিং (WebRTC Signaling)
+    socket.on("callUser", (data) => {
+        io.to(data.userToCall).emit("incomingCall", {
+            signal: data.signalData,
+            from: data.from,
+            name: data.senderName,
+            type: data.type,
+            roomId: data.roomId
+        });
+    });
+
+    socket.on("answerCall", (data) => {
+        io.to(data.to).emit("callAccepted", data.signal);
+    });
+
+    // ৬. ডিসকানেক্ট হ্যান্ডলিং
     socket.on("disconnect", async () => {
         if (redis) {
             const all = await redis.hgetall("online_users");

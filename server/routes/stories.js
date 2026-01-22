@@ -6,26 +6,28 @@ import Story from "../models/Story.js";
 
 const router = express.Router();
 
-// ১. ক্লাউডিনারি কনফিগারেশন
+// ক্লাউডিনারি স্টোরেজ কনফিগ
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
+    // ফাইল টাইপ চেক করে ফোল্ডার ও রিসোর্স টাইপ সেট করা
+    const isVideo = file.mimetype.includes("video");
     return {
       folder: "onyx_stories",
-      resource_type: "auto", // ইমেজ এবং ভিডিও দুইটাই হ্যান্ডেল করবে
+      resource_type: "auto", 
       allowed_formats: ["jpg", "png", "jpeg", "gif", "webp", "mp4", "mov"],
     };
   },
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 20 * 1024 * 1024 } // ২০ এমবি লিমিট (ভিডিওর জন্য ভালো)
+});
 
-/* ==========================================================
-    📡 GET ALL STORIES
-   ========================================================== */
+/* --- GET STORIES --- */
 router.get("/", async (req, res) => {
   try {
-    // TTL Index (12h) এর কারণে অটোমেটিক ডিলিট হবে, তাই শুধু সব ডেটা আনলেই হবে
     const stories = await Story.find().sort({ createdAt: -1 });
     res.status(200).json(stories);
   } catch (err) {
@@ -33,26 +35,22 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* ==========================================================
-    📡 POST A NEW STORY (The /upload endpoint)
-   ========================================================== */
+/* --- POST STORY (The main upload endpoint) --- */
 router.post("/upload", upload.single("media"), async (req, res) => {
   try {
-    // ফাইল চেক
     if (!req.file) {
-      return res.status(400).json({ message: "No media file found in the request." });
+      return res.status(400).json({ message: "No media file provided." });
     }
 
     const { userId, text, musicName, musicUrl, filter, onlyMessenger } = req.body;
 
-    // ইউজার আইডি চেক
-    if (!userId) {
-      return res.status(400).json({ message: "User identity (userId) is required." });
+    if (!userId || userId === "undefined") {
+      return res.status(400).json({ message: "User identity (userId) is required and cannot be undefined." });
     }
 
     const newStory = new Story({
       userId,
-      mediaUrl: req.file.path, // Cloudinary Secure URL
+      mediaUrl: req.file.path,
       text: text || "",
       musicName: musicName || "",
       musicUrl: musicUrl || "",
@@ -61,30 +59,14 @@ router.post("/upload", upload.single("media"), async (req, res) => {
     });
 
     const savedStory = await newStory.save();
-    console.log("✅ Story Live:", savedStory._id);
-    
+    console.log("✅ Story Saved Successfully");
     res.status(200).json(savedStory);
   } catch (err) {
-    console.error("❌ BACKEND_STORY_ERROR:", err);
+    console.error("❌ SERVER ERROR DURING STORY UPLOAD:", err);
     res.status(500).json({ 
-      message: "Internal Server Error during upload", 
+      message: "Server encountered an error", 
       error: err.message 
     });
-  }
-});
-
-/* ==========================================================
-    📡 DELETE STORY (Optional)
-   ========================================================== */
-router.delete("/:id", async (req, res) => {
-  try {
-    const story = await Story.findById(req.params.id);
-    if (!story) return res.status(404).json("Story not found");
-    
-    await Story.findByIdAndDelete(req.params.id);
-    res.status(200).json("Story has been deleted.");
-  } catch (err) {
-    res.status(500).json(err);
   }
 });
 

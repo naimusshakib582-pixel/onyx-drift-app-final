@@ -46,7 +46,7 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
       className="fixed inset-0 z-[1000] bg-black flex flex-col overflow-hidden touch-none"
     >
-      {/* --- Header: Mobile Safe Area --- */}
+      {/* --- Header --- */}
       <div className="absolute top-12 left-0 right-0 px-6 flex justify-between items-center z-[720]">
         <button 
           onClick={onCancel} 
@@ -67,7 +67,7 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
         </div>
       </div>
 
-      {/* --- Main Preview Area --- */}
+      {/* --- Main Preview --- */}
       <div className="flex-1 relative flex items-center justify-center bg-zinc-950 overflow-hidden">
         <div className={`w-full h-full transition-all duration-700 ease-in-out ${filters.find(f => f.name === activeFilter)?.class}`}>
           {selectedFile?.type.includes("video") ? (
@@ -84,12 +84,12 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
               src={previewUrl} 
               className="w-full h-full object-cover" 
               alt="preview" 
-              onDragStart={(e) => e.preventDefault()} // ইমেজ ড্র্যাগিং প্রিভেন্ট করা
+              onDragStart={(e) => e.preventDefault()} 
             />
           )}
         </div>
         
-        {/* Floating Text with Drag Constraints (Mobile Optimized) */}
+        {/* Floating Text with Drag */}
         <AnimatePresence>
           {text && (
             <motion.div 
@@ -107,7 +107,7 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
         </AnimatePresence>
       </div>
 
-      {/* --- Filter Selection Section --- */}
+      {/* --- Filter Tabs --- */}
       <div className="px-4 py-6 flex gap-3 overflow-x-auto no-scrollbar bg-gradient-to-t from-black to-transparent">
         {filters.map((f) => (
           <button
@@ -115,7 +115,7 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
             onClick={() => setActiveFilter(f.name)}
             className={`px-6 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${
               activeFilter === f.name 
-              ? "bg-white text-black scale-105 shadow-[0_0_20px_rgba(255,255,255,0.4)]" 
+              ? "bg-white text-black scale-105 shadow-lg shadow-white/20" 
               : "bg-zinc-900/80 text-zinc-500 border border-white/5"
             }`}
           >
@@ -124,10 +124,10 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
         ))}
       </div>
 
-      {/* --- Bottom Tool Bar --- */}
+      {/* --- Bottom Footer --- */}
       <div className="p-6 bg-black border-t border-white/5 pb-12">
         <div className="flex justify-around items-center bg-zinc-900/40 py-4 rounded-[2rem] border border-white/5 mb-6">
-          <button onClick={() => setShowTextInput(true)} className="flex flex-col items-center gap-1.5 text-zinc-400 active:text-white transition-colors">
+          <button onClick={() => setShowTextInput(true)} className="flex flex-col items-center gap-1.5 text-zinc-400">
             <HiOutlinePencil size={20} />
             <span className="text-[9px] font-bold uppercase tracking-tighter">Text</span>
           </button>
@@ -147,38 +147,27 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
           className={`w-full py-5 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all ${
             isUploading 
             ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" 
-            : "bg-cyan-500 text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)] active:scale-95"
+            : "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20 active:scale-95"
           }`}
         >
-          {isUploading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin"></div>
-              Processing...
-            </>
-          ) : (
-            <>
-              Share to Story <HiOutlineChevronRight size={18} />
-            </>
-          )}
+          {isUploading ? "Uploading Story..." : "Share to Story"}
+          {!isUploading && <HiOutlineChevronRight size={18} />}
         </button>
       </div>
 
-      {/* --- Text Input Overlay (Full Screen Editor) --- */}
+      {/* --- Text Editor Overlay --- */}
       <AnimatePresence>
         {showTextInput && (
           <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[1100] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 touch-auto"
           >
-            {/* Color Picker Container */}
             <div className="flex flex-wrap justify-center gap-4 mb-16">
               {["#ffffff", "#06b6d4", "#ff3b30", "#ffcc00", "#4cd964", "#5856d6", "#eb4d4b"].map(color => (
                 <button 
                   key={color} 
                   onClick={() => setTextColor(color)}
-                  className={`w-10 h-10 rounded-full border-2 transition-transform ${textColor === color ? 'border-white scale-125 shadow-lg' : 'border-white/10'}`}
+                  className={`w-10 h-10 rounded-full border-2 transition-transform ${textColor === color ? 'border-white scale-125' : 'border-white/10'}`}
                   style={{ backgroundColor: color }}
                 />
               ))}
@@ -196,7 +185,7 @@ const StoryEditor = ({ selectedFile, onCancel, onPost, isUploading }) => {
             
             <button 
               onClick={() => setShowTextInput(false)} 
-              className="absolute top-12 right-8 px-8 py-3 bg-white text-black rounded-full font-black text-xs uppercase tracking-widest active:scale-90 shadow-2xl"
+              className="absolute top-12 right-8 px-8 py-3 bg-white text-black rounded-full font-black text-xs uppercase tracking-widest active:scale-90"
             >
               Done
             </button>
